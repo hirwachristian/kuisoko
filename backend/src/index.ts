@@ -23,6 +23,13 @@ import { UPLOADS_DIR } from './lib/uploads.js';
 
 const app = express();
 
+// Railway (and most hosts) sit the app behind a single reverse proxy, which sets X-Forwarded-For.
+// Without this, express-rate-limit refuses to start (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR) since it
+// can't safely tell which IP to key on - crashing the whole process on the first rate-limited
+// request. `1` trusts exactly one hop (the proxy immediately in front), which matches this setup;
+// harmless locally too, since there's no proxy there to send that header in the first place.
+app.set('trust proxy', 1);
+
 // crossOriginResourcePolicy relaxed to 'cross-origin' so the frontend (a different origin/port)
 // can load images served from /uploads - helmet's default 'same-origin' would block them.
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
