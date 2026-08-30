@@ -26,7 +26,7 @@ interface SiteAnnouncement {
 
 interface AppContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
+  addToCart: (product: Product & { selectedColor?: string; selectedSize?: string }, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, delta: number) => void;
   clearCart: () => void;
@@ -152,7 +152,13 @@ export const useAppContext = () => {
 
 // Explicitly define children prop for React 19 to fix the type error
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Guest cart lives fully client-side (a real snapshot of each product, since there's no account
+  // to key server rows off of); an authenticated cart is reconstructed from server-persisted lines
+  // once the catalog loads - see the effect below, once `products`/`productsLoaded` exist.
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem('kuisoko-cart-guest');
+    try { return saved ? JSON.parse(saved) : []; } catch { return []; }
+  });
   const [user, setUser] = useState<UserType | null>(() => {
     const savedUser = localStorage.getItem('kuisoko-user');
     try {
@@ -237,6 +243,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return new Set(Array.from(topByCategory.values()).map(p => p.id));
   }, [products]);
 
+  // Flips once regardless of outcome - the cart-reconstruction effect below waits on this (rather
+  // than on `products.length > 0`) so a store with a genuinely empty catalog doesn't block forever.
+  const [productsLoaded, setProductsLoaded] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -245,10 +255,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!cancelled) setProducts(fetched);
       } catch (e) {
         console.error('Error fetching products:', e);
+      } finally {
+        if (!cancelled) setProductsLoaded(true);
       }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  interface ServerCartLine {
+    productId: string;
+    quantity: number;
+    selectedColor: string | null;
+    selectedSize: string | null;
+    unitPrice: number | null;
+  }
+
+  // Cart State - server-persisted per account (same reasoning as the wishlist above): each
+  // account only ever sees its own cart, and it now survives logout/login and a page refresh,
+  // neither of which it did before (it was previously in-memory-only React state with no
+  // persistence of any kind). Reconstructs full CartItem objects by joining each server line's
+  // productId/quantity/variant against the already-loaded catalog, the same way wishlist joins
+  // its ids - waits on `productsLoaded` so it doesn't run before there's anything to join against.
+  useEffect(() => {
+    if (!token) {
+      const saved = localStorage.getItem('kuisoko-cart-guest');
+      try { setCart(saved ? JSON.parse(saved) : []); } catch { setCart([]); }
+      return;
+    }
+    if (!productsLoaded) return;
+    setCart([]); // clear immediately so the previous account's (or guest's) items never flash on screen
+    let cancelled = false;
+    (async () => {
+      try {
+        const { items } = await apiFetch<{ items: ServerCartLine[] }>('/cart', {}, token);
+        if (cancelled) return;
+        const reconstructed = items.reduce<CartItem[]>((acc, line) => {
+          const product = products.find(p => p.id === line.productId);
+          if (!product) return acc; // the product behind this line was deleted since it was added
+          acc.push({
+            ...product,
+            quantity: line.quantity,
+            selectedColor: line.selectedColor ?? undefined,
+            selectedSize: line.selectedSize ?? undefined,
+            price: line.unitPrice ?? product.price,
+          });
+          return acc;
+        }, []);
+        setCart(reconstructed);
+      } catch (e) {
+        console.error('Error fetching cart:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, productsLoaded]);
+
+  useEffect(() => {
+    if (token) return; // authenticated: the server is the source of truth, don't touch guest storage
+    localStorage.setItem('kuisoko-cart-guest', JSON.stringify(cart));
+  }, [cart, token]);
+
+  // Fire-and-forget sync to the server cart for a signed-in user - the UI already updated
+  // optimistically via setCart, this just persists it. Errors are logged, not surfaced, since the
+  // add/remove/quantity toasts already gave the user their feedback for the action itself.
+  const syncCartLine = (productId: string, quantity: number, selectedColor?: string, selectedSize?: string, unitPrice?: number) => {
+    if (!token) return;
+    apiFetch(`/cart/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity, selectedColor: selectedColor ?? null, selectedSize: selectedSize ?? null, unitPrice: unitPrice ?? null }),
+    }, token).catch((e) => console.error('Error syncing cart:', e));
+  };
+
+  const deleteCartLine = (productId: string) => {
+    if (!token) return;
+    apiFetch(`/cart/${productId}`, { method: 'DELETE' }, token).catch((e) => console.error('Error syncing cart:', e));
+  };
 
   // Order Management State - fetched from the database (admin sees all, a user sees their own)
   const [orders, setOrders] = useState<Order[]>([]);
@@ -403,26 +483,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Wishlist State
+  // Wishlist State - server-persisted per account, so switching who's logged in on this device
+  // never shows one account's wishlist to another, and it survives logout/login. Signed-out
+  // browsing still works via a separate guest-only localStorage bucket that's never touched
+  // while a token is present, so a real account's data can never leak into (or out of) it.
   const [wishlist, setWishlist] = useState<string[]>(() => {
-    const savedWishlist = localStorage.getItem('kuisoko-wishlist');
-    return savedWishlist ? JSON.parse(savedWishlist) : [];
+    const saved = localStorage.getItem('kuisoko-wishlist-guest');
+    try { return saved ? JSON.parse(saved) : []; } catch { return []; }
   });
 
   useEffect(() => {
-    localStorage.setItem('kuisoko-wishlist', JSON.stringify(wishlist));
-  }, [wishlist]);
-
-  const toggleWishlist = (productId: string) => {
-    setWishlist(prev => {
-      if (prev.includes(productId)) {
-        showToast('Removed from wishlist.', 'info');
-        return prev.filter(id => id !== productId);
-      } else {
-        showToast('Added to wishlist.', 'success');
-        return [...prev, productId];
+    if (!token) {
+      const saved = localStorage.getItem('kuisoko-wishlist-guest');
+      try { setWishlist(saved ? JSON.parse(saved) : []); } catch { setWishlist([]); }
+      return;
+    }
+    setWishlist([]); // clear immediately so the previous account's (or guest's) items never flash on screen
+    let cancelled = false;
+    (async () => {
+      try {
+        const { productIds } = await apiFetch<{ productIds: string[] }>('/wishlist', {}, token);
+        if (!cancelled) setWishlist(productIds);
+      } catch (e) {
+        console.error('Error fetching wishlist:', e);
       }
-    });
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  useEffect(() => {
+    if (token) return; // authenticated: the server is the source of truth, don't touch guest storage
+    localStorage.setItem('kuisoko-wishlist-guest', JSON.stringify(wishlist));
+  }, [wishlist, token]);
+
+  const toggleWishlist = async (productId: string) => {
+    const isRemoving = wishlist.includes(productId);
+    setWishlist(prev => (isRemoving ? prev.filter(id => id !== productId) : [...prev, productId]));
+    showToast(isRemoving ? 'Removed from wishlist.' : 'Added to wishlist.', isRemoving ? 'info' : 'success');
+    if (!token) return;
+    try {
+      await apiFetch(`/wishlist/${productId}`, { method: isRemoving ? 'DELETE' : 'POST' }, token);
+    } catch (e) {
+      // Roll back the optimistic update so local state doesn't drift from what's actually saved.
+      setWishlist(prev => (isRemoving ? [...prev, productId] : prev.filter(id => id !== productId)));
+      showToast('Could not update wishlist - please try again.', 'error');
+    }
   };
 
   // FAQ Modal State
@@ -707,7 +812,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('You have been logged out.', 'info');
   };
 
-  const addToCart = (product: Product, quantity: number = 1) => {
+  const addToCart = (product: Product & { selectedColor?: string; selectedSize?: string }, quantity: number = 1) => {
     if (product.stock <= 0) {
       showToast(`${product.name} is out of stock.`, 'error');
       return;
@@ -727,6 +832,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast(`${quantity} x ${product.name} added to cart.`, 'success');
       }
 
+      syncCartLine(product.id, newQty, product.selectedColor, product.selectedSize, product.price);
+
       if (existing) {
         return prev.map(item => (item.id === product.id ? { ...item, quantity: newQty } : item));
       }
@@ -739,6 +846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const removedItem = prev.find(item => item.id === productId);
       if (removedItem) {
         showToast(`${removedItem.name} removed from cart.`, 'info');
+        deleteCartLine(productId);
       }
       return prev.filter(item => item.id !== productId);
     });
@@ -750,6 +858,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newQty = Math.max(1, Math.min(item.quantity + delta, item.stock));
         if (newQty !== item.quantity) {
           showToast(`${item.name} quantity updated to ${newQty}.`, 'info');
+          syncCartLine(productId, newQty, item.selectedColor, item.selectedSize, item.price);
         } else if (delta > 0) {
           showToast(`Only ${item.stock} of ${item.name} in stock.`, 'error');
         }
@@ -762,6 +871,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearCart = () => {
     setCart([]);
     showToast('Cart cleared.', 'info');
+    if (token) {
+      apiFetch('/cart', { method: 'DELETE' }, token).catch((e) => console.error('Error syncing cart:', e));
+    }
   };
 
   // Category Management Functions

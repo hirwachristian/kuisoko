@@ -169,6 +169,21 @@ CREATE TABLE wishlists (
 );
 
 -- ---------------------------------------------------------------------------
+-- Cart (user <-> product) - per-account, persists across logout/login and devices
+-- ---------------------------------------------------------------------------
+CREATE TABLE cart_items (
+  user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  product_id     UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  quantity       INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  selected_color TEXT,
+  selected_size  TEXT,
+  unit_price     NUMERIC(12,2),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, product_id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Shipping zones - district-based flat shipping fees, admin-configurable
 -- ---------------------------------------------------------------------------
 CREATE TABLE shipping_zones (
