@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 .env
-server/uploads
+backend/uploads
 
 # Editor directories and files
 .vscode/*
