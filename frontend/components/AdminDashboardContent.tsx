@@ -99,8 +99,8 @@ const getPerformanceColor = (ratio: number): string => {
 // wrapped product name as SVG <tspan>s, since CSS truncate/line-clamp doesn't apply inside SVG.
 // Colored to match its bar (via the tick's index into the same performance-color array).
 const ProductNameTick = (props: any) => {
-  const { x, y, payload, index, colors } = props;
-  const lines = wrapProductName(payload.value);
+  const { x, y, payload, index, colors, maxLineLength } = props;
+  const lines = wrapProductName(payload.value, maxLineLength ?? 15);
   const color = colors?.[index] ?? '#1e293b';
   return (
     <g transform={`translate(${x},${y})`}>
@@ -135,6 +135,17 @@ export const AdminDashboardContent: React.FC = () => {
   const [dateError, setDateError] = useState<string | null>(null);
   const [activeCategorySlice, setActiveCategorySlice] = useState<number | null>(null);
   const location = useLocation();
+
+  // Recharts props like Pie's radii or the Legend's pixel width aren't CSS - ResponsiveContainer
+  // only scales the SVG viewport, it can't shrink a hardcoded `outerRadius={155}` on a narrow phone.
+  // Tracking the viewport ourselves lets the donut (and its legend layout) actually adapt below `sm`.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  React.useEffect(() => {
+    const mql = window.matchMedia('(max-width: 639px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
 
   React.useEffect(() => {
     if (timeRange === 'custom' && startDate && endDate) {
@@ -570,9 +581,9 @@ export const AdminDashboardContent: React.FC = () => {
       {/* Main Content Area */}
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
           {/* Total Users Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-6 bg-emerald-50 dark:bg-emerald-950 border border-emerald-100 dark:border-emerald-900 shadow-sm transition-colors duration-300">
+          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-emerald-50 dark:bg-emerald-950 border border-emerald-100 dark:border-emerald-900 shadow-sm transition-colors duration-300">
             <div className="flex justify-between items-start">
               <p className="text-emerald-900 dark:text-emerald-200 text-sm font-semibold uppercase tracking-wider">Total Users</p>
               <div className="w-10 h-10 rounded-full bg-white dark:bg-emerald-900 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
@@ -584,7 +595,7 @@ export const AdminDashboardContent: React.FC = () => {
           </div>
 
           {/* Products Overview Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-6 bg-orange-50 dark:bg-orange-950 border border-orange-100 dark:border-orange-900 shadow-sm transition-colors duration-300">
+          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-orange-50 dark:bg-orange-950 border border-orange-100 dark:border-orange-900 shadow-sm transition-colors duration-300">
             <div className="flex justify-between items-start">
               <p className="text-orange-900 dark:text-orange-200 text-sm font-semibold uppercase tracking-wider">Total Products</p>
               <div className="w-10 h-10 rounded-full bg-white dark:bg-orange-900 flex items-center justify-center text-orange-700 dark:text-orange-300">
@@ -596,7 +607,7 @@ export const AdminDashboardContent: React.FC = () => {
           </div>
 
           {/* Categories Overview Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-6 bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900 shadow-sm transition-colors duration-300">
+          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900 shadow-sm transition-colors duration-300">
             <div className="flex justify-between items-start">
               <p className="text-blue-900 dark:text-blue-200 text-sm font-semibold uppercase tracking-wider">Total Categories</p>
               <div className="w-10 h-10 rounded-full bg-white dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300">
@@ -608,7 +619,7 @@ export const AdminDashboardContent: React.FC = () => {
           </div>
 
           {/* Orders Overview Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-6 bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-900 shadow-sm transition-colors duration-300">
+          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-900 shadow-sm transition-colors duration-300">
             <div className="flex justify-between items-start">
               <p className="text-purple-900 dark:text-purple-200 text-sm font-semibold uppercase tracking-wider">Total Orders</p>
               <div className="w-10 h-10 rounded-full bg-white dark:bg-purple-900 flex items-center justify-center text-purple-700 dark:text-purple-300">
@@ -620,7 +631,7 @@ export const AdminDashboardContent: React.FC = () => {
           </div>
 
           {/* Total Revenue Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-6 bg-amber-50 dark:bg-amber-950 border border-amber-100 dark:border-amber-900 shadow-sm transition-colors duration-300">
+          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-amber-50 dark:bg-amber-950 border border-amber-100 dark:border-amber-900 shadow-sm transition-colors duration-300">
             <div className="flex justify-between items-start">
               <p className="text-amber-900 dark:text-amber-200 text-sm font-semibold uppercase tracking-wider">Total Revenue</p>
               <div className="w-10 h-10 rounded-full bg-white dark:bg-amber-900 flex items-center justify-center text-amber-700 dark:text-amber-300">
@@ -638,18 +649,18 @@ export const AdminDashboardContent: React.FC = () => {
         <CategoryPerformanceChart />
 
         {/* Category Split Donut - large, full width, with hover detail and a live center total */}
-        <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-300">
           <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50">Category Split</h3>
           <p className="text-sm text-slate-400 dark:text-slate-400 font-medium mb-8">Revenue breakdown by category - hover a slice for details</p>
           <div className="flex-grow flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={480}>
+            <ResponsiveContainer width="100%" height={isMobile ? 420 : 480}>
               <PieChart>
                 <Pie
                   data={dynamicCategoryPieData}
-                  cx="45%"
-                  cy="50%"
-                  innerRadius={98}
-                  outerRadius={155}
+                  cx="50%"
+                  cy={isMobile ? '38%' : '50%'}
+                  innerRadius={isMobile ? 60 : 98}
+                  outerRadius={isMobile ? 95 : 155}
                   paddingAngle={3}
                   cornerRadius={6}
                   dataKey="value"
@@ -665,10 +676,10 @@ export const AdminDashboardContent: React.FC = () => {
                 {/* Default center label - hidden while a slice is active, since the active shape shows its own detail there instead */}
                 {activeCategorySlice === null && (
                   <>
-                    <text x="45%" y="47%" textAnchor="middle" fill={chartColors.tickFill} fontSize={12} fontWeight={700} className="uppercase tracking-widest">
+                    <text x="50%" y={isMobile ? '35%' : '47%'} textAnchor="middle" fill={chartColors.tickFill} fontSize={12} fontWeight={700} className="uppercase tracking-widest">
                       Total
                     </text>
-                    <text x="45%" y="55%" textAnchor="middle" fill={chartColors.pieLabelFill} fontSize={22} fontWeight={900}>
+                    <text x="50%" y={isMobile ? '43%' : '55%'} textAnchor="middle" fill={chartColors.pieLabelFill} fontSize={isMobile ? 16 : 22} fontWeight={900}>
                       {getFormattedPrice(totalPieValue)}
                     </text>
                   </>
@@ -682,13 +693,23 @@ export const AdminDashboardContent: React.FC = () => {
                      return [`${getFormattedPrice(v)} (${((v / totalPieValue) * 100).toFixed(1)}%)`, name];
                    }) as any}
                 />
-                <Legend
-                  layout="vertical"
-                  verticalAlign="middle"
-                  align="right"
-                  wrapperStyle={{ right: 0, width: '30%', fontSize: '15px', lineHeight: '28px' }}
-                  content={<CustomPieLegend chartData={dynamicCategoryPieData} totalPieValue={totalPieValue} getFormattedPrice={getFormattedPrice} />}
-                />
+                {isMobile ? (
+                  <Legend
+                    layout="horizontal"
+                    verticalAlign="bottom"
+                    align="center"
+                    wrapperStyle={{ width: '100%', fontSize: '12px', paddingTop: 12 }}
+                    content={<CustomPieLegend chartData={dynamicCategoryPieData} totalPieValue={totalPieValue} getFormattedPrice={getFormattedPrice} />}
+                  />
+                ) : (
+                  <Legend
+                    layout="vertical"
+                    verticalAlign="middle"
+                    align="right"
+                    wrapperStyle={{ right: 0, width: '30%', fontSize: '15px', lineHeight: '28px' }}
+                    content={<CustomPieLegend chartData={dynamicCategoryPieData} totalPieValue={totalPieValue} getFormattedPrice={getFormattedPrice} />}
+                  />
+                )}
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -709,13 +730,13 @@ export const AdminDashboardContent: React.FC = () => {
               <div className="flex-grow flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">No sales yet.</div>
             ) : (
               <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={topProducts} layout="vertical" margin={{ top: 0, right: 24, bottom: 0, left: 0 }}>
+                <BarChart data={topProducts} layout="vertical" margin={{ top: 0, right: isMobile ? 8 : 24, bottom: 0, left: 0 }}>
                   <CartesianGrid horizontal={false} stroke={chartColors.gridStroke} />
                   <XAxis
                     type="number"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: chartColors.tickFill, fontSize: 12, fontWeight: 600 }}
+                    tick={{ fill: chartColors.tickFill, fontSize: isMobile ? 10 : 12, fontWeight: 600 }}
                     tickFormatter={(value) => getFormattedPrice(value)}
                   />
                   <YAxis
@@ -723,8 +744,8 @@ export const AdminDashboardContent: React.FC = () => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    width={140}
-                    tick={(props: any) => <ProductNameTick {...props} colors={topProductColors} />}
+                    width={isMobile ? 90 : 140}
+                    tick={(props: any) => <ProductNameTick {...props} colors={topProductColors} maxLineLength={isMobile ? 10 : 15} />}
                   />
                   <Tooltip
                     cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}

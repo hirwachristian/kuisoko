@@ -39,8 +39,8 @@ const CategoryPerformanceChart = () => {
   }, [theme]);
 
   return (
-    <div className="bg-emerald-50 dark:bg-emerald-950 p-8 rounded-[2.5rem] border border-emerald-100 dark:border-emerald-900 shadow-sm transition-colors duration-300">
-      <div className="flex justify-between items-center mb-10">
+    <div className="bg-emerald-50 dark:bg-emerald-950 p-4 sm:p-8 rounded-[2.5rem] border border-emerald-100 dark:border-emerald-900 shadow-sm transition-colors duration-300">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-6 sm:mb-10">
         <div>
           <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50">Products by Category</h3>
           <p className="text-sm text-slate-400 dark:text-emerald-300 font-medium">Distribution of products per category</p>
