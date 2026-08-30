@@ -591,7 +591,7 @@ const Navbar = () => {
             </div>
 
             <div className="pt-2">
-              <LanguageSwitcher />
+              <LanguageSwitcher dropUp />
             </div>
           </div>
         </div>

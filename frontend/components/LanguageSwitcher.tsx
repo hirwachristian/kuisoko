@@ -8,7 +8,15 @@ const LANGUAGES: { code: Language; flag: string; labelKey: string }[] = [
   { code: 'kin', flag: '🇷🇼', labelKey: 'lang_kinyarwanda' },
 ];
 
-const LanguageSwitcher: React.FC = () => {
+interface LanguageSwitcherProps {
+  // The mobile hamburger menu places this as its last item, right at the bottom of a scrollable
+  // panel - opening the dropdown downward (the default, and fine anywhere with room below, like
+  // the desktop navbar) pushes it past the visible screen edge there. Opening upward instead
+  // keeps it over already-visible content above the button.
+  dropUp?: boolean;
+}
+
+const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ dropUp = false }) => {
   const { language, setLanguage, t } = useAppContext();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -36,7 +44,7 @@ const LanguageSwitcher: React.FC = () => {
         <ChevronDown size={12} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1 w-32 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg overflow-hidden z-50">
+        <div className={`absolute left-0 w-32 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-lg overflow-hidden z-50 ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           {LANGUAGES.map(lang => (
             <button
               key={lang.code}
