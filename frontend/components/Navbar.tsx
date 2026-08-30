@@ -1,7 +1,7 @@
 
 
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 // Fix: Ensure correct `react-router-dom` named imports for v6+.
 // The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -26,6 +26,18 @@ const Navbar = () => {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Without this, swiping inside the mobile menu's own scrollable list "chains" past its end -
+  // once you hit the bottom of the menu's content, the rest of the touch gesture's momentum
+  // scrolls the page underneath, dragging the whole site down to the footer while the menu (an
+  // absolutely-positioned overlay, not the page) appears to just vanish. Locking body scroll
+  // while the menu is open means there's nothing underneath left to scroll into.
+  useLayoutEffect(() => {
+    if (!isMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isMenuOpen]);
 
   // Lets a shopper snap/pick a photo of a product and finds visually similar items in the
   // catalog via the backend's perceptual-hash comparison, then hands the results to the Shop
@@ -469,7 +481,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="lg:hidden bg-white border-t border-slate-200 fade-in absolute top-20 left-0 w-full h-[calc(100vh_-_80px)] overflow-y-auto z-40">
+        <div className="lg:hidden bg-white border-t border-slate-200 fade-in absolute top-20 left-0 w-full h-[calc(100vh_-_80px)] overflow-y-auto overscroll-contain z-40">
            {/* Mobile Search Input */}
           <div className="p-6 pb-0 relative">
             <button
