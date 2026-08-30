@@ -207,7 +207,7 @@ const UserDashboard: React.FC = () => {
           </button>
         </div>
 
-        <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10">
+        <div className="max-w-4xl w-full mx-auto px-2 sm:px-6 lg:px-10 py-6 sm:py-10">
           {activeTab === 'orders' && (
             <>
               {selectedOrder ? (

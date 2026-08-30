@@ -8,9 +8,9 @@ const Wishlist: React.FC = () => {
   const wishlistProducts = products.filter(p => wishlist.includes(p.id));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
-        <h2 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">{t('wishlist_title')}</h2>
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-10">
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] p-2 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+        <h2 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6 px-2 sm:px-0">{t('wishlist_title')}</h2>
         {wishlistProducts.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {wishlistProducts.map(product => (

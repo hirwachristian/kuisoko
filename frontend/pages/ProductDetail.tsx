@@ -125,7 +125,7 @@ const ProductDetail: React.FC = () => {
   const similarProducts = products.filter(p => p.subCategory === product.subCategory && p.id !== product.id);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-10">
       <Link to="/shop" className="inline-flex items-center gap-2 text-slate-500 hover:text-emerald-600 mb-8 font-medium">
         <ArrowLeft size={18} /> {t('detail_back_to_results')}
       </Link>
