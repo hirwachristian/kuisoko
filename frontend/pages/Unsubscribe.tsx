@@ -23,7 +23,7 @@ const Unsubscribe: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-24 text-center">
+    <div className="max-w-md mx-auto px-2 py-24 text-center">
       {status === 'done' ? (
         <>
           <h1 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4">You're unsubscribed</h1>

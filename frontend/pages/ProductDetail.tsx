@@ -73,7 +73,7 @@ const ProductDetail: React.FC = () => {
 
   if (!product) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center bg-white rounded-3xl shadow-sm border">
+      <div className="max-w-7xl mx-auto px-2 py-20 text-center bg-white rounded-3xl shadow-sm border">
         <h2 className="text-2xl font-bold mb-4 text-slate-900">{t('detail_product_not_found')}</h2>
         <Link to="/shop" className="text-emerald-600 font-bold hover:underline">{t('detail_back_to_shop')}</Link>
       </div>

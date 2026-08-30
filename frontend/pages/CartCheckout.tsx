@@ -239,7 +239,7 @@ const CartCheckout: React.FC = () => {
 
   if (checkoutItems.length === 0 && step !== 4) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-24 text-center">
+      <div className="max-w-7xl mx-auto px-2 py-24 text-center">
         <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
           <ShoppingBag size={48} />
         </div>
@@ -254,7 +254,7 @@ const CartCheckout: React.FC = () => {
 
   if (step === 4) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-24 text-center animate-fade-in">
+      <div className="max-w-lg mx-auto px-2 py-24 text-center animate-fade-in">
         <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-600">
           <CheckCircle size={56} />
         </div>
