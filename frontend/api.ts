@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:4000/api';
+// In production this must point at the deployed backend (set VITE_API_BASE_URL at build time) -
+// the localhost fallback only works for local dev, where the backend runs on :4000.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

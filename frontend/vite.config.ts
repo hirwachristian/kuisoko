@@ -9,6 +9,12 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
+      // `vite preview` (used as the production start command on Railway) rejects unrecognized
+      // Host headers by default - the deployed domain isn't known ahead of time, so allow any.
+      preview: {
+        host: '0.0.0.0',
+        allowedHosts: true,
+      },
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
