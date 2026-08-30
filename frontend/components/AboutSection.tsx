@@ -30,7 +30,7 @@ const AboutSection: React.FC = () => {
   ];
 
   return (
-    <section id="about" className="scroll-mt-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="about" className="scroll-mt-28 max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
       {/* Intro: image panel + copy */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16">
         <div className="aspect-[4/3] rounded-[2.5rem] bg-emerald-950 relative overflow-hidden shadow-2xl shadow-emerald-900/30">

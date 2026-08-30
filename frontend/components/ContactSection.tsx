@@ -50,7 +50,7 @@ const ContactSection: React.FC = () => {
   ];
 
   return (
-    <section id="contact" className="scroll-mt-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="contact" className="scroll-mt-28 max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
       <div className="flex flex-col items-center text-center mb-10">
         <span className="text-emerald-800 dark:text-emerald-400 font-black text-[10px] uppercase tracking-widest mb-1.5 block">{t('contact_hero_title')}</span>
         <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-emerald-50 tracking-tighter mb-3">{t('contact_form_title')}</h2>

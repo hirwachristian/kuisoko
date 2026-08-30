@@ -33,7 +33,7 @@ const Footer = () => {
 
   return (
   <footer className="bg-emerald-950 dark:bg-slate-950 text-emerald-100/60 dark:text-slate-400 py-12 transition-colors duration-300">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
         <div className="col-span-1 md:col-span-1">
           <Link to="/" className="flex items-center gap-2 mb-4">

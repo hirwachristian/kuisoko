@@ -275,7 +275,7 @@ const CartCheckout: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-10">
       {showContactCard && !user ? (
         <div className="flex justify-center items-center min-h-[60vh]">
           <div className="w-full max-w-xl bg-gradient-to-br from-orange-50 to-emerald-50 dark:from-slate-800 dark:to-slate-900 border border-orange-200 dark:border-slate-700 rounded-2xl shadow p-8 flex flex-col items-center transition-colors duration-300">

@@ -74,7 +74,7 @@ const Home: React.FC = () => {
         ))}
         {/* Fixed hero content */}
         <div className="absolute inset-0 z-20 flex items-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 w-full">
             <div className="max-w-2xl">
               <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight tracking-tighter">
                 <span className="text-emerald-900">{t('home_hero_title_1')}</span>
@@ -121,7 +121,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Featured Categories */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-10">
           <div>
             <span className="text-emerald-800 font-black text-[10px] uppercase tracking-widest mb-1.5 block">{t('home_curated_collections')}</span>
@@ -157,7 +157,7 @@ const Home: React.FC = () => {
 
       {/* Featured Products Section */}
       {featuredProducts.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="flex flex-col mb-10">
             <h2 className="text-3xl font-black text-slate-900 tracking-tighter">{t('home_featured_products')}</h2>
             <p className="text-slate-500 text-sm mt-1 font-medium">{t('home_featured_products_subtitle')}</p>
