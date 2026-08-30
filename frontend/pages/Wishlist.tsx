@@ -9,10 +9,10 @@ const Wishlist: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+      <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h2 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">{t('wishlist_title')}</h2>
         {wishlistProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {wishlistProducts.map(product => (
               <ProductCard key={product.id} product={{ ...product, image: product.images[0] }} isWishlist={true} />
             ))}

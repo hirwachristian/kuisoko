@@ -344,7 +344,7 @@ const ProductListing: React.FC = () => {
 
           {paginatedProducts.length > 0 ? (
             <div className="space-y-12">
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8' : 'flex flex-col gap-4'}>
+              <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-8' : 'flex flex-col gap-4'}>
                 {paginatedProducts.map(product => (
                   <div key={product.id} className="fade-in">
                     {/* Pass the first image from the array to ProductCard */}

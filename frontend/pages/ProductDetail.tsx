@@ -336,7 +336,7 @@ const ProductDetail: React.FC = () => {
           {similarProducts.length >= 4 ? (
             <ProductCarousel products={similarProducts} />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               {similarProducts.map(p => (
                 <ProductCard key={p.id} product={{ ...p, image: p.images[0] }} />
               ))}

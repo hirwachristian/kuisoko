@@ -355,7 +355,7 @@ const UserDashboard: React.FC = () => {
                 <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.wishlist}</p>
               </div>
               {wishlistProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-3 sm:gap-6">
                   {wishlistProducts.map(product => (
                     <ProductCard key={product.id} product={{ ...product, image: product.images[0] }} />
                   ))}
