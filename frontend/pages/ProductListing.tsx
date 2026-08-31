@@ -9,6 +9,7 @@ import ProductCard from '../components/ProductCard';
 import { useAppContext } from '../context/AppContext'; // Import AppContext
 import { Product } from '../types';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { getPageNumbers } from '../utils';
 
 const ITEMS_PER_PAGE = 6; // 2 rows of 3 products (grid view, desktop width)
 const MAX_PRICE_RWF = 1000000; // Upper bound for the price filter, in RWF
@@ -423,33 +424,40 @@ const ProductListing: React.FC = () => {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-12">
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 pt-8 sm:pt-12 flex-wrap">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className="p-3 rounded-2xl border border-slate-200 text-slate-500 hover:bg-emerald-50 disabled:opacity-30 transition-all"
+                    className="p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-slate-800 disabled:opacity-30 transition-all"
                   >
-                    <ChevronLeft size={20} />
+                    <ChevronLeft size={18} className="sm:w-5 sm:h-5" />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`w-10 h-10 flex items-center justify-center rounded-2xl text-sm font-semibold ${
-                        currentPage === page 
-                          ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-900/20' 
-                          : 'border border-slate-200 text-slate-500 hover:bg-emerald-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {getPageNumbers(currentPage, totalPages).map((page, i) =>
+                    page === 'ellipsis' ? (
+                      <span key={`ellipsis-${i}`} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-sm text-slate-400 dark:text-slate-600">
+                        &hellip;
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        aria-current={currentPage === page ? 'page' : undefined}
+                        className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-2xl text-xs sm:text-sm font-semibold ${
+                          currentPage === page
+                            ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-900/20'
+                            : 'border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  )}
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className="p-3 rounded-2xl border border-slate-200 text-slate-500 hover:bg-emerald-50 disabled:opacity-30 transition-all"
+                    className="p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-slate-800 disabled:opacity-30 transition-all"
                   >
-                    <ChevronRight size={20} />
+                    <ChevronRight size={18} className="sm:w-5 sm:h-5" />
                   </button>
                 </div>
               )}

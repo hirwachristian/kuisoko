@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { getPageNumbers } from '../utils';
 
 interface AdminPaginationProps {
   currentPage: number;
@@ -9,30 +10,6 @@ interface AdminPaginationProps {
   itemsPerPage: number;
   itemLabel: string; // e.g. "orders", "users", "products"
 }
-
-/** Collapses a long page range down to first, last, current ±1, and "…" for the gaps - e.g.
- * 1 … 4 5 6 … 12 instead of listing every page from 1 to 12, which reads as cluttered/amateurish
- * once there are more than a handful of pages (and wraps awkwardly on mobile). */
-const getPageNumbers = (current: number, total: number): (number | 'ellipsis')[] => {
-  const delta = 1;
-  const pages: number[] = [];
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
-      pages.push(i);
-    }
-  }
-  const result: (number | 'ellipsis')[] = [];
-  let last: number | undefined;
-  for (const p of pages) {
-    if (last !== undefined) {
-      if (p - last === 2) result.push(last + 1);
-      else if (p - last > 2) result.push('ellipsis');
-    }
-    result.push(p);
-    last = p;
-  }
-  return result;
-};
 
 /** Shared pagination bar for admin list pages (Orders/Users/Products) - a "Showing X-Y of Z"
  * label plus Previous/Next and a truncated page-number row, all in one consistent, mobile-sized

@@ -16,6 +16,31 @@ export const getInitials = (name: string): string => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+/** Collapses a long page range down to first, last, current ±1, and 'ellipsis' for the gaps - e.g.
+ * 1 … 4 5 6 … 12 instead of listing every page from 1 to 12, which reads as cluttered once there
+ * are more than a handful of pages (and wraps awkwardly on mobile). Shared by every paginated
+ * list in the app (admin tables, the shop grid) so they all truncate the same way. */
+export const getPageNumbers = (current: number, total: number): (number | 'ellipsis')[] => {
+  const delta = 1;
+  const pages: number[] = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      pages.push(i);
+    }
+  }
+  const result: (number | 'ellipsis')[] = [];
+  let last: number | undefined;
+  for (const p of pages) {
+    if (last !== undefined) {
+      if (p - last === 2) result.push(last + 1);
+      else if (p - last > 2) result.push('ellipsis');
+    }
+    result.push(p);
+    last = p;
+  }
+  return result;
+};
+
 export const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString('en-RW', {
     timeZone: 'Africa/Kigali',
