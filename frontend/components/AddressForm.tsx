@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { Order } from '../types';
 
 interface AddressFormProps {
-  onBack: () => void;
   onProceed: () => void;
   setAddressData: (data: any) => void;
 }
 
-const AddressForm: React.FC<AddressFormProps> = ({ onBack, onProceed, setAddressData }) => {
+export interface AddressFormHandle {
+  /** Validates and, if valid, saves the address and calls onProceed - lets the "Proceed to
+   * Payment" button live in the order summary card (matching how steps 1 and 3 place their
+   * primary action there) while validation stays owned by this form. */
+  submit: () => void;
+}
+
+const AddressForm = forwardRef<AddressFormHandle, AddressFormProps>(({ onProceed, setAddressData }, ref) => {
   const { cart, user, t } = useAppContext();
 
   const [formData, setFormData] = useState({
@@ -45,6 +51,8 @@ const AddressForm: React.FC<AddressFormProps> = ({ onBack, onProceed, setAddress
     setAddressData(formData);
     onProceed();
   };
+
+  useImperativeHandle(ref, () => ({ submit: handleProceed }));
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-8 shadow-sm transition-colors duration-300">
@@ -88,12 +96,8 @@ const AddressForm: React.FC<AddressFormProps> = ({ onBack, onProceed, setAddress
         </div>
       </div>
       {error && <p className="text-sm text-red-500 font-bold mt-4">{error}</p>}
-      <div className="flex gap-3 sm:gap-4 mt-6 sm:mt-10">
-        <button onClick={onBack} className="flex-1 py-3 sm:py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-300">{t('addr_back_to_cart')}</button>
-        <button onClick={handleProceed} className="flex-1 py-3 sm:py-4 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95">{t('addr_proceed_to_payment')}</button>
-      </div>
     </div>
   );
-};
+});
 
 export default AddressForm;

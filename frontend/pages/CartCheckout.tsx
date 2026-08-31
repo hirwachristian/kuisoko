@@ -7,7 +7,7 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { Trash2, Plus, Minus, CreditCard, Truck, CheckCircle, ArrowRight, ShoppingBag, Smartphone } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch, ApiError } from '../api';
-import AddressForm from '../components/AddressForm';
+import AddressForm, { AddressFormHandle } from '../components/AddressForm';
 import MtnBadge from '../components/MtnBadge';
 import { Order } from '../types';
 
@@ -37,6 +37,7 @@ const CartCheckout: React.FC = () => {
   const [momoError, setMomoError] = useState<string | null>(null);
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const cancelledRef = useRef(false);
+  const addressFormRef = useRef<AddressFormHandle>(null);
   useEffect(() => () => { cancelledRef.current = true; }, []);
 
   // Shipping fee - based on the delivery district, calculated once the address step is complete
@@ -367,7 +368,7 @@ const CartCheckout: React.FC = () => {
                 </>
               )}
               {step === 2 && (
-                <AddressForm onBack={() => setStep(1)} onProceed={() => setStep(3)} setAddressData={setAddressData} />
+                <AddressForm ref={addressFormRef} onProceed={() => setStep(3)} setAddressData={setAddressData} />
               )}
               {step === 3 && (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-8 shadow-sm transition-colors duration-300">
@@ -484,6 +485,22 @@ const CartCheckout: React.FC = () => {
                   >
                     {t('cart_proceed_to_checkout')} <ArrowRight size={18} className="inline ml-2 sm:w-5 sm:h-5" />
                   </button>
+                )}
+                {step === 2 && (
+                  <div className="flex gap-3 sm:gap-4">
+                    <button
+                      onClick={() => setStep(1)}
+                      className="flex-1 py-3 sm:py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      {t('addr_back_to_cart')}
+                    </button>
+                    <button
+                      onClick={() => addressFormRef.current?.submit()}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 sm:py-4 rounded-xl text-sm sm:text-base transition-all shadow-lg active:scale-95"
+                    >
+                      {t('addr_proceed_to_payment')}
+                    </button>
+                  </div>
                 )}
                 {step === 3 && (
                   <button
