@@ -19,9 +19,9 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmitted }) => {
 
   if (!user) {
     return (
-      <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm text-center">
-        <p className="text-slate-600 dark:text-slate-300 mb-4">Sign in to leave a review.</p>
-        <Link to="/signin" className="inline-block bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors">
+      <div className="bg-white dark:bg-slate-800 p-5 sm:p-8 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm text-center">
+        <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-4">Sign in to leave a review.</p>
+        <Link to="/signin" className="inline-block bg-emerald-600 text-white text-sm sm:text-base font-bold px-6 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors">
           Sign In
         </Link>
       </div>
@@ -83,12 +83,12 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmitted }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
-      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Write a Review</h3>
+    <div className="bg-white dark:bg-slate-800 p-4 sm:p-8 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+      <h3 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6">Write a Review</h3>
 
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Your Rating</label>
-        <div className="flex gap-2">
+      <div className="mb-4 sm:mb-6">
+        <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Your Rating</label>
+        <div className="flex gap-1.5 sm:gap-2">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
               key={star}
@@ -96,28 +96,28 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmitted }) => {
               onClick={() => setRating(star)}
               className={`${star <= rating ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600'}`}
             >
-              <Star size={32} fill={star <= rating ? 'currentColor' : 'none'} />
+              <Star size={24} className="sm:w-8 sm:h-8" fill={star <= rating ? 'currentColor' : 'none'} />
             </button>
           ))}
         </div>
       </div>
 
-      <div className="mb-6">
-        <label htmlFor="review-text" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Your Review</label>
+      <div className="mb-4 sm:mb-6">
+        <label htmlFor="review-text" className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Your Review</label>
         <textarea
           id="review-text"
           rows={4}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Tell us what you think..."
-          className="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+          className="w-full p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm sm:text-base text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
         ></textarea>
       </div>
 
-      <div className="mb-8">
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Review Image (Optional)</label>
+      <div className="mb-6 sm:mb-8">
+        <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Review Image (Optional)</label>
         {imageUrl ? (
-          <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+          <div className="relative w-16 h-16 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
             <img src={imageUrl} alt="Review" className="w-full h-full object-cover" />
             <button
               type="button"
@@ -129,13 +129,13 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmitted }) => {
             </button>
           </div>
         ) : (
-          <label className="block border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center hover:border-emerald-500 bg-slate-50 dark:bg-slate-900 transition-colors cursor-pointer">
+          <label className="block border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-5 sm:p-8 text-center hover:border-emerald-500 bg-slate-50 dark:bg-slate-900 transition-colors cursor-pointer">
             <input type="file" accept="image/*" onChange={handleImageChange} disabled={isUploadingImage} className="hidden" />
-            <Upload className="mx-auto text-slate-400 dark:text-slate-500 mb-2" size={24} />
-            <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+            <Upload className="mx-auto text-slate-400 dark:text-slate-500 mb-2" size={22} />
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
               {isUploadingImage ? 'Uploading...' : 'Click to upload an image'}
             </p>
-            <p className="text-xs text-slate-400 dark:text-slate-500">Max 5MB, JPG, PNG, GIF</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500">Max 5MB, JPG, PNG, GIF</p>
           </label>
         )}
       </div>
@@ -143,7 +143,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSubmitted }) => {
       <button
         onClick={handleSubmit}
         disabled={isSubmitting || isUploadingImage}
-        className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl transition-colors disabled:opacity-60"
+        className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base font-bold py-2.5 sm:py-3 px-6 sm:px-8 rounded-xl transition-colors disabled:opacity-60"
       >
         {isSubmitting ? 'Submitting...' : 'Submit Review'}
       </button>
