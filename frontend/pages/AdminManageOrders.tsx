@@ -72,9 +72,11 @@ const AdminManageOrders: React.FC = () => {
     currentPage * ORDERS_PER_PAGE
   );
 
+  // No scroll-to-top here (unlike a plain page navigation) - Users and Products' pagination
+  // already just swap the table's contents in place without moving the viewport, this matches
+  // that instead of jumping back to the top of the page on every "Next" click.
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSort = (key: 'date' | 'total') => {
