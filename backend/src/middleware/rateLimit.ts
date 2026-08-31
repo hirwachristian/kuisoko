@@ -73,3 +73,14 @@ export const twoFactorCodeLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many verification codes requested. Please try again later.' },
 });
+
+/** Category translation suggestions: calls a third-party free API per request, so this caps how
+ * often one admin session can request suggestions - generous enough for normal category editing,
+ * not for scripting bulk translation of unrelated text through this endpoint. */
+export const translateSuggestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many translation requests. Please try again later.' },
+});

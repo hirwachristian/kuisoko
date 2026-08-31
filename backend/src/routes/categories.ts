@@ -2,8 +2,32 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
+import { translateManyToKinyarwanda } from '../lib/translate.js';
+import { translateSuggestLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
+
+const translateSchema = z.object({
+  texts: z.array(z.string()).min(1).max(50),
+});
+
+// POST /api/categories/translate - admin: suggests Kinyarwanda translations for a batch of
+// strings (category name, section title, item labels), via the free MyMemory API. Suggestions
+// only - the admin reviews/edits the result in the form before anything is actually saved, since
+// that API is unreliable enough for Kinyarwanda that some results are outright nonsense and
+// shouldn't ever be auto-published without a human looking at them first.
+router.post('/translate', authenticate, requireAdmin, translateSuggestLimiter, async (req, res, next) => {
+  const parsed = translateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+  try {
+    const translations = await translateManyToKinyarwanda(parsed.data.texts);
+    return res.json({ translations });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 // GET /api/categories - public: categories with their nested mega-menu sections
 router.get('/', async (_req, res, next) => {
@@ -86,8 +110,8 @@ const sectionSchema = z.object({
   title: z.string().trim().min(1, 'Section title is required'),
   titleKin: z.string().trim().optional(),
   items: z.array(z.string().trim().min(1)).default([]),
-  // Parallel to `items` - itemsKin[i] is the translation for items[i]. An empty string means "not
-  // translated yet", which the frontend treats the same as omitted (falls back to English).
+  // Parallel to `items` - itemsKin[i] is the translation for items[i]. Empty means "not
+  // translated" (falls back to English), same as titleKin/nameKin being omitted.
   itemsKin: z.array(z.string()).default([]),
 });
 

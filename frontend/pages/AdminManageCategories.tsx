@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, X } from 'lucide-react'; // Import icons
+import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, X, Wand2, Loader2 } from 'lucide-react'; // Import icons
 import { useAppContext } from '../context/AppContext';
 import { CategorySection } from '../constants'; // Import CategorySection interface
 import ConfirmationModal from '../components/ConfirmationModal'; // Import ConfirmationModal
+import { apiFetch, ApiError } from '../api';
 
 const AdminManageCategories: React.FC = () => {
   const {
@@ -16,8 +17,27 @@ const AdminManageCategories: React.FC = () => {
     addCategorySection,
     updateCategorySection,
     deleteCategorySection,
+    token,
+    showToast,
     // Removed translate
   } = useAppContext();
+
+  // Fetches Kinyarwanda suggestions for a batch of English strings - a *suggestion* only, never
+  // saved on its own. The free translation API is unreliable enough for Kinyarwanda that some
+  // results are outright wrong, so this only ever fills the form field for the admin to review
+  // (and correct or clear) before actually saving anything.
+  const suggestTranslations = async (texts: string[]): Promise<(string | null)[]> => {
+    try {
+      const { translations } = await apiFetch<{ translations: (string | null)[] }>('/categories/translate', {
+        method: 'POST',
+        body: JSON.stringify({ texts }),
+      }, token);
+      return translations;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not fetch a translation suggestion.', 'error');
+      return texts.map(() => null);
+    }
+  };
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
@@ -62,6 +82,69 @@ const AdminManageCategories: React.FC = () => {
   // position - trimming without dropping empty slots keeps "A, , C" translating as ['A','','C'],
   // not silently collapsing to two items and misaligning with the English list.
   const parseCommaList = (value: string): string[] => value.split(',').map(item => item.trim());
+
+  const [isSuggestingNewCategory, setIsSuggestingNewCategory] = useState(false);
+  const [isSuggestingEditCategory, setIsSuggestingEditCategory] = useState(false);
+  const [isSuggestingNewSection, setIsSuggestingNewSection] = useState(false);
+  const [isSuggestingEditSection, setIsSuggestingEditSection] = useState(false);
+
+  const handleSuggestNewCategoryName = async () => {
+    if (!newCategoryName.trim()) {
+      showToast('Type the English category name first.', 'error');
+      return;
+    }
+    setIsSuggestingNewCategory(true);
+    const [suggestion] = await suggestTranslations([newCategoryName.trim()]);
+    setIsSuggestingNewCategory(false);
+    if (suggestion) setNewCategoryNameKin(suggestion);
+    else showToast('No suggestion available for that one - please type it in manually.', 'info');
+  };
+
+  const handleSuggestEditCategoryName = async () => {
+    if (!editingCategoryNewName.trim()) {
+      showToast('Type the English category name first.', 'error');
+      return;
+    }
+    setIsSuggestingEditCategory(true);
+    const [suggestion] = await suggestTranslations([editingCategoryNewName.trim()]);
+    setIsSuggestingEditCategory(false);
+    if (suggestion) setEditingCategoryNewNameKin(suggestion);
+    else showToast('No suggestion available for that one - please type it in manually.', 'info');
+  };
+
+  // Suggests a translation for the section title + every item in one batch call, then rebuilds
+  // the Kinyarwanda comma-list preserving the exact same positions (including any blank slots) as
+  // the English one, so the two lists stay aligned the same way zipItemsWithTranslations expects.
+  const suggestSectionTranslations = async (
+    title: string,
+    itemsRaw: string,
+    applyTitle: (value: string) => void,
+    applyItems: (value: string) => void,
+    setBusy: (busy: boolean) => void
+  ) => {
+    const englishItems = parseCommaList(itemsRaw);
+    const nonEmpty = englishItems.map((v, i) => ({ v, i })).filter(x => x.v);
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle && nonEmpty.length === 0) {
+      showToast('Type the English title and/or items first.', 'error');
+      return;
+    }
+    setBusy(true);
+    const texts = [...(trimmedTitle ? [trimmedTitle] : []), ...nonEmpty.map(x => x.v)];
+    const results = await suggestTranslations(texts);
+    setBusy(false);
+
+    let cursor = 0;
+    if (trimmedTitle) {
+      const titleSuggestion = results[cursor++];
+      if (titleSuggestion) applyTitle(titleSuggestion);
+    }
+    const itemsKinArray = englishItems.map(() => '');
+    nonEmpty.forEach(({ i }) => {
+      itemsKinArray[i] = results[cursor++] || '';
+    });
+    applyItems(itemsKinArray.join(', '));
+  };
 
   // --- Category Handlers ---
   const handleAddCategoryClick = () => {
@@ -363,9 +446,20 @@ const AdminManageCategories: React.FC = () => {
               onChange={(e) => { setNewCategoryName(e.target.value); setCategoryNameError(''); }}
               className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
-            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
-              Category name (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300">
+                Category name (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleSuggestNewCategoryName}
+                disabled={isSuggestingNewCategory}
+                className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 disabled:opacity-50 shrink-0"
+              >
+                {isSuggestingNewCategory ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                Suggest
+              </button>
+            </div>
             <input
               type="text"
               placeholder="e.g. Ikoranabuhanga"
@@ -373,7 +467,7 @@ const AdminManageCategories: React.FC = () => {
               onChange={(e) => setNewCategoryNameKin(e.target.value)}
               className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
-            <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-4">Leave blank to show the English name when the site is viewed in Kinyarwanda.</p>
+            <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-4">"Suggest" fills this in automatically via machine translation - always double-check it before saving, since it isn't always accurate.</p>
             {categoryNameError && <p className="text-red-500 text-xs sm:text-sm mb-4">{categoryNameError}</p>}
             <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
               <button
@@ -413,9 +507,20 @@ const AdminManageCategories: React.FC = () => {
               onChange={(e) => { setEditingCategoryNewName(e.target.value); setEditingCategoryError(''); }}
               className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
-            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
-              Category name (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300">
+                Category name (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleSuggestEditCategoryName}
+                disabled={isSuggestingEditCategory}
+                className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 disabled:opacity-50 shrink-0"
+              >
+                {isSuggestingEditCategory ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                Suggest
+              </button>
+            </div>
             <input
               type="text"
               placeholder="e.g. Ikoranabuhanga"
@@ -423,7 +528,7 @@ const AdminManageCategories: React.FC = () => {
               onChange={(e) => setEditingCategoryNewNameKin(e.target.value)}
               className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
-            <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-4">Leave blank to show the English name when the site is viewed in Kinyarwanda.</p>
+            <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-4">"Suggest" fills this in automatically via machine translation - always double-check it before saving, since it isn't always accurate.</p>
             {editingCategoryError && <p className="text-red-500 text-xs sm:text-sm mb-4">{editingCategoryError}</p>}
             <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
               <button
@@ -467,9 +572,20 @@ const AdminManageCategories: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
-                  Section Title (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300">
+                    Section Title (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => suggestSectionTranslations(newSectionTitle, newSectionItems, setNewSectionTitleKin, setNewSectionItemsKin, setIsSuggestingNewSection)}
+                    disabled={isSuggestingNewSection}
+                    className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 disabled:opacity-50 shrink-0"
+                  >
+                    {isSuggestingNewSection ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    Suggest title + items
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={newSectionTitleKin}
@@ -495,7 +611,7 @@ const AdminManageCategories: React.FC = () => {
                   onChange={(e) => setNewSectionItemsKin(e.target.value)}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
                 />
-                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1.5">Must be in the same order as the English items above - leave an item blank to fall back to English for just that one.</p>
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1.5">"Suggest title + items" above fills this in automatically - always double-check it before saving, since machine translation isn't always accurate. Must stay in the same order as the English items.</p>
               </div>
             </div>
             {newSectionError && <p className="text-red-500 text-xs sm:text-sm mt-4">{newSectionError}</p>}
@@ -540,9 +656,20 @@ const AdminManageCategories: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
-                  Section Title (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300">
+                    Section Title (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => suggestSectionTranslations(editingSubCategorySectionTitle, editingSubCategorySectionItems, setEditingSubCategorySectionTitleKin, setEditingSubCategorySectionItemsKin, setIsSuggestingEditSection)}
+                    disabled={isSuggestingEditSection}
+                    className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 disabled:opacity-50 shrink-0"
+                  >
+                    {isSuggestingEditSection ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    Suggest title + items
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={editingSubCategorySectionTitleKin}
@@ -567,7 +694,7 @@ const AdminManageCategories: React.FC = () => {
                   onChange={(e) => setEditingSubCategorySectionItemsKin(e.target.value)}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
                 />
-                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1.5">Must be in the same order as the English items above - leave an item blank to fall back to English for just that one.</p>
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1.5">"Suggest title + items" above fills this in automatically - always double-check it before saving, since machine translation isn't always accurate. Must stay in the same order as the English items.</p>
               </div>
             </div>
             {editingSubCategoryError && <p className="text-red-500 text-xs sm:text-sm mt-4">{editingSubCategoryError}</p>}
