@@ -430,15 +430,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Footer Settings State
-  const [footerSettings, setFooterSettings] = useState((): AppContextType['footerSettings'] => {
-    const savedFooterSettings = localStorage.getItem('kuisoko-footer-settings');
-    try {
-      return savedFooterSettings ? { ...INITIAL_FOOTER_SETTINGS, ...JSON.parse(savedFooterSettings) } : INITIAL_FOOTER_SETTINGS;
-    } catch (e) {
-      console.error("Error parsing saved footer settings from localStorage:", e);
-      return INITIAL_FOOTER_SETTINGS;
-    }
-  });
+  // Footer/contact info ("Contact & Storefront" in admin settings) is site-wide, server-persisted
+  // config - every visitor should see the same thing. It used to live only in whichever admin
+  // browser last edited it (a localStorage key, never sent to the backend), so a change never
+  // reached the database and no one else ever saw it. INITIAL_FOOTER_SETTINGS is just the paint
+  // shown before the real fetch below resolves.
+  const [footerSettings, setFooterSettings] = useState<AppContextType['footerSettings']>(INITIAL_FOOTER_SETTINGS);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const fetched = await apiFetch<AppContextType['footerSettings']>('/settings/footer');
+        if (!cancelled) setFooterSettings(prev => ({ ...prev, ...fetched }));
+      } catch (e) {
+        console.error('Error fetching footer settings:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Maintenance Mode State
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
@@ -742,11 +752,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     prevUnreadNotificationCountRef.current = unreadNotificationCount;
   }, [unreadNotificationCount]);
-
-  // Save footer settings to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('kuisoko-footer-settings', JSON.stringify(footerSettings));
-  }, [footerSettings]);
 
   // Save user to localStorage whenever it changes (currently logged-in user)
   useEffect(() => {
@@ -1189,40 +1194,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Footer Settings Functions
+  // Footer Settings Functions - each patches the server (this is site-wide config every visitor
+  // sees, not per-user state) and rolls back the optimistic local update if the save fails, so the
+  // UI never shows a value that isn't actually persisted.
+  const patchFooterSettings = async (patch: Partial<AppContextType['footerSettings']>, successMessage: string) => {
+    const previous = footerSettings;
+    setFooterSettings(prev => ({ ...prev, ...patch }));
+    try {
+      await apiFetch('/settings/footer', { method: 'PATCH', body: JSON.stringify(patch) }, token);
+      showToast(successMessage, 'success');
+    } catch (e) {
+      setFooterSettings(previous);
+      showToast(e instanceof ApiError ? e.message : 'Could not save footer settings.', 'error');
+    }
+  };
+
   const updateFooterLocation = (lines: string[]) => {
-    setFooterSettings(prev => ({ ...prev, locationLines: lines }));
-    showToast('Footer location updated.', 'success');
+    patchFooterSettings({ locationLines: lines }, 'Footer location updated.');
   };
 
   const updateFooterPhoneNumber = (number: string) => {
-    setFooterSettings(prev => ({ ...prev, phoneNumber: number }));
-    showToast('Footer phone number updated.', 'success');
+    patchFooterSettings({ phoneNumber: number }, 'Footer phone number updated.');
   };
 
   const updateFooterWhatsappNumber = (number: string) => {
-    setFooterSettings(prev => ({ ...prev, whatsappNumber: number }));
-    showToast('Footer WhatsApp number updated.', 'success');
+    patchFooterSettings({ whatsappNumber: number }, 'Footer WhatsApp number updated.');
   };
 
   const updateFooterEmail = (email: string) => {
-    setFooterSettings(prev => ({ ...prev, emailAddress: email }));
-    showToast('Footer email updated.', 'success');
+    patchFooterSettings({ emailAddress: email }, 'Footer email updated.');
   };
 
   const updateFooterQuickLinks = (links: FooterLink[]) => {
-    setFooterSettings(prev => ({ ...prev, quickLinks: links }));
-    showToast('Footer quick links updated.', 'success');
+    patchFooterSettings({ quickLinks: links }, 'Footer quick links updated.');
   };
 
   const updateFooterSupportLinks = (links: FooterLink[]) => {
-    setFooterSettings(prev => ({ ...prev, supportLinks: links }));
-    showToast('Footer support links updated.', 'success');
+    patchFooterSettings({ supportLinks: links }, 'Footer support links updated.');
   };
 
   const updateFooterCopyrightText = (text: string) => {
-    setFooterSettings(prev => ({ ...prev, copyrightText: text }));
-    showToast('Footer copyright text updated.', 'success');
+    patchFooterSettings({ copyrightText: text }, 'Footer copyright text updated.');
   };
 
   // Admin Profile Management Functions (for the currently logged-in admin)

@@ -11,7 +11,7 @@ const router = Router();
 
 async function getFooterSettings() {
   const settingsResult = await pool.query(
-    `SELECT location_lines AS "locationLines", phone_number AS "phoneNumber",
+    `SELECT location_lines AS "locationLines", phone_number AS "phoneNumber", whatsapp_number AS "whatsappNumber",
             email_address AS "emailAddress", copyright_text AS "copyrightText"
      FROM footer_settings WHERE id = 1`
   );
@@ -19,7 +19,7 @@ async function getFooterSettings() {
     `SELECT link_type AS "linkType", label, to_path AS "to" FROM footer_links ORDER BY display_order`
   );
   return {
-    ...(settingsResult.rows[0] ?? { locationLines: [], phoneNumber: null, emailAddress: null, copyrightText: null }),
+    ...(settingsResult.rows[0] ?? { locationLines: [], phoneNumber: null, whatsappNumber: null, emailAddress: null, copyrightText: null }),
     quickLinks: linksResult.rows.filter((l) => l.linkType === 'quick').map(({ label, to }) => ({ label, to })),
     supportLinks: linksResult.rows.filter((l) => l.linkType === 'support').map(({ label, to }) => ({ label, to })),
   };
@@ -37,6 +37,7 @@ const linkSchema = z.object({ label: z.string().trim().min(1), to: z.string().tr
 const footerUpdateSchema = z.object({
   locationLines: z.array(z.string()).optional(),
   phoneNumber: z.string().trim().optional(),
+  whatsappNumber: z.string().trim().optional(),
   emailAddress: z.string().trim().optional(),
   copyrightText: z.string().trim().optional(),
   quickLinks: z.array(linkSchema).optional(),
@@ -56,10 +57,11 @@ router.patch('/footer', authenticate, requireAdmin, async (req, res, next) => {
         `UPDATE footer_settings SET
            location_lines = COALESCE($1, location_lines),
            phone_number = COALESCE($2, phone_number),
-           email_address = COALESCE($3, email_address),
-           copyright_text = COALESCE($4, copyright_text)
+           whatsapp_number = COALESCE($3, whatsapp_number),
+           email_address = COALESCE($4, email_address),
+           copyright_text = COALESCE($5, copyright_text)
          WHERE id = 1`,
-        [data.locationLines ?? null, data.phoneNumber ?? null, data.emailAddress ?? null, data.copyrightText ?? null]
+        [data.locationLines ?? null, data.phoneNumber ?? null, data.whatsappNumber ?? null, data.emailAddress ?? null, data.copyrightText ?? null]
       );
 
       for (const [linkType, links] of [['quick', data.quickLinks], ['support', data.supportLinks]] as const) {

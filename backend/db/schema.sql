@@ -349,6 +349,7 @@ CREATE TABLE footer_settings (
   id              SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1), -- singleton row
   location_lines  TEXT[] NOT NULL DEFAULT '{}',
   phone_number    TEXT,
+  whatsapp_number TEXT,
   email_address   TEXT,
   copyright_text  TEXT,
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
