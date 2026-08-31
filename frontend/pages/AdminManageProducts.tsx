@@ -7,6 +7,7 @@ import { useAppContext } from '../context/AppContext';
 import { CategorySection } from '../constants';
 import { apiFetch, ApiError } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal';
+import AdminPagination from '../components/AdminPagination';
 import AdminVariantManager from '../components/AdminVariantManager'; // Add this import
 
 const PRODUCTS_PER_PAGE = 5;
@@ -463,38 +464,14 @@ const AdminManageProducts: React.FC = () => {
           </div>
 
           {/* Pagination */}
-          {filteredProducts.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-              <span className="text-xs sm:text-sm text-slate-600 dark:text-emerald-300 order-2 sm:order-1">
-                {`Showing ${Math.min(filteredProducts.length, (currentPage - 1) * PRODUCTS_PER_PAGE + 1)}-${Math.min(filteredProducts.length, currentPage * PRODUCTS_PER_PAGE)} of ${filteredProducts.length} products`}
-              </span>
-              <div className="flex items-center gap-1.5 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-xs sm:text-sm font-semibold ${currentPage === page ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            totalItems={filteredProducts.length}
+            itemsPerPage={PRODUCTS_PER_PAGE}
+            itemLabel="products"
+          />
         </div>
       </div>
 
