@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Package, Tag, ShoppingCart, Settings, LogOut, Users, Receipt, Calendar, Zap, Sun, Moon, Ticket, MessageCircle, Mail, Menu, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -20,7 +20,10 @@ const AdminLayout: React.FC = () => {
   // <main> is its own scroll container (overflow-y-auto below), not the window - so switching
   // between admin pages while scrolled down left the new page's content starting mid-scroll
   // instead of at the top, since nothing was resetting this container's own scroll position.
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so this runs before the browser paints the new page - with a
+  // plain effect there's a brief window where the old scroll position is still visible against
+  // the new page's content before it snaps to the top, which reads as the page being "stuck".
+  useLayoutEffect(() => {
     mainRef.current?.scrollTo(0, 0);
   }, [location.pathname]);
 
@@ -226,7 +229,7 @@ const AdminLayout: React.FC = () => {
           page's <html>/<body>), so the site-wide overflow-x:hidden in index.html doesn't reach it -
           without this, any admin table/card even a pixel wider than the viewport lets this specific
           container rubber-band side to side on a touch scroll, same bug as the page-level one. */}
-      <main ref={mainRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto overflow-x-hidden">
+      <main ref={mainRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain">
         {/* Mobile-only top bar: hamburger to open the sidebar drawer, since the sidebar itself is
             off-screen below the lg breakpoint. */}
         <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-30">

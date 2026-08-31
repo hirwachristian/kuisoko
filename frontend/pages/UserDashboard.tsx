@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -44,7 +44,10 @@ const UserDashboard: React.FC = () => {
   // <main> is its own scroll container (overflow-y-auto below), not the window - so switching
   // tabs (or opening/closing an order's details) while scrolled down left the new view starting
   // mid-scroll instead of at the top, since nothing was resetting this container's scroll position.
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so this runs before the browser paints the new content - with
+  // a plain effect there's a brief window where the old scroll position is still visible against
+  // the new content before it snaps to the top, which reads as the page being "stuck".
+  useLayoutEffect(() => {
     mainRef.current?.scrollTo(0, 0);
   }, [activeTab, selectedOrder]);
 
@@ -197,7 +200,7 @@ const UserDashboard: React.FC = () => {
         {sidebarContent}
       </aside>
 
-      <main ref={mainRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+      <main ref={mainRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto overscroll-y-contain">
         {/* Mobile-only top bar */}
         <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-30">
           <Link to="/" className="shrink-0">
