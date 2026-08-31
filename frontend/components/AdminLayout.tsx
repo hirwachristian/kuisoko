@@ -213,8 +213,12 @@ const AdminLayout: React.FC = () => {
         </div>
       </aside>
       {/* Main Content Area - min-w-0 lets this flex item actually shrink to the viewport width on
-          mobile, instead of stretching to fit whatever wide content (tables etc.) sits inside it. */}
-      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+          mobile, instead of stretching to fit whatever wide content (tables etc.) sits inside it.
+          overflow-x-hidden matters separately: this <main> is its own scroll container (not the
+          page's <html>/<body>), so the site-wide overflow-x:hidden in index.html doesn't reach it -
+          without this, any admin table/card even a pixel wider than the viewport lets this specific
+          container rubber-band side to side on a touch scroll, same bug as the page-level one. */}
+      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto overflow-x-hidden">
         {/* Mobile-only top bar: hamburger to open the sidebar drawer, since the sidebar itself is
             off-screen below the lg breakpoint. */}
         <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-30">
