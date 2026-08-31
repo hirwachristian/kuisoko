@@ -239,13 +239,13 @@ const CartCheckout: React.FC = () => {
 
   if (checkoutItems.length === 0 && step !== 4) {
     return (
-      <div className="max-w-7xl mx-auto px-2 py-24 text-center">
-        <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
-          <ShoppingBag size={48} />
+      <div className="max-w-7xl mx-auto px-2 py-16 sm:py-24 text-center">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 text-slate-400">
+          <ShoppingBag size={32} className="sm:w-12 sm:h-12" />
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">{t('cart_empty_title')}</h2>
-        <p className="text-slate-500 mb-8">{t('cart_empty_subtitle')}</p>
-        <Link to="/shop" className="inline-flex items-center gap-2 bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-3 sm:mb-4">{t('cart_empty_title')}</h2>
+        <p className="text-sm sm:text-base text-slate-500 mb-6 sm:mb-8">{t('cart_empty_subtitle')}</p>
+        <Link to="/shop" className="inline-flex items-center gap-2 bg-emerald-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl text-sm sm:text-base font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all">
           {t('cart_start_shopping')}
         </Link>
       </div>
@@ -254,19 +254,19 @@ const CartCheckout: React.FC = () => {
 
   if (step === 4) {
     return (
-      <div className="max-w-lg mx-auto px-2 py-24 text-center animate-fade-in">
-        <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-8 text-emerald-600">
-          <CheckCircle size={56} />
+      <div className="max-w-lg mx-auto px-4 py-16 sm:py-24 text-center animate-fade-in">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 text-emerald-600">
+          <CheckCircle size={36} className="sm:w-14 sm:h-14" />
         </div>
-        <h2 className="text-3xl font-bold text-slate-900 mb-4">{t('cart_order_confirmed')}</h2>
-        <p className="text-slate-600 mb-8 leading-relaxed">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3 sm:mb-4">{t('cart_order_confirmed')}</h2>
+        <p className="text-sm sm:text-base text-slate-600 mb-6 sm:mb-8 leading-relaxed">
           {t('cart_thank_you', { name: user?.name?.split(' ')[0] || 'customer', id: placedOrderId || '' })}
         </p>
-        <div className="space-y-4">
-          <Link to="/dashboard" className="block w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition-colors">
+        <div className="space-y-3 sm:space-y-4">
+          <Link to="/dashboard" className="block w-full bg-slate-900 text-white py-3 sm:py-4 rounded-2xl text-sm sm:text-base font-bold hover:bg-slate-800 transition-colors">
             {t('cart_track_order')}
           </Link>
-          <Link to="/" className="block w-full text-emerald-600 py-4 font-bold">
+          <Link to="/" className="block w-full text-emerald-600 py-3 sm:py-4 text-sm sm:text-base font-bold">
             {t('cart_back_to_home')}
           </Link>
         </div>
@@ -278,13 +278,13 @@ const CartCheckout: React.FC = () => {
     <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-10">
       {showContactCard && !user ? (
         <div className="flex justify-center items-center min-h-[60vh]">
-          <div className="w-full max-w-xl bg-gradient-to-br from-orange-50 to-emerald-50 dark:from-slate-800 dark:to-slate-900 border border-orange-200 dark:border-slate-700 rounded-2xl shadow p-8 flex flex-col items-center transition-colors duration-300">
-            <h3 className="text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-6 text-center">
+          <div className="w-full max-w-xl bg-gradient-to-br from-orange-50 to-emerald-50 dark:from-slate-800 dark:to-slate-900 border border-orange-200 dark:border-slate-700 rounded-2xl shadow p-5 sm:p-8 flex flex-col items-center transition-colors duration-300">
+            <h3 className="text-lg sm:text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6 text-center">
               {t('cart_sign_in_to_checkout')}
             </h3>
             <div className="flex flex-col md:flex-row gap-4 w-full justify-center mb-4">
               <button
-                className="flex-1 py-3 rounded-xl border border-emerald-700 dark:border-emerald-500 text-emerald-900 dark:text-emerald-100 font-bold bg-white dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-slate-800 transition"
+                className="flex-1 py-3 rounded-xl border border-emerald-700 dark:border-emerald-500 text-sm sm:text-base text-emerald-900 dark:text-emerald-100 font-bold bg-white dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-slate-800 transition"
                 onClick={() => window.location.href = '/signin'}
               >
                 {t('cart_sign_in')}
@@ -292,11 +292,11 @@ const CartCheckout: React.FC = () => {
             </div>
             <div className="flex items-center w-full my-4">
               <div className="flex-1 border-t border-emerald-200 dark:border-slate-700"></div>
-              <span className="mx-4 text-slate-400 font-bold">{t('cart_or')}</span>
+              <span className="mx-4 text-sm text-slate-400 font-bold">{t('cart_or')}</span>
               <div className="flex-1 border-t border-emerald-200 dark:border-slate-700"></div>
             </div>
-            <button className="w-full py-4 rounded-xl border-2 border-emerald-700 dark:border-emerald-500 text-emerald-900 dark:text-emerald-100 font-bold text-lg bg-white dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-slate-800 transition mb-2" onClick={() => setShowContactCard(false)}>{t('cart_continue_as_guest')}</button>
-            <div className="text-xs text-slate-500 dark:text-slate-400 text-center mt-2 flex items-center justify-center gap-1">
+            <button className="w-full py-3 sm:py-4 rounded-xl border-2 border-emerald-700 dark:border-emerald-500 text-emerald-900 dark:text-emerald-100 font-bold text-sm sm:text-lg bg-white dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-slate-800 transition mb-2" onClick={() => setShowContactCard(false)}>{t('cart_continue_as_guest')}</button>
+            <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 text-center mt-2 flex items-center justify-center gap-1">
               <span role="img" aria-label="bulb">💡</span> {t('cart_guest_checkout_hint')}
             </div>
           </div>
@@ -304,60 +304,62 @@ const CartCheckout: React.FC = () => {
       ) : (
         <>
           {/* Stepper */}
-          <div className="flex items-center justify-center mb-10">
+          <div className="flex items-center justify-center mb-6 sm:mb-10">
             {[t('cart_step_cart'), t('cart_step_address'), t('cart_step_payment')].map((label, idx) => (
               <React.Fragment key={label}>
                 <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm
                     ${step >= idx + 1 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
                     {idx + 1}
                   </div>
-                  <span className={`mt-2 text-xs font-bold ${step >= idx + 1 ? 'text-emerald-700' : 'text-slate-400'}`}>{label}</span>
+                  <span className={`mt-1.5 sm:mt-2 text-[10px] sm:text-xs font-bold ${step >= idx + 1 ? 'text-emerald-700' : 'text-slate-400'}`}>{label}</span>
                 </div>
-                {idx < 2 && <div className={`w-16 h-1 mx-2 rounded-full ${step > idx + 1 ? 'bg-emerald-600' : 'bg-slate-200'}`} />}
+                {idx < 2 && <div className={`w-8 sm:w-16 h-1 mx-1.5 sm:mx-2 rounded-full ${step > idx + 1 ? 'bg-emerald-600' : 'bg-slate-200'}`} />}
               </React.Fragment>
             ))}
           </div>
 
           {/* Checkout Steps */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
             <div className="lg:col-span-2 flex flex-col gap-6">
               {step === 1 && (
                 <>
                   {/* Cart Items */}
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 transition-colors duration-300">
-                    <h2 className="flex items-center gap-2 text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-6">
-                      <ShoppingBag size={24} /> {t('cart_your_cart')}
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-6 transition-colors duration-300">
+                    <h2 className="flex items-center gap-2 text-lg sm:text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6">
+                      <ShoppingBag size={20} className="sm:w-6 sm:h-6" /> {t('cart_your_cart')}
                     </h2>
                     {checkoutItems.map(item => {
                       return (
-                      <div key={item.id} className="flex items-center gap-4 mb-6">
-                        <img src={item.images[0]} alt={item.name} className="w-20 h-20 rounded-xl object-contain p-1.5 bg-white border border-slate-100 dark:border-slate-800" />
-                        <div className="flex-1">
-                          <div className="font-bold text-lg text-emerald-900 dark:text-emerald-100">{item.name.split(' - ')[0]}</div>
-                          <div className="text-sm text-slate-500 dark:text-slate-400">{t('cart_category_label')}: {tCategory(item.category)}</div>
+                      <div key={item.id} className="flex items-start gap-3 sm:gap-4 mb-5 sm:mb-6">
+                        <img src={item.images[0]} alt={item.name} className="w-14 h-14 sm:w-20 sm:h-20 shrink-0 rounded-xl object-contain p-1 sm:p-1.5 bg-white border border-slate-100 dark:border-slate-800" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-bold text-sm sm:text-lg text-emerald-900 dark:text-emerald-100 truncate">{item.name.split(' - ')[0]}</div>
+                            <div className="font-bold text-sm sm:text-lg text-emerald-900 dark:text-emerald-100 shrink-0">
+                              {getFormattedPrice((Number(item.price) || 0) * (1 - (item.discount || 0) / 100) * item.quantity)}
+                            </div>
+                          </div>
+                          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{t('cart_category_label')}: {tCategory(item.category)}</div>
                           {(item as any).selectedColor && (
-                            <div className="text-sm text-slate-500 dark:text-slate-400">{t('cart_color_label')}: {(item as any).selectedColor}</div>
+                            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{t('cart_color_label')}: {(item as any).selectedColor}</div>
                           )}
                           {(item as any).selectedSize && (
-                            <div className="text-sm text-slate-500 dark:text-slate-400">{t('cart_size_label')}: {(item as any).selectedSize}</div>
+                            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{t('cart_size_label')}: {(item as any).selectedSize}</div>
                           )}
-                          <div className="text-sm text-slate-700 dark:text-slate-300 mt-1">{t('cart_price_label')}: {getFormattedPrice(Number(item.price) || 0)}</div>
-                          <div className="flex items-center gap-2 mt-2">
-                            <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 text-emerald-900 dark:text-emerald-300 font-bold">-</button>
-                            <span className="mx-2 dark:text-emerald-100">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 text-emerald-900 dark:text-emerald-300 font-bold">+</button>
-                            <button onClick={() => removeFromCart(item.id)} className="ml-4 text-rose-600 dark:text-rose-400 font-semibold hover:underline">{t('cart_remove')}</button>
+                          <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-1">{t('cart_price_label')}: {getFormattedPrice(Number(item.price) || 0)}</div>
+                          <div className="flex items-center gap-1.5 sm:gap-2 mt-2 flex-wrap">
+                            <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-slate-100 dark:bg-slate-800 text-emerald-900 dark:text-emerald-300 font-bold text-sm sm:text-base">-</button>
+                            <span className="mx-1 sm:mx-2 text-sm sm:text-base dark:text-emerald-100">{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-slate-100 dark:bg-slate-800 text-emerald-900 dark:text-emerald-300 font-bold text-sm sm:text-base">+</button>
+                            <button onClick={() => removeFromCart(item.id)} className="ml-2 sm:ml-4 text-xs sm:text-sm text-rose-600 dark:text-rose-400 font-semibold hover:underline">{t('cart_remove')}</button>
                           </div>
-                        </div>
-                        <div className="font-bold text-lg text-emerald-900 dark:text-emerald-100">
-                          {getFormattedPrice((Number(item.price) || 0) * (1 - (item.discount || 0) / 100) * item.quantity)}
                         </div>
                       </div>
                       )
                     })}
-                    <div className="flex justify-between items-center mt-8">
-                      <Link to="/shop" className="text-emerald-900 dark:text-emerald-300 font-semibold flex items-center gap-1 hover:underline">
+                    <div className="flex justify-between items-center mt-6 sm:mt-8">
+                      <Link to="/shop" className="text-sm sm:text-base text-emerald-900 dark:text-emerald-300 font-semibold flex items-center gap-1 hover:underline">
                         &larr; {t('cart_continue_shopping')}
                       </Link>
                     </div>
@@ -368,29 +370,29 @@ const CartCheckout: React.FC = () => {
                 <AddressForm onBack={() => setStep(1)} onProceed={() => setStep(3)} setAddressData={setAddressData} />
               )}
               {step === 3 && (
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-8 shadow-sm transition-colors duration-300">
-                  <h2 className="text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-6">{t('cart_payment')}</h2>
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-8 shadow-sm transition-colors duration-300">
+                  <h2 className="text-lg sm:text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6">{t('cart_payment')}</h2>
 
                   {/* Payment Method Selection */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-emerald-100 mb-4">{t('cart_select_payment_method')}</h3>
-                    <div className="space-y-3">
+                  <div className="mb-4 sm:mb-6">
+                    <h3 className="text-sm sm:text-lg font-bold text-slate-800 dark:text-emerald-100 mb-3 sm:mb-4">{t('cart_select_payment_method')}</h3>
+                    <div className="space-y-2.5 sm:space-y-3">
                       {(paymentMethods || []).filter(m => m.enabled).map((method) => (
                         <button
                           key={method.name + method.detail}
                           onClick={() => setSelectedPayment(method.name)}
-                          className={`w-full flex items-center gap-3 text-left p-4 rounded-xl border-2 transition ${selectedPayment === method.name ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950 dark:border-emerald-500' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-slate-600'}`}
+                          className={`w-full flex items-center gap-2.5 sm:gap-3 text-left p-3 sm:p-4 rounded-xl border-2 transition ${selectedPayment === method.name ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950 dark:border-emerald-500' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-slate-600'}`}
                         >
                           {/mtn/i.test(method.name) && <MtnBadge />}
-                          <span className="text-slate-900 dark:text-emerald-100">{method.name} ({method.detail})</span>
+                          <span className="text-sm sm:text-base text-slate-900 dark:text-emerald-100">{method.name} ({method.detail})</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {isMomoSelected && (
-                    <div className="mb-6">
-                      <label htmlFor="momoPhone" className="block text-sm font-bold text-slate-700 dark:text-emerald-300 mb-2">
+                    <div className="mb-4 sm:mb-6">
+                      <label htmlFor="momoPhone" className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-emerald-300 mb-2">
                         {t('cart_momo_phone_label')}
                       </label>
                       <input
@@ -399,17 +401,17 @@ const CartCheckout: React.FC = () => {
                         value={momoPhone}
                         onChange={(e) => setMomoPhone(e.target.value)}
                         placeholder="07XXXXXXXX"
-                        className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 text-slate-900 dark:text-emerald-100"
+                        className="w-full p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 text-sm sm:text-base text-slate-900 dark:text-emerald-100"
                       />
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                      <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-2">
                         {t('cart_momo_prompt_hint', { amount: getFormattedPrice(total) })}
                       </p>
                     </div>
                   )}
 
-                  <div className="flex gap-4">
-                    <button onClick={() => setStep(2)} className="flex-1 py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">{t('cart_back')}</button>
-                    <button onClick={handleCheckout} disabled={isPlacingOrder || momoFlow !== 'idle'} className="flex-1 py-4 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95 disabled:opacity-60">
+                  <div className="flex gap-3 sm:gap-4">
+                    <button onClick={() => setStep(2)} className="flex-1 py-3 sm:py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">{t('cart_back')}</button>
+                    <button onClick={handleCheckout} disabled={isPlacingOrder || momoFlow !== 'idle'} className="flex-1 py-3 sm:py-4 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95 disabled:opacity-60">
                       {isPlacingOrder ? t('cart_placing_order') : t('cart_place_order')}
                     </button>
                   </div>
@@ -419,19 +421,19 @@ const CartCheckout: React.FC = () => {
 
             {/* Right: Order Summary */}
             <div>
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-8 shadow-md sticky top-24 transition-colors duration-300">
-                <h3 className="text-lg font-bold text-emerald-900 dark:text-emerald-50 mb-6 flex items-center gap-2">
-                  <span className="text-emerald-700 dark:text-emerald-400"><ShoppingBag size={20} /></span> {t('cart_order_summary')}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-8 shadow-md lg:sticky lg:top-24 transition-colors duration-300">
+                <h3 className="text-base sm:text-lg font-bold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6 flex items-center gap-2">
+                  <span className="text-emerald-700 dark:text-emerald-400"><ShoppingBag size={18} className="sm:w-5 sm:h-5" /></span> {t('cart_order_summary')}
                 </h3>
                 <div className="flex justify-between text-slate-500 dark:text-slate-400 mb-2">
                   <span>{t('cart_subtotal_items', { n: checkoutItems.reduce((a, b) => a + b.quantity, 0) })}</span>
                   <span className="font-bold text-slate-900 dark:text-emerald-100">{getFormattedPrice(subtotal)}</span>
                 </div>
-                <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2 mb-4">
-                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
-                    <CheckCircle size={16} /> {t('cart_delivery')}{shipping ? ` (${shipping.zoneName})` : ''}
+                <div className="flex items-center justify-between gap-2 bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2 mb-4 text-xs sm:text-sm">
+                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1 min-w-0">
+                    <CheckCircle size={14} className="sm:w-4 sm:h-4 shrink-0" /> <span className="truncate">{t('cart_delivery')}{shipping ? ` (${shipping.zoneName})` : ''}</span>
                   </span>
-                  <span className="font-bold text-emerald-700 dark:text-emerald-300">
+                  <span className="font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                     {!addressData ? t('cart_calculated_next_step') : shipping ? (shipping.isFreeShipping ? t('cart_free') : getFormattedPrice(shipping.fee)) : '...'}
                   </span>
                 </div>
@@ -466,28 +468,28 @@ const CartCheckout: React.FC = () => {
                 </div>
 
                 {appliedCoupon && (
-                  <div className="flex justify-between text-orange-600 dark:text-orange-400 font-semibold mb-2">
+                  <div className="flex justify-between text-sm sm:text-base text-orange-600 dark:text-orange-400 font-semibold mb-2">
                     <span>{t('cart_discount')}</span>
                     <span>-{getFormattedPrice(discountAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center text-2xl font-black text-emerald-900 dark:text-emerald-100 mb-2">
+                <div className="flex justify-between items-center text-lg sm:text-2xl font-black text-emerald-900 dark:text-emerald-100 mb-2">
                   <span>{t('cart_total')}</span>
                   <span>{getFormattedPrice(total)}</span>
                 </div>
                 {step === 1 && (
                   <button
                     onClick={handleCheckout}
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg active:scale-95"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 sm:py-4 rounded-xl text-sm sm:text-lg transition-all shadow-lg active:scale-95"
                   >
-                    {t('cart_proceed_to_checkout')} <ArrowRight size={20} className="inline ml-2" />
+                    {t('cart_proceed_to_checkout')} <ArrowRight size={18} className="inline ml-2 sm:w-5 sm:h-5" />
                   </button>
                 )}
                 {step === 3 && (
                   <button
                     onClick={handleCheckout}
                     disabled={isPlacingOrder || momoFlow !== 'idle'}
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg active:scale-95 disabled:opacity-60"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 sm:py-4 rounded-xl text-sm sm:text-lg transition-all shadow-lg active:scale-95 disabled:opacity-60"
                   >
                     {isPlacingOrder ? t('cart_placing_order') : t('cart_place_order')}
                   </button>
@@ -501,15 +503,15 @@ const CartCheckout: React.FC = () => {
 
       {momoFlow !== 'idle' && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-8 max-w-sm w-full text-center shadow-2xl">
             {(momoFlow === 'requesting' || momoFlow === 'awaiting-approval') && (
               <>
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center">
-                  <Smartphone size={28} className="text-emerald-700 dark:text-emerald-400" />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 rounded-full bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center">
+                  <Smartphone size={24} className="sm:w-7 sm:h-7 text-emerald-700 dark:text-emerald-400" />
                 </div>
                 {/mtn/i.test(selectedPayment) && <MtnBadge className="mb-3" />}
-                <h3 className="text-lg font-bold text-slate-900 dark:text-emerald-50 mb-2">{t('cart_momo_check_phone')}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-emerald-50 mb-2">{t('cart_momo_check_phone')}</h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">
                   {momoFlow === 'requesting'
                     ? t('cart_momo_sending')
                     : t('cart_momo_awaiting', { amount: getFormattedPrice(total), phone: momoPhone })}
@@ -519,19 +521,19 @@ const CartCheckout: React.FC = () => {
             )}
             {momoFlow === 'failed' && (
               <>
-                <h3 className="text-lg font-bold text-rose-600 mb-2">{t('cart_momo_not_approved')}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{momoError || t('cart_momo_declined')}</p>
+                <h3 className="text-base sm:text-lg font-bold text-rose-600 mb-2">{t('cart_momo_not_approved')}</h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">{momoError || t('cart_momo_declined')}</p>
                 <div className="flex gap-3">
-                  <button onClick={() => setMomoFlow('idle')} className="flex-1 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300">{t('cart_close')}</button>
-                  <button onClick={retryMomoPayment} className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-all">{t('cart_try_again')}</button>
+                  <button onClick={() => setMomoFlow('idle')} className="flex-1 py-2.5 sm:py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300">{t('cart_close')}</button>
+                  <button onClick={retryMomoPayment} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all">{t('cart_try_again')}</button>
                 </div>
               </>
             )}
             {momoFlow === 'error' && (
               <>
-                <h3 className="text-lg font-bold text-rose-600 mb-2">{t('cart_something_wrong')}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{momoError}</p>
-                <button onClick={() => setMomoFlow('idle')} className="w-full py-3 rounded-xl bg-slate-900 text-white font-bold">{t('cart_close')}</button>
+                <h3 className="text-base sm:text-lg font-bold text-rose-600 mb-2">{t('cart_something_wrong')}</h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">{momoError}</p>
+                <button onClick={() => setMomoFlow('idle')} className="w-full py-2.5 sm:py-3 rounded-xl bg-slate-900 text-white text-sm sm:text-base font-bold">{t('cart_close')}</button>
               </>
             )}
           </div>
