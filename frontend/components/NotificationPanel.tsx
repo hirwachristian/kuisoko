@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { X, Check, ShoppingCart, User, Bell, Star, Mail } from 'lucide-react';
+import { X, ShoppingCart, User, Bell, Star, Mail, Trash2, CheckCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,15 @@ import { useNavigate } from 'react-router-dom';
 interface NotificationPanelProps {
   onClose: () => void;
 }
+
+// Per-type color, mirroring the pattern already used for the dashboard's stat cards - the icon
+// badge color is the primary visual cue for what kind of notification this is, at a glance.
+const NOTIFICATION_STYLES = {
+  order: { icon: ShoppingCart, bg: 'bg-emerald-100 dark:bg-emerald-950', text: 'text-emerald-700 dark:text-emerald-400' },
+  user: { icon: User, bg: 'bg-purple-100 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-400' },
+  review: { icon: Star, bg: 'bg-amber-100 dark:bg-amber-950', text: 'text-amber-700 dark:text-amber-400' },
+  subscriber: { icon: Mail, bg: 'bg-blue-100 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-400' },
+} as const;
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
   const {
@@ -93,6 +102,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
   ].filter(n => !hiddenNotificationIds.includes(n.id))
    .sort((a, b) => (a.unread === b.unread ? 0 : a.unread ? -1 : 1));
 
+  const unreadCount = notifications.filter(n => n.unread).length;
+
   const handleDeleteSelected = () => {
     bulkHideNotifications(selectedNotifications);
     setSelectedNotifications([]);
@@ -118,55 +129,113 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
         exit={{ x: '100%' }}
         transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
       >
-        <div className="flex justify-between items-center gap-3 p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-emerald-50">Notifications</h2>
-          <div className="flex items-center gap-3">
-            {selectedNotifications.length > 0 && (
-              <button onClick={handleDeleteSelected} className="text-xs font-semibold text-red-600 hover:underline whitespace-nowrap">Delete Selected</button>
+        {/* Title row: just the heading + close button, on their own row so the close button is
+            never squeezed out by the action links below (which can wrap freely on narrow screens
+            without ever risking the one control every user needs to be able to reach). */}
+        <div className="flex justify-between items-center gap-3 px-4 sm:px-5 pt-4 pb-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-emerald-50">Notifications</h2>
+            {unreadCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-bold">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             )}
-            <button onClick={markAllNotificationsAsRead} className="text-xs font-semibold text-emerald-600 hover:underline whitespace-nowrap">Mark all as read</button>
-            <button onClick={onClose} className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors" aria-label="Close notifications">
-              <X size={20} />
-            </button>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 -mr-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0"
+            aria-label="Close notifications"
+            title="Close"
+          >
+            <X size={20} />
+          </button>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 px-4 pt-4 shrink-0">You have {notifications.filter(n => n.unread).length} unread messages.</p>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {notifications.map(notif => (
-            <div key={notif.id} className={`flex gap-3 p-3 border border-slate-100 dark:border-slate-800 rounded-lg border-l-4 ${notif.unread ? 'border-l-yellow-400' : 'border-l-slate-300'} ${notif.unread ? 'opacity-100' : 'opacity-60'}`}>
-              <input
-                  type="checkbox"
-                  checked={selectedNotifications.includes(notif.id)}
-                  onChange={() => toggleSelectNotification(notif.id)}
-                  className="mt-1"
-              />
-              <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full h-fit">
-                {notif.type === 'order' ? <ShoppingCart size={20} /> : notif.type === 'review' ? <Star size={20} /> : notif.type === 'subscriber' ? <Mail size={20} /> : <User size={20} />}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <p className="font-semibold text-sm">{notif.title}</p>
-                  <span className="text-[10px] text-slate-400 whitespace-nowrap">{notif.timestamp}</span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">{notif.body}</p>
-                <div className="flex gap-2">
-                  <button
-                      className="text-xs bg-emerald-700 text-white px-3 py-1 rounded"
-                      onClick={() => {
+        {/* Action row - separate from the title row above, wraps independently on narrow screens */}
+        <div className="flex items-center justify-end gap-1 px-4 sm:px-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0 flex-wrap">
+          {selectedNotifications.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 px-2 py-1 rounded-lg transition-colors"
+            >
+              <Trash2 size={13} /> Delete ({selectedNotifications.length})
+            </button>
+          )}
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllNotificationsAsRead}
+              className="flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 px-2 py-1 rounded-lg transition-colors"
+            >
+              <CheckCheck size={13} /> Mark all read
+            </button>
+          )}
+        </div>
+
+        {notifications.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4">
+              <Bell size={26} />
+            </div>
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">You're all caught up</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">New orders, reviews, and sign-ups will show up here.</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+            {notifications.map(notif => {
+              const style = NOTIFICATION_STYLES[notif.type];
+              const Icon = style.icon;
+              return (
+                <div
+                  key={notif.id}
+                  className={`flex gap-2.5 sm:gap-3 p-2.5 sm:p-3 border rounded-xl sm:rounded-2xl transition-colors ${
+                    notif.unread
+                      ? 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40'
+                      : 'border-slate-100 dark:border-slate-800 opacity-70'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedNotifications.includes(notif.id)}
+                    onChange={() => toggleSelectNotification(notif.id)}
+                    className="mt-1.5 shrink-0 accent-emerald-700"
+                    aria-label={`Select notification: ${notif.title}`}
+                  />
+                  <div className={`p-2 rounded-full h-fit shrink-0 ${style.bg} ${style.text}`}>
+                    <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-emerald-50 flex items-center gap-1.5">
+                        {notif.title}
+                        {notif.unread && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" aria-hidden="true" />}
+                      </p>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0">{notif.timestamp}</span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 mb-2 line-clamp-2">{notif.body}</p>
+                    <div className="flex gap-2">
+                      <button
+                        className="text-[11px] sm:text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-colors"
+                        onClick={() => {
                           notif.onClick();
                           navigate(notif.actionLink);
                           onClose();
-                      }}
-                  >
-                      {notif.actionLabel}
-                  </button>
-                  <button onClick={() => hideNotification(notif.id)} className="text-xs bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100 px-3 py-1 rounded">Delete</button>
+                        }}
+                      >
+                        {notif.actionLabel}
+                      </button>
+                      <button
+                        onClick={() => hideNotification(notif.id)}
+                        className="text-[11px] sm:text-xs font-semibold bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </motion.div>
     </>
   );
