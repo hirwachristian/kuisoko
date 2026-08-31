@@ -115,9 +115,10 @@ const ProductListing: React.FC = () => {
     currentPage * ITEMS_PER_PAGE
   );
 
+  // No scroll-to-top - changing pages should just swap the grid's contents in place, the same
+  // way the admin list pages' pagination already works, not jump the viewport back to the top.
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSuggestionClick = (suggestion: string) => {
