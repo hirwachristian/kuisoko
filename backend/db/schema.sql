@@ -32,6 +32,7 @@ CREATE TABLE users (
   profile_image     TEXT,
   is_active         BOOLEAN NOT NULL DEFAULT true, -- admin can deactivate to block login
   is_unread         BOOLEAN NOT NULL DEFAULT true, -- new-registration flag for admin notifications
+  two_factor_enabled BOOLEAN NOT NULL DEFAULT false, -- email-based 2FA at login, see two_factor_codes
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -62,6 +63,20 @@ CREATE TABLE email_change_tokens (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_email_change_tokens_user_id ON email_change_tokens(user_id);
+
+-- Two-factor authentication: single-use, expiring 6-digit codes emailed to the account holder.
+-- Covers three flows - logging in with 2FA enabled, confirming 2FA setup, and resending a code -
+-- all of which just need "prove you received this email". Disabling 2FA instead re-checks the
+-- account password (see POST /auth/2fa/disable), so it doesn't need a row here.
+CREATE TABLE two_factor_codes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash   TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_two_factor_codes_user_id ON two_factor_codes(user_id);
 
 -- ---------------------------------------------------------------------------
 -- Categories & mega-menu sections

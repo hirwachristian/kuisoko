@@ -121,6 +121,20 @@ export function sendEnquiryReplyEmail(to: string, name: string, subject: string,
   });
 }
 
+export function sendTwoFactorCodeEmail(to: string, name: string, code: string): Promise<boolean> {
+  return sendEmail({
+    to,
+    toName: name,
+    subject: `${code} is your KuISOKO verification code`,
+    htmlContent: `
+      <p>Hi ${name},</p>
+      <p>Your two-factor authentication code is:</p>
+      <p style="font-size:32px;font-weight:800;letter-spacing:6px;margin:16px 0;">${code}</p>
+      <p>This code expires in 10 minutes. If you didn't request this, someone may have your password - consider changing it.</p>
+    `,
+  });
+}
+
 export function sendEmailChangeVerification(to: string, name: string, confirmUrl: string): Promise<boolean> {
   return sendEmail({
     to,

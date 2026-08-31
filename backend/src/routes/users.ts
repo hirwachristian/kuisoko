@@ -10,7 +10,7 @@ import { sendEmailChangeVerification } from '../lib/brevo.js';
 
 const router = Router();
 
-const USER_COLUMNS = `id, name, email, phone_number AS "phoneNumber", address, role, profile_image AS "profileImage", is_active AS "isActive", is_unread AS "unread", created_at AS "registrationDate"`;
+const USER_COLUMNS = `id, name, email, phone_number AS "phoneNumber", address, role, profile_image AS "profileImage", is_active AS "isActive", is_unread AS "unread", two_factor_enabled AS "twoFactorEnabled", created_at AS "registrationDate"`;
 
 // GET /api/users - admin: list all users
 router.get('/', authenticate, requireAdmin, async (_req, res, next) => {

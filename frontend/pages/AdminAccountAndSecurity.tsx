@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, ShieldCheck, Eye, EyeOff, Monitor, Smartphone, Laptop, LogOut, ToggleLeft, ToggleRight, Info, Pencil, User as UserIcon, Camera, X } from 'lucide-react';
+import { Lock, ShieldCheck, Eye, EyeOff, Monitor, Smartphone, Laptop, LogOut, ToggleLeft, ToggleRight, Info, Pencil, User as UserIcon, Camera, X, Mail } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getInitials } from '../utils';
 import { apiFetch, ApiError } from '../api';
-import ConfirmationModal from '../components/ConfirmationModal';
 
 const AdminAccountAndSecurity: React.FC = () => {
-  const { user, token, updateCurrentUser, showToast, logout } = useAppContext();
+  const { user, token, updateCurrentUser, showToast, logout, start2FASetup, confirm2FASetup, disable2FA } = useAppContext();
 
   // Profile States
   const [adminNameInput, setAdminNameInput] = useState(user?.name || '');
@@ -28,10 +27,14 @@ const AdminAccountAndSecurity: React.FC = () => {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
 
-  // Security States
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
-  const [show2FAConfirm, setShow2FAConfirm] = useState(false);
-  const [twoFAAction, setTwoFAAction] = useState<'enable' | 'disable' | null>(null);
+  // Security States - real email-based 2FA (see backend /auth/2fa/*), not a local-only toggle.
+  // 'idle': showing the current on/off state. 'awaiting-code': a code was just emailed, waiting
+  // for it to confirm turning 2FA on. 'awaiting-password': confirming the account password before
+  // turning 2FA off.
+  const [twoFAStep, setTwoFAStep] = useState<'idle' | 'awaiting-code' | 'awaiting-password'>('idle');
+  const [twoFACodeInput, setTwoFACodeInput] = useState('');
+  const [disablePasswordInput, setDisablePasswordInput] = useState('');
+  const [is2FABusy, setIs2FABusy] = useState(false);
 
   const mockSessions = [
     { id: 's1', device: 'Windows Desktop', browser: 'Chrome', location: 'Lagos, Nigeria', ip: '192.168.1.1', current: true },
@@ -99,18 +102,37 @@ const AdminAccountAndSecurity: React.FC = () => {
     }
   };
 
-  const handleToggle2FA = (enable: boolean) => {
-    setTwoFAAction(enable ? 'enable' : 'disable');
-    setShow2FAConfirm(true);
+  const handleStartEnable2FA = async () => {
+    setIs2FABusy(true);
+    const ok = await start2FASetup();
+    setIs2FABusy(false);
+    if (ok) setTwoFAStep('awaiting-code');
   };
 
-  const confirm2FAToggle = () => {
-    if (twoFAAction !== null) {
-      setIs2FAEnabled(twoFAAction === 'enable');
-      showToast(`Two-Factor Authentication ${twoFAAction === 'enable' ? 'enabled' : 'disabled'}.`, twoFAAction === 'enable' ? 'success' : 'info');
-      setShow2FAConfirm(false);
-      setTwoFAAction(null);
+  const handleConfirmEnable2FA = async () => {
+    setIs2FABusy(true);
+    const ok = await confirm2FASetup(twoFACodeInput.trim());
+    setIs2FABusy(false);
+    if (ok) {
+      setTwoFAStep('idle');
+      setTwoFACodeInput('');
     }
+  };
+
+  const handleConfirmDisable2FA = async () => {
+    setIs2FABusy(true);
+    const ok = await disable2FA(disablePasswordInput);
+    setIs2FABusy(false);
+    if (ok) {
+      setTwoFAStep('idle');
+      setDisablePasswordInput('');
+    }
+  };
+
+  const handleCancel2FAStep = () => {
+    setTwoFAStep('idle');
+    setTwoFACodeInput('');
+    setDisablePasswordInput('');
   };
 
   return (
@@ -179,23 +201,90 @@ const AdminAccountAndSecurity: React.FC = () => {
       </div>
 
       {/* Security Section (Change Password & 2FA) */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
-        <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Security Settings</h3>
-        {/* Simplified Security UI components here */}
-        <button onClick={() => handleToggle2FA(!is2FAEnabled)} className={`px-4 py-2 rounded-lg ${is2FAEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'} text-white`}>
-            {is2FAEnabled ? 'Disable 2FA' : 'Enable 2FA'}
-        </button>
-      </div>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-2">Two-Factor Authentication</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-xl">
+          When enabled, signing in also requires a 6-digit code sent to <span className="font-semibold">{user?.email}</span> - a stolen password alone won't be enough to get in.
+        </p>
 
-      {/* Modals */}
-      <ConfirmationModal
-        isOpen={show2FAConfirm}
-        onClose={() => { setShow2FAConfirm(false); setTwoFAAction(null); }}
-        onConfirm={confirm2FAToggle}
-        title={`${twoFAAction === 'enable' ? 'Enable' : 'Disable'} Two-Factor Authentication`}
-        message={`Are you sure you want to ${twoFAAction === 'enable' ? 'enable' : 'disable'} 2FA?`}
-        confirmButtonText={twoFAAction === 'enable' ? 'Enable 2FA' : 'Disable 2FA'}
-      />
+        {twoFAStep === 'idle' && (
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full ${user?.twoFactorEnabled ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+              <ShieldCheck size={14} /> {user?.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+            {user?.twoFactorEnabled ? (
+              <button
+                onClick={() => setTwoFAStep('awaiting-password')}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900 transition-colors"
+              >
+                Disable 2FA
+              </button>
+            ) : (
+              <button
+                onClick={handleStartEnable2FA}
+                disabled={is2FABusy}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-60"
+              >
+                {is2FABusy ? 'Sending code...' : 'Enable 2FA'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {twoFAStep === 'awaiting-code' && (
+          <div className="max-w-sm">
+            <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-2">
+              <Mail size={13} /> Enter the code we emailed you
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              autoFocus
+              value={twoFACodeInput}
+              onChange={(e) => setTwoFACodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              className="w-full text-center tracking-[0.4em] text-lg font-bold px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 mb-3"
+            />
+            <div className="flex gap-2">
+              <button onClick={handleCancel2FAStep} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+              <button
+                onClick={handleConfirmEnable2FA}
+                disabled={is2FABusy || twoFACodeInput.length !== 6}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-60"
+              >
+                {is2FABusy ? 'Confirming...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {twoFAStep === 'awaiting-password' && (
+          <div className="max-w-sm">
+            <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-2">
+              <Lock size={13} /> Confirm your password to disable 2FA
+            </label>
+            <input
+              type="password"
+              autoFocus
+              value={disablePasswordInput}
+              onChange={(e) => setDisablePasswordInput(e.target.value)}
+              placeholder="Current password"
+              className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 mb-3"
+            />
+            <div className="flex gap-2">
+              <button onClick={handleCancel2FAStep} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+              <button
+                onClick={handleConfirmDisable2FA}
+                disabled={is2FABusy || !disablePasswordInput}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors disabled:opacity-60"
+              >
+                {is2FABusy ? 'Disabling...' : 'Disable 2FA'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

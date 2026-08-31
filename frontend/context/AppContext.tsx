@@ -35,6 +35,16 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<boolean>;
   signup: (fullName: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
+  // Set by login() when the account has 2FA enabled - a correct password alone doesn't sign
+  // anyone in at that point, this is what the sign-in page uses to show the "enter your code"
+  // step instead. Cleared once verifyTwoFactorCode succeeds or cancelTwoFactorLogin is called.
+  twoFactorPending: { pendingToken: string; email: string } | null;
+  verifyTwoFactorCode: (code: string) => Promise<boolean>;
+  resendTwoFactorCode: () => Promise<boolean>;
+  cancelTwoFactorLogin: () => void;
+  start2FASetup: () => Promise<boolean>;
+  confirm2FASetup: (code: string) => Promise<boolean>;
+  disable2FA: (password: string) => Promise<boolean>;
   categories: Category[]; // Dynamic categories
   categoryHierarchy: Record<Category, CategorySection[]>; // Dynamic category hierarchy
   addCategory: (name: string) => Promise<boolean>;
@@ -170,6 +180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('kuisoko-token'));
+  const [twoFactorPending, setTwoFactorPending] = useState<{ pendingToken: string; email: string } | null>(null);
 
   // Periodically re-fetches admin notification sources (orders/users/reviews) below,
   // so the bell badge + sound reflect new activity without needing a page reload.
@@ -781,16 +792,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const { user: loggedInUser, token: authToken } = await apiFetch<{ user: UserType; token: string }>(
-        '/auth/login',
-        { method: 'POST', body: JSON.stringify({ email, password }) }
-      );
-      setUser(loggedInUser);
-      setToken(authToken);
-      showToast(`Welcome, ${loggedInUser.name.split(' ')[0]}!`, 'success');
+      const response = await apiFetch<
+        { user: UserType; token: string } | { requiresTwoFactor: true; pendingToken: string }
+      >('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+      if ('requiresTwoFactor' in response) {
+        setTwoFactorPending({ pendingToken: response.pendingToken, email });
+        showToast('Enter the code we just emailed you to finish signing in.', 'info');
+        return true;
+      }
+
+      setUser(response.user);
+      setToken(response.token);
+      showToast(`Welcome, ${response.user.name.split(' ')[0]}!`, 'success');
       return true;
     } catch (e) {
       showToast(e instanceof ApiError ? e.message : 'Invalid email or password.', 'error');
+      return false;
+    }
+  };
+
+  const verifyTwoFactorCode = async (code: string): Promise<boolean> => {
+    if (!twoFactorPending) return false;
+    try {
+      const { user: loggedInUser, token: authToken } = await apiFetch<{ user: UserType; token: string }>(
+        '/auth/2fa/verify',
+        { method: 'POST', body: JSON.stringify({ pendingToken: twoFactorPending.pendingToken, code }) }
+      );
+      setUser(loggedInUser);
+      setToken(authToken);
+      setTwoFactorPending(null);
+      showToast(`Welcome, ${loggedInUser.name.split(' ')[0]}!`, 'success');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Invalid or expired code.', 'error');
+      return false;
+    }
+  };
+
+  const resendTwoFactorCode = async (): Promise<boolean> => {
+    if (!twoFactorPending) return false;
+    try {
+      await apiFetch('/auth/2fa/resend', { method: 'POST', body: JSON.stringify({ pendingToken: twoFactorPending.pendingToken }) });
+      showToast('A new code has been sent to your email.', 'success');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not resend code.', 'error');
+      return false;
+    }
+  };
+
+  const cancelTwoFactorLogin = () => setTwoFactorPending(null);
+
+  // --- 2FA setup/teardown for an already-signed-in account (Account & Security settings) ---
+  const start2FASetup = async (): Promise<boolean> => {
+    try {
+      await apiFetch('/auth/2fa/enable/start', { method: 'POST' }, token);
+      showToast('A verification code has been sent to your email.', 'success');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not start 2FA setup.', 'error');
+      return false;
+    }
+  };
+
+  const confirm2FASetup = async (code: string): Promise<boolean> => {
+    try {
+      const { user: updatedUser } = await apiFetch<{ user: UserType }>(
+        '/auth/2fa/enable/confirm',
+        { method: 'POST', body: JSON.stringify({ code }) },
+        token
+      );
+      setUser(updatedUser);
+      showToast('Two-factor authentication is now enabled.', 'success');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Invalid or expired code.', 'error');
+      return false;
+    }
+  };
+
+  const disable2FA = async (password: string): Promise<boolean> => {
+    try {
+      const { user: updatedUser } = await apiFetch<{ user: UserType }>(
+        '/auth/2fa/disable',
+        { method: 'POST', body: JSON.stringify({ password }) },
+        token
+      );
+      setUser(updatedUser);
+      showToast('Two-factor authentication has been disabled.', 'info');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Incorrect password.', 'error');
       return false;
     }
   };
@@ -1284,6 +1377,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       cart, addToCart, removeFromCart, updateQuantity, clearCart, user, token, login, signup, logout,
+      twoFactorPending, verifyTwoFactorCode, resendTwoFactorCode, cancelTwoFactorLogin,
+      start2FASetup, confirm2FASetup, disable2FA,
       categories, categoryHierarchy,
       addCategory, updateCategoryName, deleteCategory,
       addCategorySection, updateCategorySection, deleteCategorySection,

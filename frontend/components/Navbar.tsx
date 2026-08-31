@@ -1,7 +1,8 @@
 
 
 
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 // Fix: Ensure correct `react-router-dom` named imports for v6+.
 // The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -32,12 +33,7 @@ const Navbar = () => {
   // scrolls the page underneath, dragging the whole site down to the footer while the menu (an
   // absolutely-positioned overlay, not the page) appears to just vanish. Locking body scroll
   // while the menu is open means there's nothing underneath left to scroll into.
-  useLayoutEffect(() => {
-    if (!isMenuOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [isMenuOpen]);
+  useBodyScrollLock(isMenuOpen);
 
   // Lets a shopper snap/pick a photo of a product and finds visually similar items in the
   // catalog via the backend's perceptual-hash comparison, then hands the results to the Shop

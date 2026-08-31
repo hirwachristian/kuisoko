@@ -70,6 +70,7 @@ export interface User {
   password?: string; // Optional: Only for admin management, not used for authentication directly from this type.
   isActive?: boolean; // Admin can deactivate to block login
   unread?: boolean; // New: Track if the registration is unread by admin
+  twoFactorEnabled?: boolean; // Email-based 2FA challenge required at login
   registrationDate?: string; // New: Date of registration
 }
 

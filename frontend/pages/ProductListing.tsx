@@ -8,6 +8,7 @@ import { Filter, Search, Grid3X3, List, ChevronLeft, ChevronRight, ChevronDown, 
 import ProductCard from '../components/ProductCard';
 import { useAppContext } from '../context/AppContext'; // Import AppContext
 import { Product } from '../types';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const ITEMS_PER_PAGE = 6; // 2 rows of 3 products (grid view, desktop width)
 const MAX_PRICE_RWF = 1000000; // Upper bound for the price filter, in RWF
@@ -51,13 +52,7 @@ const ProductListing: React.FC = () => {
   // `hidden md:block`) - phones had no way to browse by category at all. This drives a slide-in
   // drawer, on top of the same sidebar, that surfaces the identical content on mobile.
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isMobileFiltersOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [isMobileFiltersOpen]);
+  useBodyScrollLock(isMobileFiltersOpen);
 
   useEffect(() => {
     setSelectedCategory(categoryParam);

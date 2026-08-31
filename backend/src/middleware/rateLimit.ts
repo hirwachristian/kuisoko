@@ -51,3 +51,25 @@ export const enquiryLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many messages sent. Please try again later.' },
 });
+
+/** 2FA code verification: only failed attempts count - a 6-digit code is just 1,000,000
+ * combinations, so without this an attacker holding a valid pending-login token could brute-force
+ * it in well under the code's 10-minute expiry. */
+export const twoFactorVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many attempts. Please try again in a few minutes.' },
+});
+
+/** 2FA code sending (login codes, resends, and starting 2FA setup): caps how many codes one
+ * account can trigger in an hour, the same reasoning as forgotPasswordLimiter/emailChangeLimiter. */
+export const twoFactorCodeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many verification codes requested. Please try again later.' },
+});

@@ -13,8 +13,13 @@ const SignIn: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login, user, t } = useAppContext(); // Use login from context
+  const { login, user, t, twoFactorPending, verifyTwoFactorCode, resendTwoFactorCode, cancelTwoFactorLogin } = useAppContext();
   const navigate = useNavigate();
+
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +28,23 @@ const SignIn: React.FC = () => {
     if (!success) {
       setError(t('auth_invalid_credentials'));
     }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCodeError('');
+    setIsVerifying(true);
+    const success = await verifyTwoFactorCode(code.trim());
+    setIsVerifying(false);
+    if (!success) {
+      setCodeError('Invalid or expired code. Please try again.');
+    }
+  };
+
+  const handleResend = async () => {
+    setIsResending(true);
+    await resendTwoFactorCode();
+    setIsResending(false);
   };
 
   // Redirect after user state updates from successful login
@@ -36,6 +58,66 @@ const SignIn: React.FC = () => {
     }
   }, [user, navigate]);
 
+  if (twoFactorPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-6 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100">
+          <div>
+            <Link to="/" className="flex items-center gap-3 group justify-center">
+              <KuISOKOLogoSVG className="h-14 w-auto" />
+            </Link>
+            <h2 className="mt-8 text-center text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">
+              Enter your verification code
+            </h2>
+            <p className="mt-2 text-center text-sm text-slate-600">
+              We sent a 6-digit code to <span className="font-semibold">{twoFactorPending.email}</span>
+            </p>
+          </div>
+          <form className="space-y-5" onSubmit={handleVerifyCode}>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              autoFocus
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              className="w-full text-center tracking-[0.5em] text-2xl font-bold px-5 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-800 focus:border-transparent transition-all bg-white"
+            />
+            {codeError && (
+              <div className="text-sm text-red-600 text-center" role="alert">{codeError}</div>
+            )}
+            <button
+              type="submit"
+              disabled={isVerifying || code.length !== 6}
+              className="w-full flex justify-center py-3.5 px-4 text-lg font-bold rounded-2xl text-white bg-emerald-800 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-700 transition-all shadow-lg shadow-emerald-800/20 active:scale-95 disabled:opacity-60"
+            >
+              {isVerifying ? 'Verifying...' : 'Verify & Sign In'}
+            </button>
+          </form>
+          <div className="flex items-center justify-between text-sm">
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={isResending}
+              className="font-semibold text-emerald-800 hover:text-emerald-900 transition-colors disabled:opacity-60"
+            >
+              {isResending ? 'Sending...' : 'Resend code'}
+            </button>
+            <button
+              type="button"
+              onClick={cancelTwoFactorLogin}
+              className="font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              Use a different account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
