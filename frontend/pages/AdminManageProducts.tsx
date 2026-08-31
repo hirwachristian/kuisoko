@@ -80,20 +80,20 @@ const AdminManageProducts: React.FC = () => {
   const getStockStatus = (stock: number) => {
     if (stock === 0) {
       return (
-        <span className="inline-flex items-center gap-2 text-red-600 font-semibold">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Out of stock
+        <span className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-red-600 font-semibold whitespace-nowrap">
+          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500 shrink-0" /> Out of stock
         </span>
       );
     } else if (stock <= 10) {
       return (
-        <span className="inline-flex items-center gap-2 text-orange-600 font-semibold">
-          <span className="w-2.5 h-2.5 rounded-full bg-orange-500" /> Low stock ({stock})
+        <span className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-orange-600 font-semibold whitespace-nowrap">
+          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-orange-500 shrink-0" /> Low stock ({stock})
         </span>
       );
     } else {
       return (
-        <span className="inline-flex items-center gap-2 text-emerald-600 font-semibold">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> In stock ({stock})
+        <span className="inline-flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-emerald-600 font-semibold whitespace-nowrap">
+          <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 shrink-0" /> In stock ({stock})
         </span>
       );
     }
@@ -343,27 +343,27 @@ const AdminManageProducts: React.FC = () => {
   return (
     <>
       {/* Page Header */}
-      <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-6 sticky top-0 z-10 transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Products</h1>
-            <p className="text-slate-500 dark:text-emerald-300 text-sm mt-1">Add, edit, and manage your product inventory.</p>
+            <h1 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Products</h1>
+            <p className="text-slate-500 dark:text-emerald-300 text-xs sm:text-sm mt-1">Add, edit, and manage your product inventory.</p>
           </div>
           <button
             onClick={handleAddProductClick}
-            className="flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+            className="flex items-center gap-2 bg-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
           >
-            <Plus size={20} /> Add New Product
+            <Plus size={18} className="sm:w-5 sm:h-5" /> Add Product
           </button>
         </div>
       </header>
 
-      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
+      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
         {/* Category Filters */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             onClick={() => { setActiveCategory(null); setCurrentPage(1); }}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${!activeCategory ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+            className={`px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${!activeCategory ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
           >
             All Categories
           </button>
@@ -371,7 +371,7 @@ const AdminManageProducts: React.FC = () => {
             <button
               key={category}
               onClick={() => { setActiveCategory(category); setCurrentPage(1); }}
-              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeCategory === category ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+              className={`px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${activeCategory === category ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
             >
               {category}
             </button>
@@ -379,20 +379,20 @@ const AdminManageProducts: React.FC = () => {
         </div>
 
         {/* Products Table */}
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 transition-colors duration-300">
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[100px]">Image</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Product Name</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Category</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sub-category</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Price</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Colors</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sizes</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Stock</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[100px] whitespace-nowrap">Image</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Product Name</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Category</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Sub-category</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Price</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Colors</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Sizes</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Stock</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors duration-300">
@@ -401,53 +401,53 @@ const AdminManageProducts: React.FC = () => {
                   const uniqueSizes = Array.from(new Set((product.variants || []).map(v => v.size))).filter(s => s);
                   return (
                   <tr key={product.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-950 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-colors">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-white border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-colors">
                         {product.images && product.images.length > 0 ? (
                           <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-1" />
                         ) : (
-                          <ImageIcon size={24} className="text-slate-400 dark:text-slate-600" />
+                          <ImageIcon size={20} className="sm:w-6 sm:h-6 text-slate-400 dark:text-slate-600" />
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 max-w-xs">
-                      <p className="font-semibold text-slate-800 dark:text-emerald-50 line-clamp-2 min-h-[2.5rem]">{product.name}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">SKU: {product.id.toUpperCase()}</p>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 max-w-xs">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-emerald-50 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">{product.name}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500">SKU: {product.id.toUpperCase()}</p>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center rounded-full bg-slate-200 dark:bg-slate-800 px-3 py-1 text-xs font-bold text-slate-700 dark:text-emerald-200 transition-colors">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <span className="inline-flex items-center rounded-full bg-slate-200 dark:bg-slate-800 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-emerald-200 transition-colors whitespace-nowrap">
                         {product.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-emerald-200">{product.subCategory}</td>
-                    <td className="px-6 py-4 text-base font-bold text-slate-900 dark:text-emerald-50">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 whitespace-nowrap">{product.subCategory}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm sm:text-base font-bold text-slate-900 dark:text-emerald-50">
                       <div className="flex flex-col">
-                        <span>{getFormattedPrice(product.price * (1 - (product.discount || 0) / 100))}</span>
+                        <span className="whitespace-nowrap">{getFormattedPrice(product.price * (1 - (product.discount || 0) / 100))}</span>
                         {(product.discount || 0) > 0 && (
-                          <span className="text-xs text-slate-400 dark:text-slate-500 line-through">{getFormattedPrice(product.price)}</span>
+                          <span className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 line-through whitespace-nowrap">{getFormattedPrice(product.price)}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-emerald-200">{uniqueColors.join(', ') || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-emerald-200">{uniqueSizes.join(', ') || '-'}</td>
-                    <td className="px-6 py-4">{getStockStatus(product.stock)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button 
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 whitespace-nowrap">{uniqueColors.join(', ') || '-'}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 whitespace-nowrap">{uniqueSizes.join(', ') || '-'}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">{getStockStatus(product.stock)}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 sm:gap-3">
+                        <button
                           onClick={() => handleEditProductClick(product)}
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                           aria-label={`Edit ${product.name}`}
                           title={`Edit ${product.name}`}
                         >
-                          <Pencil size={18} />
+                          <Pencil size={16} className="sm:w-[18px] sm:h-[18px]" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteProductClick(product)}
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                           aria-label={`Delete ${product.name}`}
                           title={`Delete ${product.name}`}
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
                         </button>
                       </div>
                     </td>
@@ -455,7 +455,7 @@ const AdminManageProducts: React.FC = () => {
                   );
                 }) : (
                   <tr>
-                    <td colSpan={9} className="text-center py-10 text-slate-500 dark:text-emerald-300 text-lg">No products found.</td>
+                    <td colSpan={9} className="text-center py-10 text-sm sm:text-lg text-slate-500 dark:text-emerald-300">No products found.</td>
                   </tr>
                 )}
               </tbody>
@@ -464,15 +464,15 @@ const AdminManageProducts: React.FC = () => {
 
           {/* Pagination */}
           {filteredProducts.length > 0 && (
-            <div className="flex items-center justify-between p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-              <span className="text-sm text-slate-600 dark:text-emerald-300">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+              <span className="text-xs sm:text-sm text-slate-600 dark:text-emerald-300 order-2 sm:order-1">
                 {`Showing ${Math.min(filteredProducts.length, (currentPage - 1) * PRODUCTS_PER_PAGE + 1)}-${Math.min(filteredProducts.length, currentPage * PRODUCTS_PER_PAGE)} of ${filteredProducts.length} products`}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -480,7 +480,7 @@ const AdminManageProducts: React.FC = () => {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-semibold ${currentPage === page ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
+                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-xs sm:text-sm font-semibold ${currentPage === page ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
                   >
                     {page}
                   </button>
@@ -488,7 +488,7 @@ const AdminManageProducts: React.FC = () => {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -501,24 +501,24 @@ const AdminManageProducts: React.FC = () => {
       {/* Add New Product Modal */}
       {showAddProductModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">Add New Product</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Add New Product</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div className="col-span-full">
-                <label htmlFor="productName" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Product Name</label>
+                <label htmlFor="productName" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Name</label>
                 <input
                   id="productName"
                   type="text"
                   placeholder="e.g. Gaming Mouse"
                   value={newProductName}
                   onChange={(e) => { setNewProductName(e.target.value); setAddFormErrors(prev => ({ ...prev, name: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {addFormErrors.name && <p className="text-red-500 text-xs mt-1">{addFormErrors.name}</p>}
               </div>
 
               <div className="col-span-full">
-                <label htmlFor="productDescription" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Description</label>
+                <label htmlFor="productDescription" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Description</label>
                 <textarea
                   id="productDescription"
                   placeholder="A detailed description of the product."
@@ -530,7 +530,7 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="productPrice" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Price (RWF)</label>
+                <label htmlFor="productPrice" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Price (RWF)</label>
                 <input
                   id="productPrice"
                   type="text" // Changed to text to avoid browser locale issues with type="number"
@@ -539,13 +539,13 @@ const AdminManageProducts: React.FC = () => {
                   placeholder="0.00"
                   value={newProductPrice}
                   onChange={(e) => { setNewProductPrice(e.target.value); setAddFormErrors(prev => ({ ...prev, price: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {addFormErrors.price && <p className="text-red-500 text-xs mt-1">{addFormErrors.price}</p>}
               </div>
 
               <div>
-                <label htmlFor="productStock" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Stock Quantity</label>
+                <label htmlFor="productStock" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Stock Quantity</label>
                 <input
                   id="productStock"
                   type="number"
@@ -553,26 +553,26 @@ const AdminManageProducts: React.FC = () => {
                   placeholder="0"
                   value={newProductStock}
                   onChange={(e) => { setNewProductStock(e.target.value); setAddFormErrors(prev => ({ ...prev, stock: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {addFormErrors.stock && <p className="text-red-500 text-xs mt-1">{addFormErrors.stock}</p>}
               </div>
 
               <div>
-                <label htmlFor="productDiscount" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Discount (%)</label>
+                <label htmlFor="productDiscount" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Discount (%)</label>
                 <input
                   id="productDiscount"
                   type="number"
                   placeholder="0"
                   value={newProductDiscount}
                   onChange={(e) => { setNewProductDiscount(e.target.value); setAddFormErrors(prev => ({ ...prev, discount: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {addFormErrors.discount && <p className="text-red-500 text-xs mt-1">{addFormErrors.discount}</p>}
               </div>
 
               <div>
-                <label htmlFor="productCategory" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Category</label>
+                <label htmlFor="productCategory" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Category</label>
                 <select
                   id="productCategory"
                   value={newProductCategory}
@@ -581,7 +581,7 @@ const AdminManageProducts: React.FC = () => {
                     setNewProductSubCategory(''); // Reset sub-category when category changes
                     setAddFormErrors(prev => ({ ...prev, category: '' }));
                   }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 >
                   <option value="">Select category</option>
                   {categories.map(cat => (
@@ -592,12 +592,12 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="productSubCategory" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Sub-category</label>
+                <label htmlFor="productSubCategory" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Sub-category</label>
                 <select
                   id="productSubCategory"
                   value={newProductSubCategory}
                   onChange={(e) => { setNewProductSubCategory(e.target.value); setAddFormErrors(prev => ({ ...prev, subCategory: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                   disabled={!newProductCategory}
                 >
                   <option value="">Select sub-category</option>
@@ -609,7 +609,7 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div className="col-span-full">
-                <label htmlFor="productImages" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Product Images</label>
+                <label htmlFor="productImages" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Images</label>
                 <input
                   id="productImages"
                   type="file"
@@ -617,7 +617,7 @@ const AdminManageProducts: React.FC = () => {
                   accept="image/*"
                   onChange={(e) => handleImageFileChange(e, setNewProductImagePreviews, setAddFormErrors, setIsUploadingNewImages)}
                   disabled={isUploadingNewImages}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
                 />
                 {isUploadingNewImages && <p className="text-emerald-600 text-xs mt-1">Uploading...</p>}
                 {addFormErrors.images && <p className="text-red-500 text-xs mt-1">{addFormErrors.images}</p>}
@@ -642,7 +642,7 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div className="col-span-full">
-                <label htmlFor="productVideo" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Product Videos (Optional)</label>
+                <label htmlFor="productVideo" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Videos (Optional)</label>
                 <input
                   id="productVideo"
                   type="file"
@@ -650,7 +650,7 @@ const AdminManageProducts: React.FC = () => {
                   accept="video/mp4,video/webm,video/quicktime"
                   onChange={(e) => handleVideoFileChange(e, setNewProductVideoUrls, setIsUploadingNewVideo)}
                   disabled={isUploadingNewVideo}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
                 />
                 {isUploadingNewVideo && <p className="text-emerald-600 text-xs mt-1">Uploading...</p>}
 
@@ -690,16 +690,16 @@ const AdminManageProducts: React.FC = () => {
 
             </div>
 
-            <div className="flex justify-end gap-3 mt-8">
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mt-6 sm:mt-8">
               <button
                 onClick={() => setShowAddProductModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveNewProduct}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
               >
                 Add Product
               </button>
@@ -718,24 +718,24 @@ const AdminManageProducts: React.FC = () => {
       {/* Edit Product Modal */}
       {showEditProductModal && editingProductId && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">Edit Product: {editingProductName}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Edit Product: {editingProductName}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
               <div className="col-span-full">
-                <label htmlFor="editProductName" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Product Name</label>
+                <label htmlFor="editProductName" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Name</label>
                 <input
                   id="editProductName"
                   type="text"
                   placeholder="e.g. Gaming Mouse"
                   value={editingProductName}
                   onChange={(e) => { setEditingProductName(e.target.value); setEditFormErrors(prev => ({ ...prev, name: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {editFormErrors.name && <p className="text-red-500 text-xs mt-1">{editFormErrors.name}</p>}
               </div>
 
               <div className="col-span-full">
-                <label htmlFor="editProductDescription" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Description</label>
+                <label htmlFor="editProductDescription" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Description</label>
                 <textarea
                   id="editProductDescription"
                   placeholder="A detailed description of the product."
@@ -747,7 +747,7 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="editProductPrice" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Price (RWF)</label>
+                <label htmlFor="editProductPrice" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Price (RWF)</label>
                 <input
                   id="editProductPrice"
                   type="text" // Changed to text
@@ -756,13 +756,13 @@ const AdminManageProducts: React.FC = () => {
                   placeholder="0.00"
                   value={editingProductPrice}
                   onChange={(e) => { setEditingProductPrice(e.target.value); setEditFormErrors(prev => ({ ...prev, price: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {editFormErrors.price && <p className="text-red-500 text-xs mt-1">{editFormErrors.price}</p>}
               </div>
 
               <div>
-                <label htmlFor="editProductStock" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Stock Quantity</label>
+                <label htmlFor="editProductStock" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Stock Quantity</label>
                 <input
                   id="editProductStock"
                   type="number"
@@ -770,26 +770,26 @@ const AdminManageProducts: React.FC = () => {
                   placeholder="0"
                   value={editingProductStock}
                   onChange={(e) => { setEditingProductStock(e.target.value); setEditFormErrors(prev => ({ ...prev, stock: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {editFormErrors.stock && <p className="text-red-500 text-xs mt-1">{editFormErrors.stock}</p>}
               </div>
 
               <div>
-                <label htmlFor="editProductDiscount" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Discount (%)</label>
+                <label htmlFor="editProductDiscount" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Discount (%)</label>
                 <input
                   id="editProductDiscount"
                   type="number"
                   placeholder="0"
                   value={editingProductDiscount}
                   onChange={(e) => { setEditingProductDiscount(e.target.value); setEditFormErrors(prev => ({ ...prev, discount: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
                 {editFormErrors.discount && <p className="text-red-500 text-xs mt-1">{editFormErrors.discount}</p>}
               </div>
 
               <div>
-                <label htmlFor="editProductCategory" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Category</label>
+                <label htmlFor="editProductCategory" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Category</label>
                 <select
                   id="editProductCategory"
                   value={editingProductCategory}
@@ -798,7 +798,7 @@ const AdminManageProducts: React.FC = () => {
                     setEditingProductSubCategory('');
                     setEditFormErrors(prev => ({ ...prev, category: '' }));
                   }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 >
                   <option value="">Select category</option>
                   {categories.map(cat => (
@@ -809,12 +809,12 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="editProductSubCategory" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Sub-category</label>
+                <label htmlFor="editProductSubCategory" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Sub-category</label>
                 <select
                   id="editProductSubCategory"
                   value={editingProductSubCategory}
                   onChange={(e) => { setEditingProductSubCategory(e.target.value); setEditFormErrors(prev => ({ ...prev, subCategory: '' })); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                   disabled={!editingProductCategory}
                 >
                   <option value="">Select sub-category</option>
@@ -826,7 +826,7 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div className="col-span-full">
-                <label htmlFor="editProductImages" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Product Images</label>
+                <label htmlFor="editProductImages" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Images</label>
                 <input
                   id="editProductImages"
                   type="file"
@@ -834,7 +834,7 @@ const AdminManageProducts: React.FC = () => {
                   accept="image/*"
                   onChange={(e) => handleImageFileChange(e, setEditingProductImagePreviews, setEditFormErrors, setIsUploadingEditImages)}
                   disabled={isUploadingEditImages}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
                 />
                 {isUploadingEditImages && <p className="text-emerald-600 text-xs mt-1">Uploading...</p>}
                 {editFormErrors.images && <p className="text-red-500 text-xs mt-1">{editFormErrors.images}</p>}
@@ -859,7 +859,7 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div className="col-span-full">
-                <label htmlFor="editProductVideo" className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Product Videos (Optional)</label>
+                <label htmlFor="editProductVideo" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Videos (Optional)</label>
                 <input
                   id="editProductVideo"
                   type="file"
@@ -867,7 +867,7 @@ const AdminManageProducts: React.FC = () => {
                   accept="video/mp4,video/webm,video/quicktime"
                   onChange={(e) => handleVideoFileChange(e, setEditingProductVideoUrls, setIsUploadingEditVideo)}
                   disabled={isUploadingEditVideo}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-900 file:text-emerald-700 dark:file:text-emerald-300 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-800 disabled:opacity-60"
                 />
                 {isUploadingEditVideo && <p className="text-emerald-600 text-xs mt-1">Uploading...</p>}
 
@@ -907,16 +907,16 @@ const AdminManageProducts: React.FC = () => {
 
             </div>
 
-            <div className="flex justify-end gap-3 mt-8">
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mt-6 sm:mt-8">
               <button
                 onClick={() => setShowEditProductModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEditedProduct}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
               >
                 Save Changes
               </button>

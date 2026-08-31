@@ -125,18 +125,18 @@ const AdminManageOrders: React.FC = () => {
   return (
     <>
       {/* Page Header */}
-      <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-6 sticky top-0 z-10 transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Orders</h1>
-            <p className="text-slate-500 dark:text-emerald-300 text-sm mt-1">View and manage all customer orders here.</p>
+            <h1 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Orders</h1>
+            <p className="text-slate-500 dark:text-emerald-300 text-xs sm:text-sm mt-1">View and manage all customer orders here.</p>
           </div>
         </div>
       </header>
 
-      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
+      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
         {/* Filters and Search */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 transition-colors duration-300">
           <div className="relative flex-1 w-full sm:max-w-xs">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
             <input
@@ -144,14 +144,14 @@ const AdminManageOrders: React.FC = () => {
               placeholder="Search by Order ID or Product Name"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 outline-none text-sm text-slate-900 dark:text-emerald-100 transition-all"
+              className="w-full pl-12 pr-4 py-2.5 sm:py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 outline-none text-sm text-slate-900 dark:text-emerald-100 transition-all"
             />
           </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <select
               value={filterStatus}
               onChange={(e) => { setFilterStatus(e.target.value as 'All' | Order['status']); setCurrentPage(1); }}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-700 dark:text-emerald-100 w-full sm:w-auto"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-3 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-700 dark:text-emerald-100 w-full sm:w-auto"
             >
               {availableStatuses.map(status => (
                 <option key={status} value={status}>{status === 'All' ? 'All Orders' : status}</option>
@@ -165,7 +165,7 @@ const AdminManageOrders: React.FC = () => {
                 setSortDirection(direction as 'asc' | 'desc');
                 setCurrentPage(1);
               }}
-              className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-700 dark:text-emerald-100 w-full sm:w-auto"
+              className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-3 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-700 dark:text-emerald-100 w-full sm:w-auto"
             >
               <option value="date-desc">Newest First</option>
               <option value="date-asc">Oldest First</option>
@@ -176,64 +176,64 @@ const AdminManageOrders: React.FC = () => {
         </div>
 
         {/* Orders Table */}
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 transition-colors duration-300">
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Order ID</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Customer</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer" onClick={() => handleSort('date')}>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Order ID</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Customer</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer whitespace-nowrap" onClick={() => handleSort('date')}>
                     Date {sortBy === 'date' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer" onClick={() => handleSort('total')}>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer whitespace-nowrap" onClick={() => handleSort('total')}>
                     Total {sortBy === 'total' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center whitespace-nowrap">Status</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors duration-300">{paginatedOrders.length > 0 ? paginatedOrders.map(order => (
                   <tr key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-950 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-700 dark:text-emerald-50">#{order.orderNumber || order.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-emerald-200">{order.customerName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-emerald-200">{formatDate(order.date)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-base font-bold text-slate-900 dark:text-emerald-100">{getFormattedPrice(order.total)}</td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-50">#{order.orderNumber || order.id}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{order.customerName}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{formatDate(order.date)}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm sm:text-base font-bold text-slate-900 dark:text-emerald-100">{getFormattedPrice(order.total)}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value as Order['status'])}
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold outline-none border-none ${getStatusClasses(order.status)}`}
+                        className={`inline-flex items-center rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold outline-none border-none ${getStatusClasses(order.status)}`}
                       >
                         {availableStatuses.filter(s => s !== 'All').map(statusOption => (
                           <option key={statusOption} value={statusOption}>{statusOption}</option>
                         ))}
                       </select>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button 
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 sm:gap-3">
+                        <button
                           onClick={() => handleViewDetails(order)}
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                           aria-label={`View details for order #${order.orderNumber || order.id}`}
                           title={`View details for order #${order.orderNumber || order.id}`}
                         >
-                          <Package size={18} />
+                          <Package size={16} className="sm:w-[18px] sm:h-[18px]" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteOrderClick(order)}
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                           aria-label={`Delete order #${order.orderNumber || order.id}`}
                           title={`Delete order #${order.orderNumber || order.id}`}
                         >
-                          <X size={18} />
+                          <X size={16} className="sm:w-[18px] sm:h-[18px]" />
                         </button>
                       </div>
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-slate-500 dark:text-emerald-300 text-lg">No orders found.</td>
+                    <td colSpan={6} className="text-center py-10 text-sm sm:text-lg text-slate-500 dark:text-emerald-300">No orders found.</td>
                   </tr>
                 )}</tbody>
             </table>
@@ -241,15 +241,15 @@ const AdminManageOrders: React.FC = () => {
 
           {/* Pagination */}
           {filteredAndSortedOrders.length > 0 && (
-            <div className="flex items-center justify-between p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-              <span className="text-sm text-slate-600 dark:text-emerald-300">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+              <span className="text-xs sm:text-sm text-slate-600 dark:text-emerald-300 order-2 sm:order-1">
                 {`Showing ${Math.min(filteredAndSortedOrders.length, (currentPage - 1) * ORDERS_PER_PAGE + 1)}-${Math.min(filteredAndSortedOrders.length, currentPage * ORDERS_PER_PAGE)} of ${filteredAndSortedOrders.length} orders`}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 order-1 sm:order-2 flex-wrap justify-center">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -257,7 +257,7 @@ const AdminManageOrders: React.FC = () => {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-semibold ${currentPage === page ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
+                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl text-xs sm:text-sm font-semibold ${currentPage === page ? 'bg-orange-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
                   >
                     {page}
                   </button>
@@ -265,7 +265,7 @@ const AdminManageOrders: React.FC = () => {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -357,8 +357,8 @@ const AdminManageOrders: React.FC = () => {
             </div>
 
             {/* Detailed UI for on-screen viewing */}
-            <h3 className="text-2xl font-black text-slate-900 mb-6">Order Details #{selectedOrder.orderNumber || selectedOrder.id}</h3>
-            <div className="space-y-4 text-slate-700 text-sm">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6 pr-8">Order Details #{selectedOrder.orderNumber || selectedOrder.id}</h3>
+            <div className="space-y-3 sm:space-y-4 text-slate-700 text-xs sm:text-sm">
               <p><strong>Date:</strong> {formatDate(selectedOrder.date)}</p>
               <p><strong>Customer:</strong> {selectedOrder.customerName}</p>
               {selectedOrder.deliveryAddress ? (
@@ -405,7 +405,7 @@ const AdminManageOrders: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex justify-end gap-3 mt-8 no-print">
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mt-6 sm:mt-8 no-print">
               {selectedOrder.paymentStatus !== 'paid' && (
                 <button
                   onClick={async () => {
@@ -417,7 +417,7 @@ const AdminManageOrders: React.FC = () => {
                     }
                   }}
                   disabled={isConfirmingPayment}
-                  className="px-6 py-3 rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 transition-colors disabled:opacity-60"
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 transition-colors disabled:opacity-60"
                 >
                   {isConfirmingPayment ? 'Confirming...' : 'Confirm Payment'}
                 </button>
@@ -437,7 +437,7 @@ const AdminManageOrders: React.FC = () => {
                     html2pdf.default().set(opt).from(element as HTMLElement).save();
                   });
                 }}
-                className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
               >
                 Download Invoice
               </button>
@@ -474,13 +474,13 @@ const AdminManageOrders: React.FC = () => {
                   }
                 }}
                 disabled={isSendingInvoice}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-60"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-60"
               >
                 {isSendingInvoice ? 'Sending...' : 'Send Invoice'}
               </button>
               <button
                 onClick={() => setShowOrderDetailsModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 Close
               </button>

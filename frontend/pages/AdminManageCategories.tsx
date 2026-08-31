@@ -182,39 +182,39 @@ const AdminManageCategories: React.FC = () => {
   return (
     <>
       {/* Page Header */}
-      <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-6 sticky top-0 z-10 transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Categories</h1>
-            <p className="text-slate-500 dark:text-emerald-300 text-sm mt-1">Add, edit, and organize your product categories.</p>
+            <h1 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Categories</h1>
+            <p className="text-slate-500 dark:text-emerald-300 text-xs sm:text-sm mt-1">Add, edit, and organize your product categories.</p>
           </div>
           <button
             onClick={handleAddCategoryClick}
-            className="flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+            className="flex items-center gap-2 bg-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
           >
-            <Plus size={20} /> Add New Category
+            <Plus size={18} className="sm:w-5 sm:h-5" /> Add Category
           </button>
         </div>
       </header>
 
-      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
+      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
         {/* Categories List Table */}
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 transition-colors duration-300">
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-1/3">Category Name</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-1/3">Sub-categories</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right w-1/3">Actions</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-1/3 whitespace-nowrap">Category Name</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-1/3 whitespace-nowrap">Sub-categories</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right w-1/3 whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors duration-300">
                 {categories.length > 0 ? categories.map((category) => (
                   <React.Fragment key={category}>
                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-950 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <button
                             onClick={() => toggleCategoryExpansion(category)}
                             aria-expanded={expandedCategories[category]}
@@ -227,46 +227,46 @@ const AdminManageCategories: React.FC = () => {
                           <p className="font-semibold text-slate-800 dark:text-emerald-50">{category}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-emerald-200">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200">
                         {/* Ensure categoryHierarchy[category] is an array */}
                         {(categoryHierarchy[category] || []).length > 0
                           ? `${(categoryHierarchy[category] || []).length} Sections`
                           : "No sections"}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                        <div className="flex items-center justify-end gap-2 sm:gap-3">
                           <button
                             onClick={() => handleEditCategoryClick(category)}
-                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                            className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                             aria-label={`Edit ${category}`}
                             title={`Edit ${category}`}
                           >
-                            <Pencil size={18} />
+                            <Pencil size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                           <button
                             onClick={() => handleDeleteCategoryClick(category)}
-                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                            className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                             aria-label={`Delete ${category}`}
                             title={`Delete ${category}`}
                           >
-                            <Trash2 size={18} />
+                            <Trash2 size={16} className="sm:w-[18px] sm:h-[18px]" />
                           </button>
                         </div>
                       </td>
                     </tr>
                     {expandedCategories[category] && (
                       <tr id={`subcategories-${category}`} className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 animate-fade-in transition-colors duration-300">
-                        <td colSpan={3} className="px-6 py-5">
-                          <div className="flex items-center justify-between mb-4 pl-12">
-                            <h4 className="text-lg font-bold text-slate-900 dark:text-emerald-50">Sub-category Sections</h4>
+                        <td colSpan={3} className="px-3 sm:px-6 py-4 sm:py-5">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pl-6 sm:pl-12">
+                            <h4 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-emerald-50">Sub-category Sections</h4>
                             <button
                               onClick={() => handleAddSubCategorySectionClick(category)}
-                              className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors"
+                              className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors"
                             >
-                              <Plus size={16} /> Add Section
+                              <Plus size={14} className="sm:w-4 sm:h-4" /> Add Section
                             </button>
                           </div>
-                          <div className="pl-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-4 gap-x-6">
+                          <div className="pl-6 sm:pl-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-3 sm:gap-y-4 gap-x-4 sm:gap-x-6">
                             {/* Use (categoryHierarchy[category] || []) to ensure it's always an array */}
                             {(categoryHierarchy[category] || []).length > 0 ? (
                               (categoryHierarchy[category] || []).map(section => (
@@ -307,7 +307,7 @@ const AdminManageCategories: React.FC = () => {
                   </React.Fragment>
                 )) : (
                   <tr>
-                    <td colSpan={3} className="text-center py-10 text-slate-500 dark:text-emerald-300 text-lg">No categories found.</td>
+                    <td colSpan={3} className="text-center py-10 text-sm sm:text-lg text-slate-500 dark:text-emerald-300">No categories found.</td>
                   </tr>
                 )}
               </tbody>
@@ -320,26 +320,26 @@ const AdminManageCategories: React.FC = () => {
       {/* Add New Category Modal */}
       {showAddCategoryModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">Add New Category</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Add New Category</h3>
             <input
               type="text"
               placeholder="Category name"
               value={newCategoryName}
               onChange={(e) => { setNewCategoryName(e.target.value); setCategoryNameError(''); }}
-              className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
-            {categoryNameError && <p className="text-red-500 text-sm mb-4">{categoryNameError}</p>}
-            <div className="flex justify-end gap-3">
+            {categoryNameError && <p className="text-red-500 text-xs sm:text-sm mb-4">{categoryNameError}</p>}
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => setShowAddCategoryModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveNewCategory}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
               >
                 Add Category
               </button>
@@ -358,26 +358,26 @@ const AdminManageCategories: React.FC = () => {
       {/* Edit Category Modal */}
       {showEditCategoryModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">Edit Category: {editingCategoryOldName}</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Edit Category: {editingCategoryOldName}</h3>
             <input
               type="text"
               placeholder="New category name"
               value={editingCategoryNewName}
               onChange={(e) => { setEditingCategoryNewName(e.target.value); setEditingCategoryError(''); }}
-              className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
-            {editingCategoryError && <p className="text-red-500 text-sm mb-4">{editingCategoryError}</p>}
-            <div className="flex justify-end gap-3">
+            {editingCategoryError && <p className="text-red-500 text-xs sm:text-sm mb-4">{editingCategoryError}</p>}
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => setShowEditCategoryModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEditedCategory}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
               >
                 Save Changes
               </button>
@@ -396,16 +396,16 @@ const AdminManageCategories: React.FC = () => {
       {/* Add New Sub-Category Section Modal */}
       {showAddSubCategorySectionModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 relative">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">Add Section to {currentCategoryForSub}</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 relative">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Add Section to {currentCategoryForSub}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Section Title</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Section Title</label>
                 <input
                   type="text"
                   value={newSectionTitle}
                   onChange={(e) => { setNewSectionTitle(e.target.value); setNewSectionError(''); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                   placeholder="e.g. Gaming Gear"
                 />
               </div>
@@ -414,21 +414,21 @@ const AdminManageCategories: React.FC = () => {
                 <textarea
                   value={newSectionItems}
                   onChange={(e) => { setNewSectionItems(e.target.value); setNewSectionError(''); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
                 />
               </div>
             </div>
-            {newSectionError && <p className="text-red-500 text-sm mt-4">{newSectionError}</p>}
-            <div className="flex justify-end gap-3 mt-6">
+            {newSectionError && <p className="text-red-500 text-xs sm:text-sm mt-4">{newSectionError}</p>}
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mt-6">
               <button
                 onClick={() => setShowAddSubCategorySectionModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveNewSubCategorySection}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
               >
                 Add Section
               </button>
@@ -447,38 +447,38 @@ const AdminManageCategories: React.FC = () => {
       {/* Edit Sub-Category Section Modal */}
       {showEditSubCategorySectionModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 relative">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-emerald-50 mb-6">Edit Section in {editingSubCategoryCategoryName}</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 relative">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Edit Section in {editingSubCategoryCategoryName}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Section Title</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Section Title</label>
                 <input
                   type="text"
                   value={editingSubCategorySectionTitle}
                   onChange={(e) => { setEditingSubCategorySectionTitle(e.target.value); setEditingSubCategoryError(''); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Items (comma separated)</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Items (comma separated)</label>
                 <textarea
                   value={editingSubCategorySectionItems}
                   onChange={(e) => { setEditingSubCategorySectionItems(e.target.value); setEditingSubCategoryError(''); }}
-                  className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
                 />
               </div>
             </div>
-            {editingSubCategoryError && <p className="text-red-500 text-sm mt-4">{editingSubCategoryError}</p>}
-            <div className="flex justify-end gap-3 mt-6">
+            {editingSubCategoryError && <p className="text-red-500 text-xs sm:text-sm mt-4">{editingSubCategoryError}</p>}
+            <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mt-6">
               <button
                 onClick={() => setShowEditSubCategorySectionModal(false)}
-                className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEditedSubCategorySection}
-                className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+                className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
               >
                 Save Changes
               </button>
