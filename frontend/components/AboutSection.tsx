@@ -68,11 +68,11 @@ const AboutSection: React.FC = () => {
           <p className="text-slate-500 dark:text-emerald-300 text-base leading-relaxed mb-8">
             {t('about_mission_body')}
           </p>
-          <div className="flex flex-wrap gap-x-10 gap-y-4">
+          <div className="grid grid-cols-3 gap-3 sm:gap-10">
             {stats.map((s, i) => (
-              <div key={i}>
-                <div className="text-3xl font-black text-emerald-900 dark:text-emerald-300 tracking-tight">{s.value}</div>
-                <div className="text-sm text-slate-500 dark:text-emerald-400 font-medium">{t(s.labelKey)}</div>
+              <div key={i} className="text-center sm:text-left">
+                <div className="text-xl sm:text-3xl font-black text-emerald-900 dark:text-emerald-300 tracking-tight">{s.value}</div>
+                <div className="text-[11px] sm:text-sm text-slate-500 dark:text-emerald-400 font-medium">{t(s.labelKey)}</div>
               </div>
             ))}
           </div>

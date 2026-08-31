@@ -17,13 +17,37 @@ const LinkForm: React.FC<{
 }> = ({ initialLink, onSave, onCancel, title, submitLabel }) => {
   const [label, setLabel] = useState(initialLink?.label || '');
   const [to, setTo] = useState(initialLink?.to || '');
+  const canSave = label.trim().length > 0 && to.trim().length > 0;
   return (
-    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-[2.5rem] p-5 sm:p-8 w-full max-w-md shadow-xl">
-        <h3 className="text-2xl font-black text-slate-900 mb-6">{title}</h3>
-        <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 border border-slate-200 mb-4" placeholder="Link Label" />
-        <input type="text" value={to} onChange={(e) => setTo(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 border border-slate-200 mb-4" placeholder="URL Path" />
-        <button onClick={() => onSave({ label, to })} className="w-full px-6 py-3 rounded-xl font-bold bg-orange-500 text-white">{submitLabel}</button>
+    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div
+        className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 w-full max-w-md shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-emerald-50">{title}</h3>
+          <button
+            onClick={onCancel}
+            className="p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <label className="block text-xs font-semibold text-slate-600 dark:text-emerald-300 mb-1.5">Label</label>
+        <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 mb-4" placeholder="e.g. Shop All" />
+        <label className="block text-xs font-semibold text-slate-600 dark:text-emerald-300 mb-1.5">URL Path</label>
+        <input type="text" value={to} onChange={(e) => setTo(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 mb-6" placeholder="e.g. /shop" />
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 px-6 py-3 rounded-xl font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+          <button
+            onClick={() => canSave && onSave({ label: label.trim(), to: to.trim() })}
+            disabled={!canSave}
+            className="flex-1 px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitLabel}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -42,7 +66,6 @@ const AdminStoreConfiguration: React.FC = () => {
   const [whatsappNumberInput, setWhatsappNumberInput] = useState(footerSettings.whatsappNumber);
   const [emailInput, setEmailInput] = useState(footerSettings.emailAddress);
   const [copyrightInput, setCopyrightInput] = useState(footerSettings.copyrightText);
-  const [quickLinksInput, setQuickLinksInput] = useState<FooterLink[]>(footerSettings.quickLinks);
 
   const handleSaveAll = () => {
     updateFooterLocation(locationInput.split('\n'));
@@ -50,8 +73,27 @@ const AdminStoreConfiguration: React.FC = () => {
     updateFooterWhatsappNumber(whatsappNumberInput);
     updateFooterEmail(emailInput);
     updateFooterCopyrightText(copyrightInput);
-    updateFooterQuickLinks(quickLinksInput);
     showToast('Store configuration saved!', 'success');
+  };
+
+  // --- Footer Links (Quick Links / Support Links) ---
+  // Unlike the fields above (buffered locally, saved together via "Save Configuration"), links are
+  // a list - each add/edit/delete is its own discrete action, so it saves immediately, the same
+  // way the Shipping Zones list below already works.
+  const [linkModal, setLinkModal] = useState<{ type: 'quick' | 'support'; index: number | null } | null>(null);
+
+  const handleSaveLink = (link: FooterLink) => {
+    if (!linkModal) return;
+    const { type, index } = linkModal;
+    const current = type === 'quick' ? footerSettings.quickLinks : footerSettings.supportLinks;
+    const next = index === null ? [...current, link] : current.map((l, i) => (i === index ? link : l));
+    (type === 'quick' ? updateFooterQuickLinks : updateFooterSupportLinks)(next);
+    setLinkModal(null);
+  };
+
+  const handleDeleteLink = (type: 'quick' | 'support', index: number) => {
+    const current = type === 'quick' ? footerSettings.quickLinks : footerSettings.supportLinks;
+    (type === 'quick' ? updateFooterQuickLinks : updateFooterSupportLinks)(current.filter((_, i) => i !== index));
   };
 
   // --- Shipping Zones ---
@@ -149,13 +191,13 @@ const AdminStoreConfiguration: React.FC = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-black text-slate-900 dark:text-emerald-50 mb-2">Store Configuration</h2>
+        <h2 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 mb-2">Store Configuration</h2>
         <p className="text-slate-600 dark:text-emerald-300 text-sm max-w-xl">Manage localization, branding, and store-wide preferences.</p>
       </div>
 
       {/* Localization */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
-        <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Localization</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Localization</h3>
         <div className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 font-semibold">
           RWF - Rwandan Franc
         </div>
@@ -163,8 +205,8 @@ const AdminStoreConfiguration: React.FC = () => {
       </div>
 
       {/* Shipping Zones */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
-        <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50 mb-2 flex items-center gap-2"><Truck size={20} /> Shipping Zones</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-2 flex items-center gap-2"><Truck size={20} /> Shipping Zones</h3>
         <p className="text-sm text-slate-500 dark:text-emerald-300 mb-6">Set a flat shipping fee per set of districts. Orders from a district not listed in any zone use the default zone's fee.</p>
 
         <div className="space-y-3 mb-6">
@@ -230,25 +272,83 @@ const AdminStoreConfiguration: React.FC = () => {
       </div>
 
       {/* Storefront Customization */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
-        <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Contact & Storefront</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Contact & Storefront</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5"><Phone size={13} /> Call Number</label>
-            <input type="text" value={phoneNumberInput} onChange={(e) => setPhoneNumberInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Phone Number" />
+            <input type="text" value={phoneNumberInput} onChange={(e) => setPhoneNumberInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Phone Number" />
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5"><WhatsAppIcon size={13} className="text-green-600 dark:text-green-400" /> WhatsApp Number</label>
-            <input type="text" value={whatsappNumberInput} onChange={(e) => setWhatsappNumberInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="WhatsApp Number" />
+            <input type="text" value={whatsappNumberInput} onChange={(e) => setWhatsappNumberInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="WhatsApp Number" />
           </div>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2 mb-4">Use two different numbers if your call line and WhatsApp line aren't the same.</p>
-        <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Email Address" />
-        <textarea rows={3} value={locationInput} onChange={(e) => setLocationInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Location" />
-        <input type="text" value={copyrightInput} onChange={(e) => setCopyrightInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Copyright" />
+        <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Email Address" />
+        <textarea rows={3} value={locationInput} onChange={(e) => setLocationInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Location" />
+        <input type="text" value={copyrightInput} onChange={(e) => setCopyrightInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Copyright" />
+
+        {/* Footer Links - the Quick Links and Support Links columns shown in the site footer,
+            editable here as two lists (same immediate-save-per-action pattern as Shipping Zones). */}
+        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {([['quick', 'Quick Links', footerSettings.quickLinks], ['support', 'Support Links', footerSettings.supportLinks]] as const).map(([type, title, links]) => (
+            <div key={type}>
+              <h4 className="text-sm font-bold text-slate-700 dark:text-emerald-300 mb-3">{title}</h4>
+              <div className="space-y-2 mb-3">
+                {links.length === 0 ? (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">No links yet.</p>
+                ) : (
+                  links.map((link, index) => (
+                    <div key={`${link.label}-${index}`} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-emerald-50 truncate">{link.label}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{link.to}</p>
+                      </div>
+                      <button
+                        onClick={() => setLinkModal({ type, index })}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors shrink-0"
+                        aria-label={`Edit ${link.label}`}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLink(type, index)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 transition-colors shrink-0"
+                        aria-label={`Delete ${link.label}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <button
+                onClick={() => setLinkModal({ type, index: null })}
+                className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                <Plus size={14} /> Add Link
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <button onClick={handleSaveAll} className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white shadow-lg">Save Configuration</button>
+      {linkModal && (
+        <LinkForm
+          initialLink={
+            linkModal.index === null
+              ? undefined
+              : (linkModal.type === 'quick' ? footerSettings.quickLinks : footerSettings.supportLinks)[linkModal.index]
+          }
+          onSave={handleSaveLink}
+          onCancel={() => setLinkModal(null)}
+          title={linkModal.index === null ? 'Add Link' : 'Edit Link'}
+          submitLabel={linkModal.index === null ? 'Add Link' : 'Save Changes'}
+        />
+      )}
+
+      <button onClick={handleSaveAll} className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold bg-orange-500 text-white shadow-lg hover:bg-orange-600 transition-colors">Save Configuration</button>
     </div>
   );
 };
