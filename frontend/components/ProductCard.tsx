@@ -46,7 +46,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
   };
 
   return (
-    <div className={`group bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:shadow-emerald-900/10 transition-all duration-500 ${isList ? 'flex flex-row items-stretch' : 'transform hover:-translate-y-1'}`}>
+    <div className={`group bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:shadow-emerald-900/10 transition-all duration-500 ${isList ? 'flex flex-row items-stretch' : 'h-full flex flex-col transform hover:-translate-y-1'}`}>
       <Link to={`/product/${product.id}`} className={`block relative overflow-hidden bg-white ${isList ? 'w-36 sm:w-48 shrink-0 aspect-square' : 'aspect-square'}`}>
         <img
           src={product.image}
@@ -79,7 +79,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
           <Heart size={14} className="sm:w-[18px] sm:h-[18px]" fill={wishlist.includes(product.id) ? 'currentColor' : 'none'} />
         </button>
       </Link>
-      <div className={`p-3 sm:p-6 ${isList ? 'flex-1 min-w-0 flex flex-col' : ''}`}>
+      <div className="p-3 sm:p-6 flex-1 min-w-0 flex flex-col">
         <div className="flex justify-between items-start gap-1.5 sm:gap-2 mb-2 sm:mb-4">
           <Link to={`/product/${product.id}`} className="flex-1 min-w-0 text-xs sm:text-base font-bold text-slate-900 dark:text-emerald-50 hover:text-emerald-800 transition-colors tracking-tight line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
             {product.name}
@@ -116,11 +116,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
             <span className="text-sm sm:text-lg font-black text-slate-900 dark:text-emerald-100 tracking-tight truncate">
               {getFormattedPrice(product.price * (1 - (product.discount || 0) / 100))}
             </span>
-            {hasDiscount && (
-              <span className="text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 line-through">
-                {getFormattedPrice(product.price)}
-              </span>
-            )}
+            {/* Always rendered (never mounted/unmounted) so the price block - and everything
+                below it, like the Buy button - lands at the same height whether or not this
+                particular card has a discount, instead of shorter cards looking uneven next to
+                taller discounted ones in the same grid row. */}
+            <span className={`text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 line-through ${hasDiscount ? '' : 'invisible'}`}>
+              {getFormattedPrice(product.price)}
+            </span>
           </div>
           <button
             onClick={() => addToCart(product)}
