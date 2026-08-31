@@ -5,6 +5,7 @@ import { X, ShoppingCart, User, Bell, Star, Mail, Trash2, CheckCheck } from 'luc
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface NotificationPanelProps {
   onClose: () => void;
@@ -27,6 +28,14 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
   } = useAppContext();
   const navigate = useNavigate();
   const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
+
+  // This panel is `position: fixed`, but it renders as a descendant of AdminLayout's <main>,
+  // which is itself a scrolling container (overflow-y-auto). iOS Safari has a long-standing bug
+  // where a fixed element nested inside a scrolling ancestor doesn't reliably stay pinned to the
+  // viewport - if the admin had scrolled the dashboard down before opening this, the panel (close
+  // button included) can render shifted or partly off-screen. Locking scroll while it's open is
+  // the same fix already used for the navbar menu and the shop's mobile filters drawer.
+  useBodyScrollLock(true);
 
   const formatTime = (dateString: string) => {
     const d = new Date(dateString);
