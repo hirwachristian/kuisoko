@@ -6,14 +6,15 @@ import { CategorySection } from '../constants'; // Import CategorySection interf
 import ConfirmationModal from '../components/ConfirmationModal'; // Import ConfirmationModal
 
 const AdminManageCategories: React.FC = () => {
-  const { 
-    categories, 
-    categoryHierarchy, 
-    addCategory, 
-    updateCategoryName, 
-    deleteCategory, 
-    addCategorySection, 
-    updateCategorySection, 
+  const {
+    categories,
+    categoryHierarchy,
+    categoryTranslations,
+    addCategory,
+    updateCategoryName,
+    deleteCategory,
+    addCategorySection,
+    updateCategorySection,
     deleteCategorySection,
     // Removed translate
   } = useAppContext();
@@ -23,24 +24,30 @@ const AdminManageCategories: React.FC = () => {
   // Modals state
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryNameKin, setNewCategoryNameKin] = useState('');
   const [categoryNameError, setCategoryNameError] = useState('');
 
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [editingCategoryOldName, setEditingCategoryOldName] = useState('');
   const [editingCategoryNewName, setEditingCategoryNewName] = useState('');
+  const [editingCategoryNewNameKin, setEditingCategoryNewNameKin] = useState('');
   const [editingCategoryError, setEditingCategoryError] = useState('');
 
   const [showAddSubCategorySectionModal, setShowAddSubCategorySectionModal] = useState(false);
   const [currentCategoryForSub, setCurrentCategoryForSub] = useState('');
   const [newSectionTitle, setNewSectionTitle] = useState('');
+  const [newSectionTitleKin, setNewSectionTitleKin] = useState('');
   const [newSectionItems, setNewSectionItems] = useState(''); // Comma separated string
+  const [newSectionItemsKin, setNewSectionItemsKin] = useState(''); // Comma separated, same order as newSectionItems
   const [newSectionError, setNewSectionError] = useState('');
 
   const [showEditSubCategorySectionModal, setShowEditSubCategorySectionModal] = useState(false);
   const [editingSubCategoryCategoryName, setEditingSubCategoryCategoryName] = useState('');
   const [editingSubCategoryOldSectionTitle, setEditingSubCategoryOldSectionTitle] = useState('');
   const [editingSubCategorySectionTitle, setEditingSubCategorySectionTitle] = useState('');
+  const [editingSubCategorySectionTitleKin, setEditingSubCategorySectionTitleKin] = useState('');
   const [editingSubCategorySectionItems, setEditingSubCategorySectionItems] = useState('');
+  const [editingSubCategorySectionItemsKin, setEditingSubCategorySectionItemsKin] = useState('');
   const [editingSubCategoryError, setEditingSubCategoryError] = useState('');
 
   // Delete Confirmation Modals
@@ -51,10 +58,15 @@ const AdminManageCategories: React.FC = () => {
   const [categoryForSectionToDelete, setCategoryForSectionToDelete] = useState('');
   const [sectionToDelete, setSectionToDelete] = useState('');
 
+  // Comma-separated lists (items/itemsKin) are entered as free text but need to line up by
+  // position - trimming without dropping empty slots keeps "A, , C" translating as ['A','','C'],
+  // not silently collapsing to two items and misaligning with the English list.
+  const parseCommaList = (value: string): string[] => value.split(',').map(item => item.trim());
 
   // --- Category Handlers ---
   const handleAddCategoryClick = () => {
     setNewCategoryName('');
+    setNewCategoryNameKin('');
     setCategoryNameError('');
     setShowAddCategoryModal(true);
   };
@@ -68,13 +80,14 @@ const AdminManageCategories: React.FC = () => {
       setCategoryNameError(`Category "${newCategoryName}" already exists.`);
       return;
     }
-    const success = await addCategory(newCategoryName.trim());
+    const success = await addCategory(newCategoryName.trim(), newCategoryNameKin.trim() || undefined);
     if (success) setShowAddCategoryModal(false);
   };
 
   const handleEditCategoryClick = (category: string) => {
     setEditingCategoryOldName(category);
     setEditingCategoryNewName(category);
+    setEditingCategoryNewNameKin(categoryTranslations[category] || '');
     setEditingCategoryError('');
     setShowEditCategoryModal(true);
   };
@@ -89,7 +102,7 @@ const AdminManageCategories: React.FC = () => {
       setEditingCategoryError(`Category "${editingCategoryNewName}" already exists.`);
       return;
     }
-    const success = await updateCategoryName(editingCategoryOldName, editingCategoryNewName.trim());
+    const success = await updateCategoryName(editingCategoryOldName, editingCategoryNewName.trim(), editingCategoryNewNameKin.trim() || undefined);
     if (success) setShowEditCategoryModal(false);
   };
 
@@ -105,10 +118,28 @@ const AdminManageCategories: React.FC = () => {
   };
 
   // --- Sub-Category Section Handlers ---
+  // Comma-separated items/itemsKin are entered as two parallel free-text lists - lines them up by
+  // position so itemsKin[i] stays the translation of items[i], dropping only slots where the
+  // English item itself is blank (same as the original filter(item => item) behavior).
+  const zipItemsWithTranslations = (rawItems: string, rawItemsKin: string): { items: string[]; itemsKin: string[] } => {
+    const englishParts = parseCommaList(rawItems);
+    const kinParts = parseCommaList(rawItemsKin);
+    const items: string[] = [];
+    const itemsKin: string[] = [];
+    englishParts.forEach((item, i) => {
+      if (!item) return;
+      items.push(item);
+      itemsKin.push(kinParts[i] || '');
+    });
+    return { items, itemsKin };
+  };
+
   const handleAddSubCategorySectionClick = (categoryName: string) => {
     setCurrentCategoryForSub(categoryName);
     setNewSectionTitle('');
+    setNewSectionTitleKin('');
     setNewSectionItems('');
+    setNewSectionItemsKin('');
     setNewSectionError('');
     setShowAddSubCategorySectionModal(true);
   };
@@ -123,8 +154,8 @@ const AdminManageCategories: React.FC = () => {
       return;
     }
 
-    const itemsArray = newSectionItems.split(',').map(item => item.trim()).filter(item => item);
-    const success = await addCategorySection(currentCategoryForSub, newSectionTitle.trim(), itemsArray);
+    const { items, itemsKin } = zipItemsWithTranslations(newSectionItems, newSectionItemsKin);
+    const success = await addCategorySection(currentCategoryForSub, newSectionTitle.trim(), items, newSectionTitleKin.trim() || undefined, itemsKin);
     if (success) setShowAddSubCategorySectionModal(false);
   };
 
@@ -132,7 +163,9 @@ const AdminManageCategories: React.FC = () => {
     setEditingSubCategoryCategoryName(categoryName);
     setEditingSubCategoryOldSectionTitle(section.title);
     setEditingSubCategorySectionTitle(section.title);
+    setEditingSubCategorySectionTitleKin(section.titleKin || '');
     setEditingSubCategorySectionItems(section.items.join(', '));
+    setEditingSubCategorySectionItemsKin((section.itemsKin || []).join(', '));
     setEditingSubCategoryError('');
     setShowEditSubCategorySectionModal(true);
   };
@@ -150,11 +183,11 @@ const AdminManageCategories: React.FC = () => {
       return;
     }
 
-    const itemsArray = editingSubCategorySectionItems.split(',').map(item => item.trim()).filter(item => item);
+    const { items, itemsKin } = zipItemsWithTranslations(editingSubCategorySectionItems, editingSubCategorySectionItemsKin);
     const success = await updateCategorySection(
       editingSubCategoryCategoryName,
       editingSubCategoryOldSectionTitle,
-      { title: editingSubCategorySectionTitle.trim(), items: itemsArray }
+      { title: editingSubCategorySectionTitle.trim(), titleKin: editingSubCategorySectionTitleKin.trim() || undefined, items, itemsKin }
     );
     if (success) setShowEditSubCategorySectionModal(false);
   };
@@ -322,6 +355,7 @@ const AdminManageCategories: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Add New Category</h3>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Category name (English)</label>
             <input
               type="text"
               placeholder="Category name"
@@ -329,6 +363,17 @@ const AdminManageCategories: React.FC = () => {
               onChange={(e) => { setNewCategoryName(e.target.value); setCategoryNameError(''); }}
               className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
+              Category name (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Ikoranabuhanga"
+              value={newCategoryNameKin}
+              onChange={(e) => setNewCategoryNameKin(e.target.value)}
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
+            />
+            <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-4">Leave blank to show the English name when the site is viewed in Kinyarwanda.</p>
             {categoryNameError && <p className="text-red-500 text-xs sm:text-sm mb-4">{categoryNameError}</p>}
             <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
               <button
@@ -360,6 +405,7 @@ const AdminManageCategories: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Edit Category: {editingCategoryOldName}</h3>
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Category name (English)</label>
             <input
               type="text"
               placeholder="New category name"
@@ -367,6 +413,17 @@ const AdminManageCategories: React.FC = () => {
               onChange={(e) => { setEditingCategoryNewName(e.target.value); setEditingCategoryError(''); }}
               className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
             />
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
+              Category name (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Ikoranabuhanga"
+              value={editingCategoryNewNameKin}
+              onChange={(e) => setEditingCategoryNewNameKin(e.target.value)}
+              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100 mb-4"
+            />
+            <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 -mt-2 mb-4">Leave blank to show the English name when the site is viewed in Kinyarwanda.</p>
             {editingCategoryError && <p className="text-red-500 text-xs sm:text-sm mb-4">{editingCategoryError}</p>}
             <div className="flex flex-wrap justify-end gap-2 sm:gap-3">
               <button
@@ -400,7 +457,7 @@ const AdminManageCategories: React.FC = () => {
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Add Section to {currentCategoryForSub}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Section Title</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Section Title (English)</label>
                 <input
                   type="text"
                   value={newSectionTitle}
@@ -410,12 +467,35 @@ const AdminManageCategories: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-2">Items (comma separated)</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
+                  Section Title (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+                </label>
+                <input
+                  type="text"
+                  value={newSectionTitleKin}
+                  onChange={(e) => setNewSectionTitleKin(e.target.value)}
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                  placeholder="e.g. Ibikoresho by'Imikino"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Items (English, comma separated)</label>
                 <textarea
                   value={newSectionItems}
                   onChange={(e) => { setNewSectionItems(e.target.value); setNewSectionError(''); }}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
                 />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
+                  Items (Kinyarwanda, comma separated) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+                </label>
+                <textarea
+                  value={newSectionItemsKin}
+                  onChange={(e) => setNewSectionItemsKin(e.target.value)}
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
+                />
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1.5">Must be in the same order as the English items above - leave an item blank to fall back to English for just that one.</p>
               </div>
             </div>
             {newSectionError && <p className="text-red-500 text-xs sm:text-sm mt-4">{newSectionError}</p>}
@@ -451,7 +531,7 @@ const AdminManageCategories: React.FC = () => {
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Edit Section in {editingSubCategoryCategoryName}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Section Title</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Section Title (English)</label>
                 <input
                   type="text"
                   value={editingSubCategorySectionTitle}
@@ -460,12 +540,34 @@ const AdminManageCategories: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Items (comma separated)</label>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
+                  Section Title (Kinyarwanda) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+                </label>
+                <input
+                  type="text"
+                  value={editingSubCategorySectionTitleKin}
+                  onChange={(e) => setEditingSubCategorySectionTitleKin(e.target.value)}
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Items (English, comma separated)</label>
                 <textarea
                   value={editingSubCategorySectionItems}
                   onChange={(e) => { setEditingSubCategorySectionItems(e.target.value); setEditingSubCategoryError(''); }}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
                 />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">
+                  Items (Kinyarwanda, comma separated) <span className="font-normal text-slate-400 dark:text-slate-500">- optional</span>
+                </label>
+                <textarea
+                  value={editingSubCategorySectionItemsKin}
+                  onChange={(e) => setEditingSubCategorySectionItemsKin(e.target.value)}
+                  className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm h-24 resize-y text-slate-900 dark:text-emerald-100"
+                />
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1.5">Must be in the same order as the English items above - leave an item blank to fall back to English for just that one.</p>
               </div>
             </div>
             {editingSubCategoryError && <p className="text-red-500 text-xs sm:text-sm mt-4">{editingSubCategoryError}</p>}

@@ -5,7 +5,9 @@ export const INITIAL_CATEGORIES: Category[] = ['Electronics', 'Home & Living', '
 
 export interface CategorySection {
   title: string;
+  titleKin?: string;
   items: string[];
+  itemsKin?: string[]; // parallel to `items` - itemsKin[i] translates items[i]
 }
 
 export const INITIAL_CATEGORY_HIERARCHY: Record<Category, CategorySection[]> = {

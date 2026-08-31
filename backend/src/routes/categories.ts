@@ -9,10 +9,11 @@ const router = Router();
 router.get('/', async (_req, res, next) => {
   try {
     const categoriesResult = await pool.query(
-      `SELECT id, name FROM categories ORDER BY display_order, name`
+      `SELECT id, name, name_kin AS "nameKin" FROM categories ORDER BY display_order, name`
     );
     const sectionsResult = await pool.query(
-      `SELECT id, category_id, title, items FROM category_sections ORDER BY display_order, title`
+      `SELECT id, category_id, title, title_kin AS "titleKin", items, items_kin AS "itemsKin"
+       FROM category_sections ORDER BY display_order, title`
     );
     const categories = categoriesResult.rows.map((category) => ({
       ...category,
@@ -26,6 +27,7 @@ router.get('/', async (_req, res, next) => {
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(1, 'Category name is required'),
+  nameKin: z.string().trim().optional(),
 });
 
 // POST /api/categories - admin: create a category
@@ -36,8 +38,8 @@ router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   }
   try {
     const result = await pool.query(
-      `INSERT INTO categories (name) VALUES ($1) RETURNING id, name`,
-      [parsed.data.name]
+      `INSERT INTO categories (name, name_kin) VALUES ($1, $2) RETURNING id, name, name_kin AS "nameKin"`,
+      [parsed.data.name, parsed.data.nameKin || null]
     );
     return res.status(201).json({ category: result.rows[0] });
   } catch (err) {
@@ -56,8 +58,8 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   }
   try {
     const result = await pool.query(
-      `UPDATE categories SET name = $1 WHERE id = $2 RETURNING id, name`,
-      [parsed.data.name, req.params.id]
+      `UPDATE categories SET name = $1, name_kin = $2 WHERE id = $3 RETURNING id, name, name_kin AS "nameKin"`,
+      [parsed.data.name, parsed.data.nameKin || null, req.params.id]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Category not found.' });
     return res.json({ category: result.rows[0] });
@@ -82,7 +84,11 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
 
 const sectionSchema = z.object({
   title: z.string().trim().min(1, 'Section title is required'),
+  titleKin: z.string().trim().optional(),
   items: z.array(z.string().trim().min(1)).default([]),
+  // Parallel to `items` - itemsKin[i] is the translation for items[i]. An empty string means "not
+  // translated yet", which the frontend treats the same as omitted (falls back to English).
+  itemsKin: z.array(z.string()).default([]),
 });
 
 // POST /api/categories/:id/sections - admin: add a mega-menu section
@@ -93,10 +99,10 @@ router.post('/:id/sections', authenticate, requireAdmin, async (req, res, next) 
   }
   try {
     const result = await pool.query(
-      `INSERT INTO category_sections (category_id, title, items)
-       VALUES ($1, $2, $3)
-       RETURNING id, category_id, title, items`,
-      [req.params.id, parsed.data.title, parsed.data.items]
+      `INSERT INTO category_sections (category_id, title, title_kin, items, items_kin)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, category_id, title, title_kin AS "titleKin", items, items_kin AS "itemsKin"`,
+      [req.params.id, parsed.data.title, parsed.data.titleKin || null, parsed.data.items, parsed.data.itemsKin]
     );
     return res.status(201).json({ section: result.rows[0] });
   } catch (err) {
@@ -120,10 +126,10 @@ router.patch('/:categoryId/sections/:sectionId', authenticate, requireAdmin, asy
   }
   try {
     const result = await pool.query(
-      `UPDATE category_sections SET title = $1, items = $2
-       WHERE id = $3 AND category_id = $4
-       RETURNING id, category_id, title, items`,
-      [parsed.data.title, parsed.data.items, req.params.sectionId, req.params.categoryId]
+      `UPDATE category_sections SET title = $1, title_kin = $2, items = $3, items_kin = $4
+       WHERE id = $5 AND category_id = $6
+       RETURNING id, category_id, title, title_kin AS "titleKin", items, items_kin AS "itemsKin"`,
+      [parsed.data.title, parsed.data.titleKin || null, parsed.data.items, parsed.data.itemsKin, req.params.sectionId, req.params.categoryId]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Section not found.' });
     return res.json({ section: result.rows[0] });

@@ -13,7 +13,8 @@ import { translate, translateCategory, Language } from '../translations';
 interface CategoryWithId {
   id: string;
   name: string;
-  sections: { id: string; title: string; items: string[] }[];
+  nameKin?: string;
+  sections: { id: string; title: string; titleKin?: string; items: string[]; itemsKin?: string[] }[];
 }
 
 interface SiteAnnouncement {
@@ -47,11 +48,14 @@ interface AppContextType {
   disable2FA: (password: string) => Promise<boolean>;
   categories: Category[]; // Dynamic categories
   categoryHierarchy: Record<Category, CategorySection[]>; // Dynamic category hierarchy
-  addCategory: (name: string) => Promise<boolean>;
-  updateCategoryName: (oldName: string, newName: string) => Promise<boolean>;
+  // English name/title/item -> its stored Kinyarwanda translation, for admin edit forms to
+  // pre-fill with whatever's already saved (same map tCategory uses to actually translate).
+  categoryTranslations: Record<string, string>;
+  addCategory: (name: string, nameKin?: string) => Promise<boolean>;
+  updateCategoryName: (oldName: string, newName: string, newNameKin?: string) => Promise<boolean>;
   deleteCategory: (name: string) => Promise<boolean>;
-  addCategorySection: (categoryName: string, sectionTitle: string, items: string[]) => Promise<boolean>;
-  updateCategorySection: (categoryName: string, oldSectionTitle: string, newSection: { title: string, items: string[] }) => Promise<boolean>;
+  addCategorySection: (categoryName: string, sectionTitle: string, items: string[], sectionTitleKin?: string, itemsKin?: string[]) => Promise<boolean>;
+  updateCategorySection: (categoryName: string, oldSectionTitle: string, newSection: CategorySection) => Promise<boolean>;
   deleteCategorySection: (categoryName: string, sectionTitle: string) => Promise<boolean>;
   // Product Management
   products: Product[];
@@ -231,7 +235,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const categoryHierarchy = useMemo(() => {
     const map: Record<Category, CategorySection[]> = {};
     for (const c of categoriesData) {
-      map[c.name] = c.sections.map(({ title, items }) => ({ title, items }));
+      map[c.name] = c.sections.map(({ title, titleKin, items, itemsKin }) => ({ title, titleKin, items, itemsKin }));
+    }
+    return map;
+  }, [categoriesData]);
+
+  // Categories/sections/items an admin adds only ever have one canonical identifier - the English
+  // string, used everywhere as the actual value (product.category, URL query params, etc). The
+  // static categoryTranslations dictionary in translations.ts only knows about the categories that
+  // existed when that file was written, so anything added afterward had no way to be translated at
+  // all. This builds a live lookup from whatever Kinyarwanda names are stored in the database,
+  // which tCategory below checks first - falling back to the static dictionary, then the English
+  // name itself, so existing categories keep working exactly as before.
+  const dbCategoryTranslations = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of categoriesData) {
+      if (c.nameKin) map[c.name] = c.nameKin;
+      for (const section of c.sections) {
+        if (section.titleKin) map[section.title] = section.titleKin;
+        section.items.forEach((item, i) => {
+          const translated = section.itemsKin?.[i];
+          if (translated) map[item] = translated;
+        });
+      }
     }
     return map;
   }, [categoriesData]);
@@ -592,7 +618,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const t = (key: string, vars?: Record<string, string | number>) => translate(language, key, vars);
-  const tCategory = (name: string | undefined | null) => translateCategory(language, name);
+  const tCategory = (name: string | undefined | null) => {
+    if (!name) return '';
+    if (language === 'en') return name;
+    return dbCategoryTranslations[name] ?? translateCategory(language, name);
+  };
 
 
   // Toast Notification State
@@ -975,11 +1005,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Category Management Functions
-  const addCategory = async (name: string): Promise<boolean> => {
+  const addCategory = async (name: string, nameKin?: string): Promise<boolean> => {
     try {
-      const { category } = await apiFetch<{ category: { id: string; name: string } }>('/categories', {
+      const { category } = await apiFetch<{ category: { id: string; name: string; nameKin?: string } }>('/categories', {
         method: 'POST',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, nameKin }),
       }, token);
       setCategoriesData(prev => [...prev, { ...category, sections: [] }]);
       showToast(`Category "${category.name}" added.`, 'success');
@@ -990,18 +1020,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateCategoryName = async (oldName: string, newName: string): Promise<boolean> => {
+  const updateCategoryName = async (oldName: string, newName: string, newNameKin?: string): Promise<boolean> => {
     const id = findCategoryId(oldName);
     if (!id) {
       showToast(`Category "${oldName}" not found.`, 'error');
       return false;
     }
     try {
-      const { category } = await apiFetch<{ category: { id: string; name: string } }>(`/categories/${id}`, {
+      const { category } = await apiFetch<{ category: { id: string; name: string; nameKin?: string } }>(`/categories/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: newName }),
+        body: JSON.stringify({ name: newName, nameKin: newNameKin }),
       }, token);
-      setCategoriesData(prev => prev.map(c => (c.id === id ? { ...c, name: category.name } : c)));
+      setCategoriesData(prev => prev.map(c => (c.id === id ? { ...c, name: category.name, nameKin: category.nameKin } : c)));
       showToast(`Category renamed from "${oldName}" to "${newName}".`, 'success');
       return true;
     } catch (e) {
@@ -1027,16 +1057,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addCategorySection = async (categoryName: string, sectionTitle: string, items: string[]): Promise<boolean> => {
+  const addCategorySection = async (categoryName: string, sectionTitle: string, items: string[], sectionTitleKin?: string, itemsKin?: string[]): Promise<boolean> => {
     const id = findCategoryId(categoryName);
     if (!id) {
       showToast(`Category "${categoryName}" not found.`, 'error');
       return false;
     }
     try {
-      const { section } = await apiFetch<{ section: { id: string; title: string; items: string[] } }>(`/categories/${id}/sections`, {
+      const { section } = await apiFetch<{ section: { id: string; title: string; titleKin?: string; items: string[]; itemsKin?: string[] } }>(`/categories/${id}/sections`, {
         method: 'POST',
-        body: JSON.stringify({ title: sectionTitle, items }),
+        body: JSON.stringify({ title: sectionTitle, titleKin: sectionTitleKin, items, itemsKin }),
       }, token);
       setCategoriesData(prev => prev.map(c => (c.id === id ? { ...c, sections: [...c.sections, section] } : c)));
       showToast(`Section "${sectionTitle}" added to "${categoryName}".`, 'success');
@@ -1055,9 +1085,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     try {
-      const { section } = await apiFetch<{ section: { id: string; title: string; items: string[] } }>(`/categories/${category.id}/sections/${sectionId}`, {
+      const { section } = await apiFetch<{ section: { id: string; title: string; titleKin?: string; items: string[]; itemsKin?: string[] } }>(`/categories/${category.id}/sections/${sectionId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ title: newSection.title, items: newSection.items }),
+        body: JSON.stringify({ title: newSection.title, titleKin: newSection.titleKin, items: newSection.items, itemsKin: newSection.itemsKin }),
       }, token);
       setCategoriesData(prev => prev.map(c => (c.id === category.id ? { ...c, sections: c.sections.map(s => (s.id === sectionId ? section : s)) } : c)));
       showToast(`Section "${oldSectionTitle}" updated in "${categoryName}".`, 'success');
@@ -1379,7 +1409,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cart, addToCart, removeFromCart, updateQuantity, clearCart, user, token, login, signup, logout,
       twoFactorPending, verifyTwoFactorCode, resendTwoFactorCode, cancelTwoFactorLogin,
       start2FASetup, confirm2FASetup, disable2FA,
-      categories, categoryHierarchy,
+      categories, categoryHierarchy, categoryTranslations: dbCategoryTranslations,
       addCategory, updateCategoryName, deleteCategory,
       addCategorySection, updateCategorySection, deleteCategorySection,
       products, popularProductIds, refreshProduct, addProduct, updateProduct, deleteProduct,

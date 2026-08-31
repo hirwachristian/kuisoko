@@ -84,6 +84,7 @@ CREATE INDEX idx_two_factor_codes_user_id ON two_factor_codes(user_id);
 CREATE TABLE categories (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name           TEXT NOT NULL UNIQUE,
+  name_kin       TEXT, -- admin-provided Kinyarwanda translation; falls back to `name` if unset
   display_order  INT NOT NULL DEFAULT 0,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -95,7 +96,9 @@ CREATE TABLE category_sections (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id    UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   title          TEXT NOT NULL,
+  title_kin      TEXT, -- admin-provided Kinyarwanda translation of title
   items          TEXT[] NOT NULL DEFAULT '{}', -- mega-menu leaf labels (not FK'd to products)
+  items_kin      TEXT[] NOT NULL DEFAULT '{}', -- parallel array, translated leaf labels
   display_order  INT NOT NULL DEFAULT 0,
   UNIQUE (category_id, title)
 );
