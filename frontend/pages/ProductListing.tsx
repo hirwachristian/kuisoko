@@ -372,21 +372,21 @@ const ProductListing: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <button
                 onClick={() => setIsMobileFiltersOpen(true)}
-                className="relative md:hidden shrink-0 flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-emerald-100 hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors"
+                className="relative md:hidden shrink-0 flex items-center gap-1.5 sm:gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-slate-700 dark:text-emerald-100 hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors max-w-[45%] sm:max-w-none"
               >
-                <Filter size={18} />
-                {t('shop_filters')}
+                <Filter size={16} className="sm:w-[18px] sm:h-[18px] shrink-0" />
+                <span className="truncate">{t('shop_filters')}</span>
                 {hasActiveFilters && (
-                  <span className="w-2 h-2 rounded-full bg-orange-500" aria-hidden="true" />
+                  <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" aria-hidden="true" />
                 )}
               </button>
               <select
                 value={sortBy}
                 onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
-                className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-700 dark:text-emerald-100 hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors"
+                className="min-w-0 flex-1 sm:flex-none max-w-[55%] sm:max-w-none bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-3 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-700 dark:text-emerald-100 hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors"
               >
                 <option value="newest">{t('shop_sort_newest')}</option>
                 <option value="price-low">{t('shop_sort_price_low')}</option>
