@@ -245,6 +245,19 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
             })}
           </div>
         )}
+
+        {/* A large, labeled close bar pinned to the bottom - the small corner X icon has been
+            reported as hard to find on some phones, so this gives every viewer an unmissable,
+            full-width, text-labeled way to dismiss the panel regardless of what's going on with
+            that icon on their specific device. */}
+        <div className="shrink-0 p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800">
+          <button
+            onClick={onClose}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] transition-all"
+          >
+            <X size={18} /> Close
+          </button>
+        </div>
       </motion.div>
     </>
   );
