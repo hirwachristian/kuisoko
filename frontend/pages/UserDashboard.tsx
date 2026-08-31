@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -39,6 +39,14 @@ const UserDashboard: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const mainRef = useRef<HTMLElement>(null);
+
+  // <main> is its own scroll container (overflow-y-auto below), not the window - so switching
+  // tabs (or opening/closing an order's details) while scrolled down left the new view starting
+  // mid-scroll instead of at the top, since nothing was resetting this container's scroll position.
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+  }, [activeTab, selectedOrder]);
 
   const wishlistProducts = products.filter(p => wishlist.includes(p.id));
 
@@ -189,7 +197,7 @@ const UserDashboard: React.FC = () => {
         {sidebarContent}
       </aside>
 
-      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+      <main ref={mainRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto">
         {/* Mobile-only top bar */}
         <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-30">
           <Link to="/" className="shrink-0">
