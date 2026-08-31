@@ -56,12 +56,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
         />
         <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-1 sm:gap-1.5 items-start">
           {isOutOfStock && (
-            <span className="bg-slate-800 text-white text-[7px] sm:text-[9px] font-black px-2 py-1 sm:px-3 sm:py-1.5 rounded-full uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg">
+            <span className="bg-slate-800 text-white text-[7px] sm:text-[9px] font-black px-2 py-1 sm:px-3 sm:py-1.5 rounded-full uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg whitespace-nowrap">
               {t('product_out_of_stock')}
             </span>
           )}
           {popularProductIds.has(product.id) && (
-            <span className="bg-orange-400 text-emerald-900 text-[7px] sm:text-[9px] font-black px-2 py-1 sm:px-3 sm:py-1.5 rounded-full uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg">
+            <span className="bg-orange-400 text-emerald-900 text-[7px] sm:text-[9px] font-black px-2 py-1 sm:px-3 sm:py-1.5 rounded-full uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg whitespace-nowrap">
               {t('product_popular')}
             </span>
           )}
@@ -106,7 +106,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
             onMouseLeave={scheduleRatingClose}
           />
         )}
-        <div className={`text-[9px] sm:text-[11px] font-bold mb-1.5 sm:mb-2 ${
+        <div className={`text-[9px] sm:text-[11px] font-bold mb-1.5 sm:mb-2 truncate ${
           stockLevel === 'out' || stockLevel === 'low' ? 'text-rose-500' : stockLevel === 'medium' ? 'text-orange-500' : 'text-emerald-600 dark:text-emerald-400'
         }`}>
           {isOutOfStock ? t('product_out_of_stock') : stockLevel === 'low' ? t('product_only_left', { n: product.stock }) : t('product_in_stock', { n: product.stock })}
@@ -127,10 +127,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
           <button
             onClick={() => addToCart(product)}
             disabled={isOutOfStock}
-            className="shrink-0 flex items-center justify-center gap-1 sm:gap-2 bg-orange-500 text-white hover:bg-orange-600 hover:text-white px-2.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-wide sm:tracking-widest transition-all shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+            className="shrink-0 max-w-[52%] flex items-center justify-center gap-1 sm:gap-2 bg-orange-500 text-white hover:bg-orange-600 hover:text-white px-2.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-wide sm:tracking-widest transition-all shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
-            <ShoppingCart size={12} className="sm:w-[14px] sm:h-[14px]" />
-            {isOutOfStock ? t('product_sold_out') : t('product_buy')}
+            <ShoppingCart size={12} className="sm:w-[14px] sm:h-[14px] shrink-0" />
+            <span className="truncate">{isOutOfStock ? t('product_sold_out') : t('product_buy')}</span>
           </button>
         </div>
       </div>
