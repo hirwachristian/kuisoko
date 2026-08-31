@@ -47,6 +47,17 @@ const ProductListing: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // The category tree + price range filters below only ever showed on desktop (the sidebar was
+  // `hidden md:block`) - phones had no way to browse by category at all. This drives a slide-in
+  // drawer, on top of the same sidebar, that surfaces the identical content on mobile.
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isMobileFiltersOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isMobileFiltersOpen]);
 
   useEffect(() => {
     setSelectedCategory(categoryParam);
@@ -138,6 +149,95 @@ const ProductListing: React.FC = () => {
 
   const maxPriceDisplay = getFormattedPrice(priceRange[1]);
 
+  // Shared between the desktop sidebar and the mobile drawer below, so both stay pixel-for-pixel
+  // identical (and both filter the exact same live state) instead of drifting into two versions.
+  const filterFieldsContent = (
+    <div className="space-y-8">
+      <div>
+        <h4 className="font-semibold text-slate-700 dark:text-slate-300 text-sm mb-4">{t('shop_category')}</h4>
+        <div className="space-y-2">
+          <button
+            onClick={() => { setSelectedCategory(null); setSearchParams({}); }}
+            className={`flex items-center w-full min-h-[40px] px-3 py-2 rounded-xl text-sm font-semibold text-left truncate whitespace-nowrap transition-all ${!selectedCategory ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-600 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-slate-800 hover:text-emerald-800 dark:hover:text-emerald-400'}`}
+          >
+            {t('shop_all_items')}
+          </button>
+          {categories.map(cat => { // Use dynamic categories
+            const sections = categoryHierarchy[cat] || [];
+            const hasSubcategories = sections.length > 0;
+            const isExpanded = expandedCategories.has(cat);
+            const isCategoryActive = selectedCategory === cat && !selectedSubCategory;
+            return (
+              <div key={cat}>
+                <div
+                  className={`flex items-center w-full min-h-[40px] rounded-xl text-sm font-semibold transition-all ${isCategoryActive ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-600 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-slate-800 hover:text-emerald-800 dark:hover:text-emerald-400'}`}
+                >
+                  <button
+                    onClick={() => setSearchParams({ category: cat })}
+                    className="flex-1 min-w-0 text-left pl-3 pr-1 py-2 truncate whitespace-nowrap"
+                  >
+                    {tCategory(cat)}
+                  </button>
+                  {hasSubcategories && (
+                    <button
+                      onClick={() => toggleCategoryExpanded(cat)}
+                      className="shrink-0 pl-1 pr-3 py-2"
+                      aria-label={isExpanded ? t('shop_collapse_category') : t('shop_expand_category')}
+                      aria-expanded={isExpanded}
+                    >
+                      <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
+                </div>
+                {hasSubcategories && isExpanded && (
+                  <div className="mt-1 mb-2 ml-3 pl-3 border-l-2 border-slate-100 dark:border-slate-800 space-y-3">
+                    {sections.map(section => (
+                      <div key={section.title}>
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 mb-1">
+                          {tCategory(section.title)}
+                        </p>
+                        <div className="space-y-0.5">
+                          {section.items.map(item => (
+                            <button
+                              key={item}
+                              onClick={() => setSearchParams({ category: cat, subCategory: item })}
+                              className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs truncate whitespace-nowrap transition-all ${selectedSubCategory === item && selectedCategory === cat ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-emerald-700 dark:hover:text-emerald-400'}`}
+                            >
+                              {tCategory(item)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="font-semibold text-slate-700 dark:text-slate-300 text-sm mb-4">{t('shop_price_range')}</h4>
+        <div className="space-y-4">
+          <input
+            type="range"
+            min="0"
+            max={MAX_PRICE_RWF}
+            step="5000"
+            value={priceRange[1]}
+            onChange={(e) => { setPriceRange([0, parseInt(e.target.value)]); setCurrentPage(1); }}
+            className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-800"
+          />
+          <div className="flex justify-between text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+            <span>{getFormattedPrice(0)}</span>
+            <span className="text-emerald-800 dark:text-emerald-400 px-2 py-1 bg-emerald-50 dark:bg-emerald-950 rounded-lg">{maxPriceDisplay}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-10">
       {/* Same structure as the admin sidebar: the sidebar lives outside the scrolling area, only
@@ -167,92 +267,56 @@ const ProductListing: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-8">
-              <div>
-                <h4 className="font-semibold text-slate-700 text-sm mb-4">{t('shop_category')}</h4>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => { setSelectedCategory(null); setSearchParams({}); }}
-                    className={`flex items-center w-full min-h-[40px] px-3 py-2 rounded-xl text-sm font-semibold text-left truncate whitespace-nowrap transition-all ${!selectedCategory ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-600 hover:bg-orange-50 hover:text-emerald-800'}`}
-                  >
-                    {t('shop_all_items')}
-                  </button>
-                  {categories.map(cat => { // Use dynamic categories
-                    const sections = categoryHierarchy[cat] || [];
-                    const hasSubcategories = sections.length > 0;
-                    const isExpanded = expandedCategories.has(cat);
-                    const isCategoryActive = selectedCategory === cat && !selectedSubCategory;
-                    return (
-                      <div key={cat}>
-                        <div
-                          className={`flex items-center w-full min-h-[40px] rounded-xl text-sm font-semibold transition-all ${isCategoryActive ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-600 hover:bg-orange-50 hover:text-emerald-800'}`}
-                        >
-                          <button
-                            onClick={() => setSearchParams({ category: cat })}
-                            className="flex-1 min-w-0 text-left pl-3 pr-1 py-2 truncate whitespace-nowrap"
-                          >
-                            {tCategory(cat)}
-                          </button>
-                          {hasSubcategories && (
-                            <button
-                              onClick={() => toggleCategoryExpanded(cat)}
-                              className="shrink-0 pl-1 pr-3 py-2"
-                              aria-label={isExpanded ? t('shop_collapse_category') : t('shop_expand_category')}
-                              aria-expanded={isExpanded}
-                            >
-                              <ChevronDown size={16} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                            </button>
-                          )}
-                        </div>
-                        {hasSubcategories && isExpanded && (
-                          <div className="mt-1 mb-2 ml-3 pl-3 border-l-2 border-slate-100 dark:border-slate-800 space-y-3">
-                            {sections.map(section => (
-                              <div key={section.title}>
-                                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2 mb-1">
-                                  {tCategory(section.title)}
-                                </p>
-                                <div className="space-y-0.5">
-                                  {section.items.map(item => (
-                                    <button
-                                      key={item}
-                                      onClick={() => setSearchParams({ category: cat, subCategory: item })}
-                                      className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs truncate whitespace-nowrap transition-all ${selectedSubCategory === item && selectedCategory === cat ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-emerald-700 dark:hover:text-emerald-400'}`}
-                                    >
-                                      {tCategory(item)}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-slate-700 text-sm mb-4">{t('shop_price_range')}</h4>
-                <div className="space-y-4">
-                  <input
-                    type="range"
-                    min="0"
-                    max={MAX_PRICE_RWF}
-                    step="5000"
-                    value={priceRange[1]}
-                    onChange={(e) => { setPriceRange([0, parseInt(e.target.value)]); setCurrentPage(1); }}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-800"
-                  />
-                  <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    <span>{getFormattedPrice(0)}</span>
-                    <span className="text-emerald-800 px-2 py-1 bg-emerald-50 rounded-lg">{maxPriceDisplay}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {filterFieldsContent}
           </div>
         </aside>
+
+        {/* Mobile Filters Drawer - the sidebar above is desktop-only (hidden md:block); this
+            surfaces the exact same category tree + price range on phones via a slide-in panel,
+            since there was previously no way to browse by category on mobile at all. */}
+        <div className={`fixed inset-0 z-50 md:hidden ${isMobileFiltersOpen ? '' : 'pointer-events-none'}`}>
+          <div
+            className={`absolute inset-0 bg-slate-900/50 transition-opacity duration-300 ${isMobileFiltersOpen ? 'opacity-100' : 'opacity-0'}`}
+            onClick={() => setIsMobileFiltersOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className={`absolute inset-y-0 left-0 w-[85%] max-w-sm bg-white dark:bg-slate-900 shadow-2xl flex flex-col transition-transform duration-300 ${isMobileFiltersOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('shop_filters')}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <h3 className="text-base font-bold text-slate-900 dark:text-emerald-50 flex items-center gap-2">
+                <Filter size={18} /> {t('shop_filters')}
+              </h3>
+              <button
+                onClick={() => setIsMobileFiltersOpen(false)}
+                className="p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                aria-label={t('nav_close_menu')}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-6">
+              {filterFieldsContent}
+            </div>
+            <div className="flex gap-3 p-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
+              <button
+                onClick={clearFilters}
+                className={`flex-1 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${hasActiveFilters ? '' : 'opacity-50 pointer-events-none'}`}
+              >
+                {t('shop_reset')}
+              </button>
+              <button
+                onClick={() => setIsMobileFiltersOpen(false)}
+                className="flex-1 py-3 rounded-xl bg-emerald-800 text-white text-sm font-bold hover:bg-emerald-900 transition-colors shadow-lg shadow-emerald-900/20"
+              >
+                {t('shop_show_results')}
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="flex-1 md:h-full md:overflow-y-auto md:pr-1">
           {/* Always rendered (not just when a category is selected) so the search bar/grid below it
@@ -312,6 +376,16 @@ const ProductListing: React.FC = () => {
               )}
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsMobileFiltersOpen(true)}
+                className="relative md:hidden shrink-0 flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-emerald-100 hover:border-emerald-500 dark:hover:border-emerald-500 transition-colors"
+              >
+                <Filter size={18} />
+                {t('shop_filters')}
+                {hasActiveFilters && (
+                  <span className="w-2 h-2 rounded-full bg-orange-500" aria-hidden="true" />
+                )}
+              </button>
               <select
                 value={sortBy}
                 onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
