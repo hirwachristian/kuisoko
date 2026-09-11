@@ -4,7 +4,7 @@ import rateLimit from 'express-rate-limit';
  * a password without penalizing a legitimate user who logs in repeatedly across devices. */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 10,
+  limit: 3,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
