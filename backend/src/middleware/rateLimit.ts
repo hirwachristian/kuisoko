@@ -84,3 +84,70 @@ export const translateSuggestLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many translation requests. Please try again later.' },
 });
+
+/** Search-by-photo: public and unauthenticated, and each request decodes/hashes an uploaded
+ * image - real CPU work with no login required to trigger it, so this caps how often one IP can
+ * call it rather than leaving it wide open to being hammered. */
+export const imageSearchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many image searches. Please try again in a few minutes.' },
+});
+
+/** WhatsApp-checkout verification code sending: public and unauthenticated (guest checkout),
+ * same reasoning as forgotPasswordLimiter - caps how many codes one IP can trigger to an
+ * arbitrary email address in an hour. */
+export const checkoutVerificationCodeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many verification codes requested. Please try again later.' },
+});
+
+/** WhatsApp-checkout code verification: only failed attempts count, same reasoning as
+ * twoFactorVerifyLimiter - a 6-digit code is brute-forceable well within its 10-minute expiry
+ * without this. */
+export const checkoutVerificationVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many attempts. Please try again in a few minutes.' },
+});
+
+/** Forgot-password username lookup: public and unauthenticated, and reveals whether a username
+ * exists plus a masked preview of its email - a tighter cap than the plain signup availability
+ * check (usernameCheckLimiter) since this one leaks more per request. */
+export const forgotPasswordLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again in a few minutes.' },
+});
+
+/** Username availability check: public, unauthenticated, and called live while someone types in
+ * the signup form (debounced client-side) - generous enough for normal typing but capped so it
+ * can't be used to enumerate usernames at scale. */
+export const usernameCheckLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many checks. Please slow down.' },
+});
+
+/** Rider location pings: authenticated but frequent by design (driven by the rider's phone while
+ * "sharing" is on) - caps a runaway client (a stuck retry loop, a mis-set interval) without
+ * punishing normal "ping every few seconds while delivering" use. */
+export const riderLocationLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many location updates. Please slow down.' },
+});

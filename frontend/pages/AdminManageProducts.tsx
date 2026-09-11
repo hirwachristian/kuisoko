@@ -1,24 +1,78 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, Image as ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Image as ImageIcon, Download, Upload } from 'lucide-react';
 import { Product, ProductVariant } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { CategorySection } from '../constants';
-import { apiFetch, ApiError } from '../api';
+import { apiFetch, ApiError, API_BASE_URL } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminPagination from '../components/AdminPagination';
 import AdminVariantManager from '../components/AdminVariantManager'; // Add this import
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const PRODUCTS_PER_PAGE = 5;
 
 const AdminManageProducts: React.FC = () => {
   const context = useAppContext();
-  const { categories, products, categoryHierarchy, addProduct, updateProduct, deleteProduct, getFormattedPrice, token } = context;
+  const { categories, products, categoryHierarchy, addProduct, updateProduct, deleteProduct, getFormattedPrice, token, refreshProducts } = context;
   const showToast = context.showToast;
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Bulk CSV import/export
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState<{ created: number; updated: number; errors: { row: number; message: string }[] } | null>(null);
+
+  const handleExportCsv = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/products/export/csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Export failed.');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'kuisoko-products.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      showToast('Could not export products.', 'error');
+    }
+  };
+
+  const handleImportCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setIsImportingCsv(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const result = await apiFetch<{ created: number; updated: number; errors: { row: number; message: string }[] }>(
+        '/products/import/csv',
+        { method: 'POST', body: formData },
+        token
+      );
+      setCsvImportResult(result);
+      await refreshProducts();
+      if (result.errors.length === 0) {
+        showToast(`Import complete: ${result.created} created, ${result.updated} updated.`, 'success');
+      } else {
+        showToast(`Imported ${result.created + result.updated} row(s) with ${result.errors.length} error(s) - see details.`, 'info');
+      }
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not import CSV.', 'error');
+    } finally {
+      setIsImportingCsv(false);
+    }
+  };
 
   // Add Product Modal State
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -34,7 +88,9 @@ const AdminManageProducts: React.FC = () => {
   const [newProductStock, setNewProductStock] = useState<string>('');
   const [newProductDiscount, setNewProductDiscount] = useState<string>('0');
   const [newProductFeatured, setNewProductFeatured] = useState(false);
+  const [newProductGroupBuyEnabled, setNewProductGroupBuyEnabled] = useState(false);
   const [newProductVariants, setNewProductVariants] = useState<ProductVariant[]>([]);
+  const [newProductColorImages, setNewProductColorImages] = useState<Record<string, string>>({});
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
 
   // Edit Product Modal State
@@ -52,12 +108,19 @@ const AdminManageProducts: React.FC = () => {
   const [editingProductStock, setEditingProductStock] = useState<string>('');
   const [editingProductDiscount, setEditingProductDiscount] = useState<string>('0');
   const [editingProductFeatured, setEditingProductFeatured] = useState(false);
+  const [editingProductGroupBuyEnabled, setEditingProductGroupBuyEnabled] = useState(false);
   const [editingProductVariants, setEditingProductVariants] = useState<ProductVariant[]>([]);
+  const [editingProductColorImages, setEditingProductColorImages] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
 
   // Delete Confirmation Modal State
   const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+
+  // Locks background scroll while any full-screen modal in this page is open - without it, a
+  // touch scroll/drag on mobile can "leak" into the page behind the fixed overlay, which is what
+  // made the Add/Edit Product forms feel like they were shaking or shifting side to side.
+  useBodyScrollLock(showAddProductModal || showEditProductModal || !!csvImportResult);
 
 
   const filteredProducts = useMemo(() => {
@@ -191,6 +254,7 @@ const AdminManageProducts: React.FC = () => {
     setNewProductStock('');
     setNewProductDiscount('0');
     setNewProductFeatured(false);
+    setNewProductGroupBuyEnabled(false);
     setNewProductVariants([]);
     setAddFormErrors({});
     setShowAddProductModal(true);
@@ -214,6 +278,12 @@ const AdminManageProducts: React.FC = () => {
     const discountNum = parseFloat(newProductDiscount);
     if (isNaN(discountNum) || discountNum < 0 || discountNum > 100) errors.discount = 'Discount must be between 0 and 100.';
 
+    // Variant stock is a breakdown of the product's total stock, so it can't add up to more.
+    const variantStockTotal = newProductVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
+    if (!isNaN(stockNum) && variantStockTotal > stockNum) {
+      errors.variants = `Variant stock adds up to ${variantStockTotal}, more than the product's total stock (${stockNum}).`;
+    }
+
     setAddFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -235,7 +305,9 @@ const AdminManageProducts: React.FC = () => {
       videoUrls: newProductVideoUrls,
       stock: parseInt(newProductStock),
       featured: newProductFeatured,
+      groupBuyEnabled: newProductGroupBuyEnabled,
       variants: newProductVariants,
+      colorImages: newProductColorImages,
     };
 
     const success = await addProduct(newProduct);
@@ -261,7 +333,9 @@ const AdminManageProducts: React.FC = () => {
     setEditingProductVideoUrls(product.videoUrls ?? []);
     setEditingProductStock(product.stock.toString());
     setEditingProductFeatured(!!product.featured); // Ensure boolean
+    setEditingProductGroupBuyEnabled(!!product.groupBuyEnabled);
     setEditingProductVariants(product.variants || []);
+    setEditingProductColorImages(product.colorImages || {});
     setEditFormErrors({});
     setShowEditProductModal(true);
   };
@@ -283,6 +357,12 @@ const AdminManageProducts: React.FC = () => {
     // Validate discount (0-100)
     const discountNum = parseFloat(editingProductDiscount);
     if (isNaN(discountNum) || discountNum < 0 || discountNum > 100) errors.discount = 'Discount must be between 0 and 100.';
+
+    // Variant stock is a breakdown of the product's total stock, so it can't add up to more.
+    const variantStockTotal = editingProductVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
+    if (!isNaN(stockNum) && variantStockTotal > stockNum) {
+      errors.variants = `Variant stock adds up to ${variantStockTotal}, more than the product's total stock (${stockNum}).`;
+    }
 
     setEditFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -311,7 +391,9 @@ const AdminManageProducts: React.FC = () => {
       videoUrls: editingProductVideoUrls,
       stock: parseInt(editingProductStock),
       featured: editingProductFeatured,
+      groupBuyEnabled: editingProductGroupBuyEnabled,
       variants: editingProductVariants,
+      colorImages: editingProductColorImages,
       rating: products.find(p => p.id === editingProductId)?.rating || 4.5, // Preserve existing rating
       reviews: products.find(p => p.id === editingProductId)?.reviews || 0, // Preserve existing reviews
     };
@@ -350,14 +432,68 @@ const AdminManageProducts: React.FC = () => {
             <h1 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">Manage Products</h1>
             <p className="text-slate-500 dark:text-emerald-300 text-xs sm:text-sm mt-1">Add, edit, and manage your product inventory.</p>
           </div>
-          <button
-            onClick={handleAddProductClick}
-            className="flex items-center gap-2 bg-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
-          >
-            <Plus size={18} className="sm:w-5 sm:h-5" /> Add Product
-          </button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <input
+              ref={csvFileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleImportCsvFile}
+            />
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95"
+              title="Download the full catalog as a CSV file"
+            >
+              <Download size={16} /> Export CSV
+            </button>
+            <button
+              onClick={() => csvFileInputRef.current?.click()}
+              disabled={isImportingCsv}
+              className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95 disabled:opacity-50"
+              title="Bulk create or update products from a CSV file"
+            >
+              <Upload size={16} /> {isImportingCsv ? 'Importing…' : 'Import CSV'}
+            </button>
+            <button
+              onClick={handleAddProductClick}
+              className="flex items-center gap-2 bg-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-sm font-bold hover:bg-orange-600 transition-colors shadow-lg active:scale-95"
+            >
+              <Plus size={18} className="sm:w-5 sm:h-5" /> Add Product
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* CSV Import Results */}
+      {csvImportResult && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white">CSV Import Results</h3>
+              <button onClick={() => setCsvImportResult(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto overscroll-contain space-y-3">
+              <div className="flex gap-3 text-sm">
+                <span className="px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-semibold">{csvImportResult.created} created</span>
+                <span className="px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 font-semibold">{csvImportResult.updated} updated</span>
+                {csvImportResult.errors.length > 0 && (
+                  <span className="px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 font-semibold">{csvImportResult.errors.length} error(s)</span>
+                )}
+              </div>
+              {csvImportResult.errors.length > 0 && (
+                <ul className="space-y-1.5 text-sm">
+                  {csvImportResult.errors.map((e, i) => (
+                    <li key={i} className="text-rose-600 dark:text-rose-400">Row {e.row}: {e.message}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
         {/* Category Filters */}
@@ -480,7 +616,7 @@ const AdminManageProducts: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Add New Product</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4 max-h-[70vh] overflow-y-auto overscroll-contain pr-2">
               <div className="col-span-full">
                 <label htmlFor="productName" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Name</label>
                 <input
@@ -661,8 +797,26 @@ const AdminManageProducts: React.FC = () => {
                 <label htmlFor="productFeatured" className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Featured Product</label>
               </div>
 
+              <div className="col-span-full flex items-center gap-3 mt-2">
+                <input
+                  id="productGroupBuyEnabled"
+                  type="checkbox"
+                  checked={newProductGroupBuyEnabled}
+                  onChange={(e) => setNewProductGroupBuyEnabled(e.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-emerald-800 dark:text-emerald-500 focus:ring-emerald-700 dark:focus:ring-emerald-600 accent-emerald-800"
+                />
+                <label htmlFor="productGroupBuyEnabled" className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Allow Group Buying ("Buy Together")</label>
+              </div>
+
               <div className="col-span-full">
-                <AdminVariantManager variants={newProductVariants} onChange={setNewProductVariants} />
+                <AdminVariantManager
+                  variants={newProductVariants}
+                  onChange={setNewProductVariants}
+                  images={newProductImagePreviews}
+                  colorImages={newProductColorImages}
+                  onColorImagesChange={setNewProductColorImages}
+                  productStock={parseInt(newProductStock) || 0}
+                />
               </div>
 
             </div>
@@ -697,7 +851,7 @@ const AdminManageProducts: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-emerald-50 mb-4 sm:mb-6 pr-8">Edit Product: {editingProductName}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4 max-h-[70vh] overflow-y-auto overscroll-contain pr-2">
               <div className="col-span-full">
                 <label htmlFor="editProductName" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Product Name</label>
                 <input
@@ -878,8 +1032,26 @@ const AdminManageProducts: React.FC = () => {
                 <label htmlFor="editProductFeatured" className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Featured Product</label>
               </div>
 
+              <div className="col-span-full flex items-center gap-3 mt-2">
+                <input
+                  id="editProductGroupBuyEnabled"
+                  type="checkbox"
+                  checked={editingProductGroupBuyEnabled}
+                  onChange={(e) => setEditingProductGroupBuyEnabled(e.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 dark:border-slate-600 text-emerald-800 dark:text-emerald-500 focus:ring-emerald-700 dark:focus:ring-emerald-600 accent-emerald-800"
+                />
+                <label htmlFor="editProductGroupBuyEnabled" className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Allow Group Buying ("Buy Together")</label>
+              </div>
+
               <div className="col-span-full">
-                <AdminVariantManager variants={editingProductVariants} onChange={setEditingProductVariants} />
+                <AdminVariantManager
+                  variants={editingProductVariants}
+                  onChange={setEditingProductVariants}
+                  images={editingProductImagePreviews}
+                  colorImages={editingProductColorImages}
+                  onColorImagesChange={setEditingProductColorImages}
+                  productStock={parseInt(editingProductStock) || 0}
+                />
               </div>
 
             </div>

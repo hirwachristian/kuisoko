@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 export interface AuthTokenPayload {
   sub: string; // user id
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'rider';
 }
 
 function getSecret(): string {
@@ -41,4 +41,19 @@ export function verifyTwoFactorPendingToken(token: string): string {
     throw new Error('Invalid token.');
   }
   return payload.sub;
+}
+
+// Issued once a customer proves control of the email on their order (via checkout_verification_codes)
+// - required before a WhatsApp-method order can be placed, see routes/orders.ts. Same shape as the
+// 2FA-pending token: short-lived, carries only what it's for, and is never valid as a session token.
+export function signCheckoutVerificationToken(email: string): string {
+  return jwt.sign({ email: email.toLowerCase(), purpose: 'checkout-verified' }, getSecret(), { expiresIn: '30m' });
+}
+
+export function verifyCheckoutVerificationToken(token: string): string {
+  const payload = jwt.verify(token, getSecret()) as { email: string; purpose?: string };
+  if (payload.purpose !== 'checkout-verified') {
+    throw new Error('Invalid token.');
+  }
+  return payload.email;
 }

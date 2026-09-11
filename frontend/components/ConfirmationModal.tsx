@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -25,6 +26,10 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmButtonClass = 'bg-rose-500 text-white hover:bg-rose-600',
   cancelButtonClass = 'text-slate-600 hover:bg-slate-100',
 }) => {
+  // Called unconditionally, before the early return below - this component stays mounted
+  // regardless of isOpen, so every hook here must run on every render regardless of it too.
+  useBodyScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   return (
