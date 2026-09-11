@@ -1,20 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Star, ShoppingCart, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, EyeOff, Eye, Trash2, Play } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { Star, ShoppingCart, ArrowLeft, Plus, Minus, ChevronLeft, ChevronRight, EyeOff, Eye, Trash2, Play, Users } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useCartFly } from '../context/CartFlyContext';
 import ReviewForm from '../components/ReviewForm';
 import ProductCarousel from '../components/ProductCarousel';
 import ProductCard from '../components/ProductCard';
 import VariantSelector from '../components/VariantSelector';
+import AddressForm, { AddressFormHandle } from '../components/AddressForm';
 import { motion } from 'motion/react';
-import { ProductVariant, Review } from '../types';
+import { Product, ProductVariant, Review } from '../types';
 import { apiFetch, ApiError } from '../api';
 import { formatDate, getInitials, getStockLevel } from '../utils';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { addToCart, products, getFormattedPrice, user, token, showToast, refreshProduct, t } = useAppContext();
+  const { flyToCart } = useCartFly();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'description' | 'reviews'>(
     searchParams.get('tab') === 'reviews' ? 'reviews' : 'description'
@@ -24,7 +28,19 @@ const ProductDetail: React.FC = () => {
   const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [reviewsList, setReviewsList] = useState<Review[]>([]);
+  const [alsoBought, setAlsoBought] = useState<Product[]>([]);
+  const [restockEmail, setRestockEmail] = useState(user?.email ?? '');
+  const [restockRequested, setRestockRequested] = useState(false);
+  const [restockSubmitting, setRestockSubmitting] = useState(false);
   const isAdmin = user?.role === 'admin';
+  const [showGroupBuyModal, setShowGroupBuyModal] = useState(false);
+  const [isStartingGroup, setIsStartingGroup] = useState(false);
+  const groupBuyFormRef = useRef<AddressFormHandle>(null);
+  const groupBuyFormDataRef = useRef<any>(null);
+  // Gallery swipe tracking - declared up here with the other refs (not down by the gallery JSX)
+  // because this component has an early return below for the "product not found" case, and every
+  // hook must run unconditionally on every render.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const product = products.find(p => p.id === id);
 
@@ -71,6 +87,35 @@ const ProductDetail: React.FC = () => {
     fetchReviews();
   }, [id, fetchReviews]);
 
+  // A signup is scoped to whichever product/variant was out of stock at the time - switching color
+  // or size (or navigating to a different product) means it no longer applies, so the confirmation
+  // shouldn't linger and imply a signup that was never made for the newly-selected combination.
+  useEffect(() => {
+    setRestockRequested(false);
+  }, [id, selectedVariant?.color, selectedVariant?.size]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { products: also } = await apiFetch<{ products: Product[] }>(`/products/${id}/also-bought`);
+        if (!cancelled) setAlsoBought(also);
+      } catch (e) {
+        console.error('Error fetching also-bought products:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  // Switching to a color/size with less stock than the quantity already dialed in (e.g. picked
+  // 5 of a color with 8 left, then switched to one with only 3) needs to pull that number back
+  // down too, not just cap how much higher the + button can still go from here.
+  useEffect(() => {
+    if (!selectedVariant) return;
+    setQty(q => Math.min(q, Math.max(selectedVariant.stock, 1)));
+  }, [selectedVariant]);
+
   if (!product) {
     return (
       <div className="max-w-7xl mx-auto px-2 py-20 text-center bg-white rounded-3xl shadow-sm border">
@@ -80,13 +125,46 @@ const ProductDetail: React.FC = () => {
     );
   }
 
-  const variantPrices = product.variants ? product.variants.map(v => v.price).filter(p => p > 0) : [];
-  const minPrice = variantPrices.length > 0 ? Math.min(...variantPrices) : product.price;
-  const maxPrice = variantPrices.length > 0 ? Math.max(...variantPrices) : product.price;
+  // A variant left at price 0 means "no override - use the common/base price", not "free", so
+  // every variant's *effective* price folds that in before computing anything - otherwise a
+  // product where only one color has its own price (everything else shares the common one) would
+  // show a range/price built only from that one outlier, ignoring the common price entirely.
+  const effectivePrices = product.variants && product.variants.length > 0
+    ? product.variants.map(v => (v.price > 0 ? v.price : product.price))
+    : [product.price];
+  const minPrice = Math.min(...effectivePrices);
+  const maxPrice = Math.max(...effectivePrices);
 
-  const displayPrice = variantPrices.length > 0 && minPrice !== maxPrice
+  // Once a specific variant is picked, show exactly what it costs - its own price if the admin
+  // set one, otherwise the common price it falls back to - rather than continuing to show the
+  // whole range once the customer has actually narrowed down to one option.
+  const selectedEffectivePrice = selectedVariant ? (selectedVariant.price > 0 ? selectedVariant.price : product.price) : null;
+  const displayPrice = selectedEffectivePrice !== null
+    ? getFormattedPrice(selectedEffectivePrice)
+    : minPrice !== maxPrice
     ? `${getFormattedPrice(minPrice)} - ${getFormattedPrice(maxPrice)}`
     : getFormattedPrice(minPrice);
+
+  // Selecting a color jumps the gallery straight to its photo (if the admin assigned one) - the
+  // moment a size is also picked and add-to-cart/buy-now fires, this same photo (not necessarily
+  // images[0]) needs to be what's actually attached to the cart/order line, since that's what
+  // ends up on the cart page, checkout, invoice, and admin order view. Since none of those read
+  // anything but images[0], the simplest way to make all of them show the right photo without
+  // touching each one is to just move it to the front here.
+  const imagesForColor = (color: string | undefined) => {
+    const chosen = color ? product.colorImages?.[color] : undefined;
+    if (!chosen || !product.images.includes(chosen)) return product.images;
+    return [chosen, ...product.images.filter((img) => img !== chosen)];
+  };
+
+  const handleColorChange = (color: string | null) => {
+    const image = color ? product.colorImages?.[color] : undefined;
+    if (!image) return;
+    const index = displayImages.indexOf(image);
+    if (index === -1) return;
+    setActiveImgIndex(index);
+    setActiveVideoIndex(null);
+  };
 
   const handleBuyNow = () => {
     // If variants exist, require selection
@@ -94,51 +172,160 @@ const ProductDetail: React.FC = () => {
       alert(t('detail_select_color_size'));
       return;
     }
-    const itemToBuy = selectedVariant ? { 
-      ...product, 
-      price: selectedVariant.price || product.price, 
+    const itemToBuy = selectedVariant ? {
+      ...product,
+      images: imagesForColor(selectedVariant.color),
+      price: selectedVariant.price || product.price,
       selectedColor: selectedVariant.color,
       selectedSize: selectedVariant.size
     } : product;
     navigate('/cart?step=2', { state: { directBuyProduct: itemToBuy, quantity: qty } });
   };
 
-  const handleAddToCart = () => {
+  const handleStartGroupOrder = async (addressData: any) => {
+    if (!addressData || !product) return;
+    setIsStartingGroup(true);
+    try {
+      const { code } = await apiFetch<{ code: string }>('/group-orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          productId: product.id,
+          quantity: qty,
+          customerName: addressData.fullName,
+          deliveryAddress: addressData,
+        }),
+      }, token);
+      navigate(`/group/${code}`);
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not start the group order.', 'error');
+    } finally {
+      setIsStartingGroup(false);
+    }
+  };
+
+  const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (product.variants && product.variants.length > 0 && !selectedVariant) {
       alert(t('detail_select_color_size'));
       return;
     }
-    const itemToAdd = selectedVariant ? { 
-      ...product, 
-      price: selectedVariant.price || product.price, 
+    const itemToAdd = selectedVariant ? {
+      ...product,
+      images: imagesForColor(selectedVariant.color),
+      price: selectedVariant.price || product.price,
       selectedColor: selectedVariant.color,
       selectedSize: selectedVariant.size
     } : product;
+    flyToCart(itemToAdd.images[0], e.currentTarget);
     addToCart(itemToAdd, qty);
   };
 
-  const isOutOfStock = product.stock <= 0;
-  const stockLevel = getStockLevel(product.stock);
+  const handleNotifyRestock = async () => {
+    if (!restockEmail.trim()) return;
+    setRestockSubmitting(true);
+    try {
+      await apiFetch(`/products/${product.id}/notify-restock`, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: restockEmail.trim(),
+          color: selectedVariant?.color,
+          size: selectedVariant?.size,
+        }),
+      });
+      setRestockRequested(true);
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not save your request.', 'error');
+    } finally {
+      setRestockSubmitting(false);
+    }
+  };
+
+  // Once a color+size is actually picked, stock is about that specific combination, not the
+  // product's overall total across every variant - the quantity stepper, the "in stock"/"only X
+  // left" messaging, and the out-of-stock state all need to agree on the same number, or a
+  // shopper could see "45 in stock" while the stepper silently refuses to go past 3.
+  const effectiveStock = selectedVariant ? selectedVariant.stock : product.stock;
+  const isOutOfStock = effectiveStock <= 0;
+  const stockLevel = getStockLevel(effectiveStock);
 
   const displayImages = product.images || [];
   const displayVideos = product.videoUrls || [];
   const similarProducts = products.filter(p => p.subCategory === product.subCategory && p.id !== product.id);
 
+  // Images and videos stay in their own arrays for the existing thumbnail click behavior, but
+  // swiping needs one ordered sequence (images first, then videos) to know what "next"/"previous"
+  // means across both.
+  const mediaCount = displayImages.length + displayVideos.length;
+  const activeMediaIndex = activeVideoIndex !== null ? displayImages.length + activeVideoIndex : activeImgIndex;
+
+  const goToMediaIndex = (index: number) => {
+    if (mediaCount === 0) return;
+    const wrapped = ((index % mediaCount) + mediaCount) % mediaCount;
+    if (wrapped < displayImages.length) {
+      setActiveImgIndex(wrapped);
+      setActiveVideoIndex(null);
+    } else {
+      setActiveVideoIndex(wrapped - displayImages.length);
+    }
+  };
+
+  // Swipe-to-navigate: touch-only (this is a gesture, not a drag-to-reorder UI), and only fires
+  // for a clearly horizontal, deliberate swipe - a small/vertical movement is left alone so it
+  // doesn't fight the page's own vertical scroll or a tap on the video's native controls.
+  const SWIPE_THRESHOLD_PX = 50;
+
+  const handleGalleryTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleGalleryTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+    const deltaX = e.changedTouches[0].clientX - start.x;
+    const deltaY = e.changedTouches[0].clientY - start.y;
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX || Math.abs(deltaX) < Math.abs(deltaY)) return;
+    goToMediaIndex(activeMediaIndex + (deltaX < 0 ? 1 : -1));
+  };
+
+  // ProductCard (and the rating-breakdown popover) stamp the page they were clicked from onto
+  // the link as router state - reading that back and navigating straight to it is deterministic
+  // regardless of which page this product was actually opened from (Home's featured carousel,
+  // Shop with its filters, wishlist, similar products on another product's own page...), unlike
+  // navigate(-1), which just pops whatever happens to be the previous entry in the raw browser
+  // history stack and can land somewhere else entirely if anything else navigated in between.
+  // Only actually reached via history for a product opened some other way (a shared link, a
+  // bookmark) where no such state exists.
+  const returnTo = (location.state as { from?: string } | null)?.from;
+  const handleBackToResults = () => {
+    if (returnTo) {
+      navigate(returnTo);
+    } else if (window.history.state?.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/shop');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-10">
-      <Link to="/shop" className="inline-flex items-center gap-2 text-sm sm:text-base text-slate-500 hover:text-emerald-600 mb-4 sm:mb-8 font-medium">
+      <button onClick={handleBackToResults} className="inline-flex items-center gap-2 text-sm sm:text-base text-slate-500 hover:text-emerald-600 mb-4 sm:mb-8 font-medium">
         <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" /> {t('detail_back_to_results')}
-      </Link>
+      </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 mb-10 sm:mb-20">
         <div className="space-y-3 sm:space-y-4">
-          <div className="relative aspect-square rounded-2xl sm:rounded-[2rem] overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/50">
+          <div
+            className="relative aspect-square rounded-2xl sm:rounded-[2rem] overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/50"
+            onTouchStart={handleGalleryTouchStart}
+            onTouchEnd={handleGalleryTouchEnd}
+          >
             {activeVideoIndex !== null && displayVideos[activeVideoIndex] ? (
               <video
                 key={displayVideos[activeVideoIndex]}
                 src={displayVideos[activeVideoIndex]}
                 controls
                 autoPlay
+                playsInline
                 className="w-full h-full object-contain bg-black animate-fade-in"
               />
             ) : displayImages.length > 0 && (
@@ -183,17 +370,17 @@ const ProductDetail: React.FC = () => {
             {isOutOfStock ? (
               <span className="text-xs sm:text-sm font-bold text-rose-600">{t('product_out_of_stock')}</span>
             ) : stockLevel === 'low' ? (
-              <span className="text-xs sm:text-sm font-bold text-rose-500">{t('product_only_left', { n: product.stock })}</span>
+              <span className="text-xs sm:text-sm font-bold text-rose-500">{t('product_only_left', { n: effectiveStock })}</span>
             ) : stockLevel === 'medium' ? (
-              <span className="text-xs sm:text-sm font-bold text-orange-500">{t('product_in_stock', { n: product.stock })}</span>
+              <span className="text-xs sm:text-sm font-bold text-orange-500">{t('product_in_stock', { n: effectiveStock })}</span>
             ) : (
-              <span className="text-xs sm:text-sm font-bold text-emerald-600">{t('product_in_stock', { n: product.stock })}</span>
+              <span className="text-xs sm:text-sm font-bold text-emerald-600">{t('product_in_stock', { n: effectiveStock })}</span>
             )}
           </div>
 
           {product.variants && product.variants.length > 0 && (
             <div className="mb-4 sm:mb-6">
-              <VariantSelector variants={product.variants} onVariantSelect={setSelectedVariant} />
+              <VariantSelector variants={product.variants} onVariantSelect={setSelectedVariant} onColorChange={handleColorChange} />
             </div>
           )}
 
@@ -208,8 +395,8 @@ const ProductDetail: React.FC = () => {
                 </button>
                 <span className="w-10 sm:w-12 text-center font-bold text-sm sm:text-lg text-slate-900 dark:text-emerald-100">{qty}</span>
                 <button
-                   onClick={() => setQty(q => Math.min(product.stock, q + 1))}
-                   disabled={isOutOfStock || qty >= product.stock}
+                   onClick={() => setQty(q => Math.min(effectiveStock, q + 1))}
+                   disabled={isOutOfStock || qty >= effectiveStock}
                    className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-slate-50 rounded-lg sm:rounded-xl transition-all disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                 >
                   <Plus size={18} className="sm:w-5 sm:h-5" />
@@ -232,6 +419,49 @@ const ProductDetail: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {product.groupBuyEnabled && !isOutOfStock && (
+              <div className="rounded-xl sm:rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-4 sm:p-6">
+                <h3 className="flex items-center gap-2 font-bold text-sm sm:text-lg text-emerald-900 dark:text-emerald-100 mb-2">
+                  <Users size={18} /> {t('group_buy_title')}
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200 mb-3">{t('group_buy_tiers_description')}</p>
+                <button
+                  onClick={() => setShowGroupBuyModal(true)}
+                  className="w-full sm:w-auto px-5 py-2.5 sm:py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold transition-all active:scale-95"
+                >
+                  {t('group_buy_start_button')}
+                </button>
+              </div>
+            )}
+
+            {isOutOfStock && (
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl sm:rounded-2xl p-4 sm:p-5">
+                {restockRequested ? (
+                  <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{t('product_notify_restock_confirmed')}</p>
+                ) : (
+                  <>
+                    <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2.5">{t('product_notify_restock_prompt')}</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="email"
+                        value={restockEmail}
+                        onChange={(e) => setRestockEmail(e.target.value)}
+                        placeholder={t('product_notify_restock_email_placeholder')}
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
+                      />
+                      <button
+                        onClick={handleNotifyRestock}
+                        disabled={restockSubmitting || !restockEmail.trim()}
+                        className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-emerald-700 text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {t('product_notify_restock_button')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -280,7 +510,7 @@ const ProductDetail: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">{review.userName}</p>
+                          <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">{review.userUsername ? `@${review.userUsername}` : review.userName}</p>
                           {review.isHidden && (
                             <span className="inline-flex items-center rounded-full bg-rose-100 dark:bg-rose-900/40 px-2.5 py-0.5 text-[10px] sm:text-xs font-bold text-rose-700 dark:text-rose-300">{t('detail_hidden')}</span>
                           )}
@@ -329,6 +559,22 @@ const ProductDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Customers Also Bought - real co-purchase data from order history, not just shared category */}
+      {alsoBought.length > 0 && (
+        <div className="mt-10 sm:mt-20">
+          <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-8">{t('detail_customers_also_bought')}</h2>
+          {alsoBought.length >= 4 ? (
+            <ProductCarousel products={alsoBought} />
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              {alsoBought.map(p => (
+                <ProductCard key={p.id} product={{ ...p, image: p.images[0] }} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Similar Products */}
       {similarProducts.length > 0 && (
         <div className="mt-10 sm:mt-20">
@@ -342,6 +588,34 @@ const ProductDetail: React.FC = () => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {showGroupBuyModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-8 max-w-lg w-full shadow-2xl my-8">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-emerald-50 mb-4">{t('group_buy_start_button')}</h3>
+            <AddressForm
+              ref={groupBuyFormRef}
+              setAddressData={(d) => { groupBuyFormDataRef.current = d; }}
+              onProceed={() => handleStartGroupOrder(groupBuyFormDataRef.current)}
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setShowGroupBuyModal(false)}
+                className="flex-1 py-2.5 sm:py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300"
+              >
+                {t('cart_confirm_order_cancel')}
+              </button>
+              <button
+                onClick={() => groupBuyFormRef.current?.submit()}
+                disabled={isStartingGroup}
+                className="flex-1 py-2.5 sm:py-3 rounded-xl bg-emerald-700 text-white text-sm font-bold hover:bg-emerald-800 transition-all disabled:opacity-60"
+              >
+                {isStartingGroup ? '...' : t('group_buy_start_button')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -15,7 +15,8 @@ const ORDERS_PER_PAGE = 8;
 
 const AdminManageOrders: React.FC = () => {
   const context = useAppContext();
-  const { orders, updateOrder, deleteOrder, confirmOrderPayment, getFormattedPrice, user, token } = context;
+  const { orders, updateOrder, deleteOrder, confirmOrderPayment, assignRider, getFormattedPrice, user, token, markOrderAsRead, allUsers } = context;
+  const riders = allUsers.filter(u => u.role === 'rider');
   const showToast = context.showToast;
   const [isSendingInvoice, setIsSendingInvoice] = useState(false);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
@@ -33,7 +34,7 @@ const AdminManageOrders: React.FC = () => {
   const [showDeleteOrderConfirm, setShowDeleteOrderConfirm] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
 
-  const availableStatuses: ('All' | Order['status'])[] = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  const availableStatuses: ('All' | Order['status'])[] = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
 
   const filteredAndSortedOrders = useMemo(() => {
     // Defensive check: ensure orders is an array before spreading
@@ -93,6 +94,9 @@ const AdminManageOrders: React.FC = () => {
   const handleViewDetails = (order: Order) => {
     setSelectedOrder(order);
     setShowOrderDetailsModal(true);
+    if (order.unread) {
+      markOrderAsRead(order.id);
+    }
     if (order.status === 'Pending') {
       updateOrder({ ...order, status: 'Processing' });
     }
@@ -193,12 +197,25 @@ const AdminManageOrders: React.FC = () => {
                     Total {sortBy === 'total' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center whitespace-nowrap">Status</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center whitespace-nowrap">Rider</th>
                   <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors duration-300">{paginatedOrders.length > 0 ? paginatedOrders.map(order => (
-                  <tr key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-950 transition-colors">
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-50">#{order.orderNumber || order.id}</td>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors duration-300">{paginatedOrders.length > 0 ? paginatedOrders.map(order => {
+                  const isUnchecked = order.unread || order.status === 'Pending';
+                  return (
+                  <tr key={order.id} className={`transition-colors ${isUnchecked ? 'bg-rose-50/60 hover:bg-rose-50 dark:bg-rose-950/20 dark:hover:bg-rose-950/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-950'}`}>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-50">
+                      <span className="inline-flex items-center gap-1.5 sm:gap-2">
+                        {isUnchecked && (
+                          <span className="inline-flex items-center gap-1 shrink-0 bg-rose-500 text-white text-[8px] sm:text-[9px] font-black uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full" title="Not yet checked by admin">
+                            <span className="w-1 h-1 rounded-full bg-white" aria-hidden="true" />
+                            New
+                          </span>
+                        )}
+                        <span>#{order.orderNumber || order.id}</span>
+                      </span>
+                    </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{order.customerName}</td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{formatDate(order.date)}</td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm sm:text-base font-bold text-slate-900 dark:text-emerald-100">{getFormattedPrice(order.total)}</td>
@@ -210,6 +227,18 @@ const AdminManageOrders: React.FC = () => {
                       >
                         {availableStatuses.filter(s => s !== 'All').map(statusOption => (
                           <option key={statusOption} value={statusOption}>{statusOption}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-center">
+                      <select
+                        value={order.riderId || ''}
+                        onChange={(e) => assignRider(order.id, e.target.value || null)}
+                        className="inline-flex items-center rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold outline-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+                      >
+                        <option value="">Unassigned</option>
+                        {riders.map(rider => (
+                          <option key={rider.id} value={rider.id}>{rider.name}</option>
                         ))}
                       </select>
                     </td>
@@ -234,9 +263,10 @@ const AdminManageOrders: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                )) : (
+                  );
+                }) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-sm sm:text-lg text-slate-500 dark:text-emerald-300">No orders found.</td>
+                    <td colSpan={7} className="text-center py-10 text-sm sm:text-lg text-slate-500 dark:text-emerald-300">No orders found.</td>
                   </tr>
                 )}</tbody>
             </table>
@@ -261,7 +291,7 @@ const AdminManageOrders: React.FC = () => {
             {/* PDF Invoice Structure */}
             <div id="pdf-wrapper" className="absolute top-0 left-0 w-full opacity-0 pointer-events-none">
               <div id="invoice-content-for-pdf" className="w-[800px] p-8 text-black bg-white">
-              <div className="invoice" style={{ maxWidth: '760px', margin: '0 auto', background: '#ffffff', padding: '64px 56px 48px', color: '#1a1a1a', fontFamily: 'sans-serif' }}>
+              <div className="invoice" style={{ maxWidth: '760px', margin: '0 auto', background: '#ffffff', padding: '64px 56px 48px', color: '#1a1a1a', fontFamily: 'sans-serif', position: 'relative' }}>
                 <div style={{ marginBottom: '36px' }}>
                   <KuISOKOLogoSVG className="h-10 w-auto block" />
                 </div>
@@ -318,10 +348,29 @@ const AdminManageOrders: React.FC = () => {
                     </tr>
                   </tbody>
                 </table>
-                <div style={{ marginTop: '40px', fontSize: '14px', color: '#666' }}>
-                  <p><strong>Issued by:</strong> {user?.name || 'Admin'}</p>
-                  <p><strong>Email:</strong> {user?.email || 'admin@example.com'}</p>
-                  <p><strong>Date Issued:</strong> {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+
+                {/* Company stamp sits beside the "Issued by" block, not on top of it - a flex
+                    row rather than an absolute-positioned guess, so it can never end up
+                    overlapping (and obscuring) any of that text no matter how tall the items
+                    table above pushed this block down. */}
+                <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '24px' }}>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    <p><strong>Issued by:</strong> {user?.name || 'Admin'}</p>
+                    <p><strong>Email:</strong> {user?.email || 'admin@example.com'}</p>
+                    <p><strong>Date Issued:</strong> {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+                  </div>
+                  <img
+                    src="/branding/stamp.png"
+                    alt=""
+                    style={{
+                      width: '120px',
+                      height: 'auto',
+                      opacity: 0.9,
+                      transform: 'rotate(-14deg)',
+                      flexShrink: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
                 </div>
                 <div style={{ marginTop: '56px', paddingTop: '32px', borderTop: '2px solid #0B5D3B', textAlign: 'center' }}>
                   <p style={{ fontSize: '26px', fontWeight: '900', margin: '0 0 6px', color: '#0B5D3B', letterSpacing: '0.02em' }}>
@@ -356,6 +405,14 @@ const AdminManageOrders: React.FC = () => {
                 <span className={`font-bold rounded-full px-2 py-0.5 text-xs ${selectedOrder.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' : selectedOrder.paymentStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                   {selectedOrder.paymentStatus === 'paid' ? 'Paid' : selectedOrder.paymentStatus === 'failed' ? 'Failed' : 'Unpaid'}
                 </span>
+              </p>
+              <p>
+                <strong>Rider:</strong>{' '}
+                {selectedOrder.riderId ? (
+                  <span className="font-bold text-slate-900">{selectedOrder.riderName || 'Assigned'}</span>
+                ) : (
+                  <span className="text-slate-400">Not assigned</span>
+                )}
               </p>
 
               <h4 className="text-lg font-bold text-slate-900 mt-6 mb-3">Order Items:</h4>

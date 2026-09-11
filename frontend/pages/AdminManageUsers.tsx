@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, Eye, EyeOff, User as UserIcon, UserCheck, UserMinus, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Eye, EyeOff, User as UserIcon, UserCheck, UserMinus, Search, Bike } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { User } from '../types';
 import { apiFetch, ApiError } from '../api';
@@ -52,7 +52,7 @@ const AdminManageUsers: React.FC = () => {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
+  const [newUserRole, setNewUserRole] = useState<'user' | 'admin' | 'rider'>('user');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [showNewUserPassword, setShowNewUserPassword] = useState(false);
   const [addUserFormErrors, setAddUserFormErrors] = useState<Record<string, string>>({});
@@ -64,7 +64,7 @@ const AdminManageUsers: React.FC = () => {
   const [editingUserEmail, setEditingUserEmail] = useState('');
   const [editingUserPhoneNumber, setEditingUserPhoneNumber] = useState('');
   const [editingUserAddress, setEditingUserAddress] = useState('');
-  const [editingUserRole, setEditingUserRole] = useState<'user' | 'admin'>('user');
+  const [editingUserRole, setEditingUserRole] = useState<'user' | 'admin' | 'rider'>('user');
   const [editUserFormErrors, setEditUserFormErrors] = useState<Record<string, string>>({});
 
   // Delete Confirmation Modal State
@@ -95,16 +95,23 @@ const AdminManageUsers: React.FC = () => {
     setCurrentPage(page);
   };
 
-  const getUserRoleTag = (role: 'user' | 'admin') => {
+  const getUserRoleTag = (role: 'user' | 'admin' | 'rider') => {
     if (role === 'admin') {
       return (
-        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-emerald-700 whitespace-nowrap">
+        <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
           <UserCheck size={13} className="mr-1" /> Admin
         </span>
       );
     }
+    if (role === 'rider') {
+      return (
+        <span className="inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-900/40 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-orange-700 dark:text-orange-300 whitespace-nowrap">
+          <Bike size={13} className="mr-1" /> Rider
+        </span>
+      );
+    }
     return (
-      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-slate-700 whitespace-nowrap">
+      <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-emerald-200 whitespace-nowrap">
         <UserIcon size={13} className="mr-1" /> User
       </span>
     );
@@ -295,7 +302,7 @@ const AdminManageUsers: React.FC = () => {
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 transition-colors duration-300">
                   <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Avatar</th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[100px] whitespace-nowrap">User ID</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">User ID</th>
                   <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Name</th>
                   <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Email</th>
                   <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">Phone Number</th>
@@ -323,12 +330,22 @@ const AdminManageUsers: React.FC = () => {
                       )}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <p className="font-semibold text-slate-800 dark:text-emerald-50">{user.id}</p>
+                      <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-bold font-mono tracking-wide text-slate-700 dark:text-emerald-200 whitespace-nowrap">
+                        {user.id}
+                      </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{user.name}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{user.email}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{user.phoneNumber || '—'}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200">{user.address || '—'}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-slate-800 dark:text-emerald-50 max-w-[140px] sm:max-w-[180px] truncate" title={user.name}>
+                      {user.name}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 max-w-[160px] sm:max-w-[220px] truncate" title={user.email}>
+                      {user.email}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 whitespace-nowrap">
+                      {user.phoneNumber || '—'}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 max-w-[140px] sm:max-w-[200px] truncate" title={user.address || undefined}>
+                      {user.address || '—'}
+                    </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4">{getUserRoleTag(user.role)}</td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 whitespace-nowrap">
                       {user.registrationDate ? formatDate(user.registrationDate) : '—'}
@@ -440,11 +457,12 @@ const AdminManageUsers: React.FC = () => {
                 <select
                   id="newUserRole"
                   value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin')}
+                  onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin' | 'rider')}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
+                  <option value="rider">Rider</option>
                 </select>
               </div>
 
@@ -547,11 +565,12 @@ const AdminManageUsers: React.FC = () => {
                 <select
                   id="editUserRole"
                   value={editingUserRole}
-                  onChange={(e) => setEditingUserRole(e.target.value as 'user' | 'admin')}
+                  onChange={(e) => setEditingUserRole(e.target.value as 'user' | 'admin' | 'rider')}
                   className="w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-sm text-slate-900 dark:text-emerald-100"
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
+                  <option value="rider">Rider</option>
                 </select>
               </div>
 
