@@ -334,8 +334,13 @@ const AdminManageUsers: React.FC = () => {
                         {user.id}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-slate-800 dark:text-emerald-50 max-w-[140px] sm:max-w-[180px] truncate" title={user.name}>
-                      {user.name}
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 max-w-[140px] sm:max-w-[180px]">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-emerald-50 truncate" title={user.name}>
+                        {user.name}
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 truncate" title={`@${user.username}`}>
+                        @{user.username}
+                      </p>
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200 max-w-[160px] sm:max-w-[220px] truncate" title={user.email}>
                       {user.email}
