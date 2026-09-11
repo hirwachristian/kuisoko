@@ -2,11 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
+import { parse as parseCsv } from 'csv-parse/sync';
+import { stringify as stringifyCsv } from 'csv-stringify/sync';
 import type { PoolClient } from 'pg';
 import { pool, withTransaction } from '../db.js';
 import { authenticate, optionalAuthenticate, requireAdmin } from '../middleware/auth.js';
 import { HttpError } from '../lib/httpError.js';
+import { getAppUrl } from '../lib/appUrl.js';
 import { computeImageHash, hammingDistance, fetchImageBuffer } from '../lib/imageHash.js';
+import { imageSearchLimiter } from '../middleware/rateLimit.js';
+import { sendBackInStockEmail } from '../lib/brevo.js';
 
 const router = Router();
 
@@ -41,7 +46,7 @@ function updateProductImageHash(productId: string, imageUrl: string | undefined)
 const PRODUCT_COLUMNS = `
   p.id, p.name, p.description, p.price, p.discount, c.name AS category,
   p.sub_category AS "subCategory", p.images, p.video_urls AS "videoUrls", p.rating, p.reviews_count AS reviews,
-  p.stock, p.featured
+  p.stock, p.featured, p.color_images AS "colorImages", p.group_buy_enabled AS "groupBuyEnabled"
 `;
 
 async function attachVariants<T extends { id: string }>(products: T[]) {
@@ -105,7 +110,7 @@ router.get('/:id', optionalAuthenticate, async (req, res, next) => {
     );
     const isAdmin = req.authUser?.role === 'admin';
     const reviewsResult = await pool.query(
-      `SELECT id, user_name AS "userName", rating, comment, image, is_hidden AS "isHidden", created_at AS date
+      `SELECT id, user_name AS "userName", user_username AS "userUsername", rating, comment, image, is_hidden AS "isHidden", created_at AS date
        FROM reviews WHERE product_id = $1 ${isAdmin ? '' : 'AND is_hidden = false'} ORDER BY created_at DESC`,
       [req.params.id]
     );
@@ -119,6 +124,87 @@ router.get('/:id', optionalAuthenticate, async (req, res, next) => {
         ratingBreakdown,
       },
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/products/:id/also-bought - public: other products that showed up in the same orders as
+// this one, ranked by how many distinct orders paired them - a real co-purchase signal rather than
+// the subcategory-based "similar products" section, which only compares product attributes.
+router.get('/:id/also-bought', async (req, res, next) => {
+  try {
+    const coPurchaseResult = await pool.query(
+      `SELECT oi2.product_id, COUNT(DISTINCT oi2.order_id)::int AS co_count
+       FROM order_items oi1
+       JOIN order_items oi2 ON oi2.order_id = oi1.order_id AND oi2.product_id IS DISTINCT FROM oi1.product_id
+       JOIN products p ON p.id = oi2.product_id AND p.stock > 0
+       WHERE oi1.product_id = $1 AND oi2.product_id IS NOT NULL
+       GROUP BY oi2.product_id
+       ORDER BY co_count DESC
+       LIMIT 6`,
+      [req.params.id]
+    );
+    if (coPurchaseResult.rowCount === 0) return res.json({ products: [] });
+
+    const ids = coPurchaseResult.rows.map((r) => r.product_id);
+    const productsResult = await pool.query(
+      `SELECT ${PRODUCT_COLUMNS} FROM products p JOIN categories c ON c.id = p.category_id WHERE p.id = ANY($1)`,
+      [ids]
+    );
+    // Re-sort to match the co-purchase ranking above - the ANY($1) query doesn't preserve order.
+    const byId = new Map(productsResult.rows.map((p) => [p.id, p]));
+    const ordered = ids.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
+
+    const withVariants = await attachVariants(ordered);
+    return res.json({ products: await attachRatingBreakdown(withVariants) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const notifyRestockSchema = z.object({
+  email: z.string().trim().email('A valid email is required.'),
+  color: z.string().trim().optional(),
+  size: z.string().trim().optional(),
+});
+
+// POST /api/products/:id/notify-restock - public: sign up to be emailed once this product (or, if
+// it has variants, this specific color/size) is back in stock. Rejected while it's already in
+// stock, since there's nothing to wait for - the customer should just buy it.
+router.post('/:id/notify-restock', async (req, res, next) => {
+  const parsed = notifyRestockSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+  const color = parsed.data.color ?? '';
+  const size = parsed.data.size ?? '';
+
+  try {
+    const productResult = await pool.query(`SELECT stock FROM products WHERE id = $1`, [req.params.id]);
+    if (productResult.rowCount === 0) return res.status(404).json({ error: 'Product not found.' });
+
+    let currentStock: number;
+    if (color || size) {
+      // product_variants.color/size are stored as NULL (not '') when a variant doesn't vary by
+      // that attribute, so a plain `=` would never match those rows - IS NOT DISTINCT FROM is the
+      // NULL-safe equality already used for this same lookup in orders.ts.
+      const variantResult = await pool.query(
+        `SELECT stock FROM product_variants WHERE product_id = $1 AND color IS NOT DISTINCT FROM $2 AND size IS NOT DISTINCT FROM $3`,
+        [req.params.id, color || null, size || null]
+      );
+      if (variantResult.rowCount === 0) return res.status(404).json({ error: 'Variant not found.' });
+      currentStock = variantResult.rows[0].stock;
+    } else {
+      currentStock = productResult.rows[0].stock;
+    }
+    if (currentStock > 0) return res.status(400).json({ error: 'This item is already in stock.' });
+
+    await pool.query(
+      `INSERT INTO back_in_stock_requests (product_id, color, size, email)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (product_id, color, size, lower(email)) WHERE notified_at IS NULL DO NOTHING`,
+      [req.params.id, color, size, parsed.data.email]
+    );
+    return res.status(201).json({ ok: true });
   } catch (err) {
     return next(err);
   }
@@ -144,6 +230,11 @@ const productSchema = z.object({
   stock: z.number().int().nonnegative().default(0),
   featured: z.boolean().default(false),
   variants: z.array(variantSchema).default([]),
+  // Maps a variant color to one of `images`, so the product page can jump the gallery to that
+  // color's photo the moment it's picked.
+  colorImages: z.record(z.string(), z.string()).default({}),
+  // Admin opt-in for "buy together" group orders (see routes/groupOrders.ts) on this product.
+  groupBuyEnabled: z.boolean().default(false),
 });
 
 async function resolveCategoryId(client: PoolClient, name: string): Promise<string | null> {
@@ -162,35 +253,82 @@ async function insertVariants(client: PoolClient, productId: string, variants: z
   }
 }
 
+/** Notifies and clears any pending back-in-stock signups that are now satisfied - called
+ * (fire-and-forget) after any change that could raise a product's or variant's stock above zero:
+ * an admin edit, a CSV import, or an order cancellation restoring stock. Safe to call
+ * unconditionally after every such change rather than tracking "did this specific stock value just
+ * cross zero" - a bucket with no pending signups (the common case) is a fast no-op, and one already
+ * notified is excluded by `notified_at IS NULL`, so redundant calls never re-notify anyone. */
+export async function checkAndNotifyRestock(productId: string) {
+  try {
+    const productResult = await pool.query(`SELECT name, stock FROM products WHERE id = $1`, [productId]);
+    if (productResult.rowCount === 0) return;
+    const { name: productName, stock: productStock } = productResult.rows[0];
+
+    const variantsResult = await pool.query(`SELECT color, size, stock FROM product_variants WHERE product_id = $1`, [productId]);
+    const inStockBuckets: { color: string; size: string }[] =
+      variantsResult.rowCount! > 0
+        ? variantsResult.rows.filter((v) => v.stock > 0).map((v) => ({ color: v.color ?? '', size: v.size ?? '' }))
+        : productStock > 0
+        ? [{ color: '', size: '' }]
+        : [];
+    if (inStockBuckets.length === 0) return;
+
+    const productUrl = `${getAppUrl()}/product/${productId}`;
+
+    for (const bucket of inStockBuckets) {
+      const pending = await pool.query(
+        `SELECT email FROM back_in_stock_requests WHERE product_id = $1 AND color = $2 AND size = $3 AND notified_at IS NULL`,
+        [productId, bucket.color, bucket.size]
+      );
+      if (pending.rowCount === 0) continue;
+
+      const variantLabel = [bucket.color, bucket.size].filter(Boolean).join(' / ') || undefined;
+      for (const row of pending.rows) {
+        sendBackInStockEmail(row.email, productName, productUrl, variantLabel);
+      }
+      await pool.query(
+        `UPDATE back_in_stock_requests SET notified_at = now() WHERE product_id = $1 AND color = $2 AND size = $3 AND notified_at IS NULL`,
+        [productId, bucket.color, bucket.size]
+      );
+    }
+  } catch (err) {
+    console.error(`Could not process back-in-stock notifications for product ${productId}:`, err);
+  }
+}
+
+async function createProduct(data: z.infer<typeof productSchema>) {
+  const productId = await withTransaction(async (client) => {
+    const categoryId = await resolveCategoryId(client, data.category);
+    if (!categoryId) throw new HttpError(400, `Category "${data.category}" not found.`);
+
+    const result = await client.query(
+      `INSERT INTO products (name, description, price, discount, category_id, sub_category, images, video_urls, stock, featured, color_images, group_buy_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
+      [data.name, data.description ?? null, data.price, data.discount ?? null, categoryId, data.subCategory, data.images, data.videoUrls, data.stock, data.featured, JSON.stringify(data.colorImages), data.groupBuyEnabled]
+    );
+    const id = result.rows[0].id;
+    await insertVariants(client, id, data.variants);
+    return id;
+  });
+
+  updateProductImageHash(productId, data.images[0]);
+  return productId;
+}
+
 // POST /api/products - admin: create a product
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
-  const data = parsed.data;
 
   try {
-    const product = await withTransaction(async (client) => {
-      const categoryId = await resolveCategoryId(client, data.category);
-      if (!categoryId) throw new HttpError(400, 'Category not found.');
-
-      const result = await client.query(
-        `INSERT INTO products (name, description, price, discount, category_id, sub_category, images, video_urls, stock, featured)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         RETURNING id`,
-        [data.name, data.description ?? null, data.price, data.discount ?? null, categoryId, data.subCategory, data.images, data.videoUrls, data.stock, data.featured]
-      );
-      const productId = result.rows[0].id;
-      await insertVariants(client, productId, data.variants);
-      return productId;
-    });
-
-    updateProductImageHash(product, data.images[0]);
-
+    const productId = await createProduct(parsed.data);
     const created = await pool.query(
       `SELECT ${PRODUCT_COLUMNS} FROM products p JOIN categories c ON c.id = p.category_id WHERE p.id = $1`,
-      [product]
+      [productId]
     );
     const [withVariants] = await attachVariants(created.rows);
     return res.status(201).json({ product: withVariants });
@@ -219,7 +357,56 @@ const productUpdateSchema = z.object({
   stock: z.number().int().nonnegative().optional(),
   featured: z.boolean().optional(),
   variants: z.array(variantSchema).optional(),
+  colorImages: z.record(z.string(), z.string()).optional(),
+  groupBuyEnabled: z.boolean().optional(),
 });
+
+async function updateProduct(id: string, data: z.infer<typeof productUpdateSchema>) {
+  await withTransaction(async (client) => {
+    let categoryId: string | null = null;
+    if (data.category) {
+      categoryId = await resolveCategoryId(client, data.category);
+      if (!categoryId) throw new HttpError(400, `Category "${data.category}" not found.`);
+    }
+
+    const result = await client.query(
+      `UPDATE products SET
+         name = COALESCE($1, name),
+         description = COALESCE($2, description),
+         price = COALESCE($3, price),
+         discount = COALESCE($4, discount),
+         category_id = COALESCE($5, category_id),
+         sub_category = COALESCE($6, sub_category),
+         images = COALESCE($7, images),
+         video_urls = COALESCE($8, video_urls),
+         stock = COALESCE($9, stock),
+         featured = COALESCE($10, featured),
+         color_images = COALESCE($11, color_images),
+         group_buy_enabled = COALESCE($12, group_buy_enabled)
+       WHERE id = $13`,
+      [
+        data.name ?? null, data.description ?? null, data.price ?? null, data.discount ?? null,
+        categoryId, data.subCategory ?? null, data.images ?? null, data.videoUrls ?? null,
+        data.stock ?? null, data.featured ?? null, data.colorImages !== undefined ? JSON.stringify(data.colorImages) : null,
+        data.groupBuyEnabled ?? null, id,
+      ]
+    );
+    if (result.rowCount === 0) throw new HttpError(404, 'Product not found.');
+
+    if (data.variants) {
+      await client.query(`DELETE FROM product_variants WHERE product_id = $1`, [id]);
+      await insertVariants(client, id, data.variants);
+    }
+  });
+
+  if (data.images && data.images.length > 0) {
+    updateProductImageHash(id, data.images[0]);
+  }
+
+  if (data.stock !== undefined || data.variants !== undefined) {
+    checkAndNotifyRestock(id);
+  }
+}
 
 // PATCH /api/products/:id - admin: update a product
 router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
@@ -227,47 +414,9 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
-  const data = parsed.data;
 
   try {
-    await withTransaction(async (client) => {
-      let categoryId: string | null = null;
-      if (data.category) {
-        categoryId = await resolveCategoryId(client, data.category);
-        if (!categoryId) throw new HttpError(400, 'Category not found.');
-      }
-
-      const result = await client.query(
-        `UPDATE products SET
-           name = COALESCE($1, name),
-           description = COALESCE($2, description),
-           price = COALESCE($3, price),
-           discount = COALESCE($4, discount),
-           category_id = COALESCE($5, category_id),
-           sub_category = COALESCE($6, sub_category),
-           images = COALESCE($7, images),
-           video_urls = COALESCE($8, video_urls),
-           stock = COALESCE($9, stock),
-           featured = COALESCE($10, featured)
-         WHERE id = $11`,
-        [
-          data.name ?? null, data.description ?? null, data.price ?? null, data.discount ?? null,
-          categoryId, data.subCategory ?? null, data.images ?? null, data.videoUrls ?? null,
-          data.stock ?? null, data.featured ?? null, req.params.id,
-        ]
-      );
-      if (result.rowCount === 0) throw new HttpError(404, 'Product not found.');
-
-      if (data.variants) {
-        await client.query(`DELETE FROM product_variants WHERE product_id = $1`, [req.params.id]);
-        await insertVariants(client, req.params.id, data.variants);
-      }
-    });
-
-    if (data.images && data.images.length > 0) {
-      updateProductImageHash(req.params.id, data.images[0]);
-    }
-
+    await updateProduct(req.params.id, parsed.data);
     const updated = await pool.query(
       `SELECT ${PRODUCT_COLUMNS} FROM products p JOIN categories c ON c.id = p.category_id WHERE p.id = $1`,
       [req.params.id]
@@ -282,13 +431,141 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   }
 });
 
-const MAX_HAMMING_DISTANCE = 20; // out of 64 bits (~31%) - loose enough for photo/lighting/crop variance, tight enough to exclude unrelated products
+const CSV_COLUMNS = ['id', 'name', 'description', 'price', 'discount', 'category', 'subCategory', 'stock', 'featured', 'images', 'videoUrls', 'colorImages', 'variants'] as const;
+
+// GET /api/products/export/csv - admin: full catalog as a spreadsheet-editable CSV. Multi-value
+// fields (images, videoUrls) are pipe-separated and variants are packed as "color:size:price:stock"
+// entries separated by ";" - compact enough to read and edit in Excel/Sheets without a nested format.
+router.get('/export/csv', authenticate, requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT ${PRODUCT_COLUMNS} FROM products p JOIN categories c ON c.id = p.category_id ORDER BY p.created_at DESC`
+    );
+    const withVariants = await attachVariants(result.rows);
+    const rows = withVariants.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description ?? '',
+      price: p.price,
+      discount: p.discount ?? '',
+      category: p.category,
+      subCategory: p.subCategory,
+      stock: p.stock,
+      featured: p.featured,
+      images: (p.images || []).join('|'),
+      videoUrls: (p.videoUrls || []).join('|'),
+      colorImages: p.colorImages && Object.keys(p.colorImages).length > 0 ? JSON.stringify(p.colorImages) : '',
+      variants: (p.variants || []).map((v: any) => `${v.color ?? ''}:${v.size ?? ''}:${v.price}:${v.stock}`).join(';'),
+    }));
+    const csv = stringifyCsv(rows, { header: true, columns: CSV_COLUMNS as unknown as string[] });
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', 'attachment; filename="kuisoko-products.csv"');
+    return res.send(csv);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const csvImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB - a products spreadsheet, not a media file
+});
+
+/** Turns one raw CSV row into a partial payload matching productSchema/productUpdateSchema's
+ * shape - only fields the row actually has a non-blank value for are included, so re-exporting
+ * and re-importing a row unchanged doesn't accidentally blank out fields on update, and so a
+ * create-row can still rely on productSchema's own defaults for anything left blank. */
+function parseCsvRow(row: Record<string, string>) {
+  const val = (key: string) => (row[key] ?? '').trim();
+  const data: Record<string, unknown> = {};
+
+  if (val('name')) data.name = val('name');
+  if (row.description !== undefined) data.description = val('description');
+  if (val('price')) data.price = Number(val('price'));
+  if (val('discount')) data.discount = Number(val('discount'));
+  if (val('category')) data.category = val('category');
+  if (val('subCategory')) data.subCategory = val('subCategory');
+  if (row.images !== undefined) data.images = val('images') ? val('images').split('|').map(s => s.trim()).filter(Boolean) : [];
+  if (row.videoUrls !== undefined) data.videoUrls = val('videoUrls') ? val('videoUrls').split('|').map(s => s.trim()).filter(Boolean) : [];
+  if (val('stock')) data.stock = Number(val('stock'));
+  if (val('featured')) data.featured = ['true', '1', 'yes'].includes(val('featured').toLowerCase());
+  if (val('colorImages')) {
+    try {
+      data.colorImages = JSON.parse(val('colorImages'));
+    } catch {
+      throw new Error('colorImages is not valid JSON.');
+    }
+  }
+  if (val('variants')) {
+    data.variants = val('variants').split(';').filter(Boolean).map((entry) => {
+      const [color, size, price, stock] = entry.split(':').map(s => s.trim());
+      return { color: color || undefined, size: size || undefined, price: Number(price), stock: Number(stock) };
+    });
+  }
+
+  return { id: val('id') || undefined, data };
+}
+
+// POST /api/products/import/csv - admin: bulk create/update products from a CSV file. A row with
+// an `id` matching an existing product updates it (only the columns present are touched, same
+// semantics as PATCH /:id); a row with no `id` (or one that matches nothing) creates a new product.
+// Each row is applied independently so one bad row (typo'd category, malformed JSON) doesn't roll
+// back an otherwise-good batch - the response reports exactly which rows failed and why.
+router.post('/import/csv', authenticate, requireAdmin, csvImportUpload.single('file'), async (req, res, next) => {
+  if (!req.file) return res.status(400).json({ error: 'No CSV file uploaded.' });
+
+  let rows: Record<string, string>[];
+  try {
+    rows = parseCsv(req.file.buffer.toString('utf-8'), { columns: true, skip_empty_lines: true, trim: true });
+  } catch {
+    return res.status(400).json({ error: 'Could not parse CSV file - check that it is valid, comma-separated, UTF-8 text.' });
+  }
+
+  let created = 0;
+  let updated = 0;
+  const errors: { row: number; message: string }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowNumber = i + 2; // +1 for 0-index, +1 for the header row - matches the row a spreadsheet would show
+    try {
+      const { id, data } = parseCsvRow(rows[i]);
+      if (id) {
+        const parsed = productUpdateSchema.safeParse(data);
+        if (!parsed.success) {
+          errors.push({ row: rowNumber, message: parsed.error.issues[0].message });
+          continue;
+        }
+        await updateProduct(id, parsed.data);
+        updated++;
+      } else {
+        const parsed = productSchema.safeParse(data);
+        if (!parsed.success) {
+          errors.push({ row: rowNumber, message: parsed.error.issues[0].message });
+          continue;
+        }
+        await createProduct(parsed.data);
+        created++;
+      }
+    } catch (err) {
+      errors.push({ row: rowNumber, message: err instanceof Error ? err.message : 'Unknown error.' });
+    }
+  }
+
+  return res.json({ created, updated, errors });
+});
+
+const MAX_HAMMING_DISTANCE = 20; // out of 64 bits (~31%) - a confident, near-duplicate match
+// A real phone photo of a physical product (its own lighting/background/angle) can land further
+// from the clean catalog shot than a confident match while still clearly being the same item, so
+// when nothing clears the confident bar we fall back to this looser cutoff rather than dead-ending
+// on "no matches" - real reverse-image search surfaces its best guesses instead of going blank.
+const FALLBACK_MAX_HAMMING_DISTANCE = 34; // out of 64 bits (~53%)
 
 // POST /api/products/search-by-image - public: find catalog products visually similar to an
 // uploaded photo (e.g. taken with a phone camera), using a perceptual hash compared via Hamming
 // distance - a lightweight, self-hosted approximation of visual search rather than a full ML
 // vision model, sized for this catalog rather than needing a paid external API.
-router.post('/search-by-image', imageSearchUpload.single('image'), async (req, res, next) => {
+router.post('/search-by-image', imageSearchLimiter, imageSearchUpload.single('image'), async (req, res, next) => {
   if (!req.file) {
     return res.status(400).json({ error: 'An image file is required.' });
   }
@@ -299,10 +576,11 @@ router.post('/search-by-image', imageSearchUpload.single('image'), async (req, r
        FROM products p JOIN categories c ON c.id = p.category_id
        WHERE p.image_hash IS NOT NULL`
     );
-    const ranked = result.rows
+    const allRanked = result.rows
       .map((row) => ({ ...row, distance: hammingDistance(queryHash, row.imageHash) }))
-      .filter((row) => row.distance <= MAX_HAMMING_DISTANCE)
-      .sort((a, b) => a.distance - b.distance)
+      .sort((a, b) => a.distance - b.distance);
+    const confident = allRanked.filter((row) => row.distance <= MAX_HAMMING_DISTANCE);
+    const ranked = (confident.length > 0 ? confident : allRanked.filter((row) => row.distance <= FALLBACK_MAX_HAMMING_DISTANCE))
       .slice(0, 12)
       .map(({ imageHash, distance, ...product }) => product);
 
@@ -337,14 +615,14 @@ router.post('/:id/reviews', authenticate, async (req, res, next) => {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
   try {
-    const userResult = await pool.query(`SELECT name FROM users WHERE id = $1`, [req.authUser!.id]);
+    const userResult = await pool.query(`SELECT name, username FROM users WHERE id = $1`, [req.authUser!.id]);
     if (userResult.rowCount === 0) return res.status(404).json({ error: 'User not found.' });
 
     const result = await pool.query(
-      `INSERT INTO reviews (product_id, user_id, user_name, rating, comment, image)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, user_name AS "userName", rating, comment, image, created_at AS date`,
-      [req.params.id, req.authUser!.id, userResult.rows[0].name, parsed.data.rating, parsed.data.comment ?? null, parsed.data.image ?? null]
+      `INSERT INTO reviews (product_id, user_id, user_name, user_username, rating, comment, image)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, user_name AS "userName", user_username AS "userUsername", rating, comment, image, created_at AS date`,
+      [req.params.id, req.authUser!.id, userResult.rows[0].name, userResult.rows[0].username, parsed.data.rating, parsed.data.comment ?? null, parsed.data.image ?? null]
     );
     return res.status(201).json({ review: result.rows[0] });
   } catch (err) {

@@ -2,10 +2,11 @@
 import React, { useRef, useState } from 'react';
 // Fix: Ensure correct `react-router-dom` named imports for v6+.
 // The existing import statement is correct for `react-router-dom` v6+.
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCart, Star, Heart } from 'lucide-react';
 import { Product } from '../types';
 import { useAppContext } from '../context/AppContext';
+import { useCartFly } from '../context/CartFlyContext';
 import { getStockLevel } from '../utils';
 import RatingBreakdownPopover from './RatingBreakdownPopover';
 
@@ -21,10 +22,18 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, variant = 'grid' }) => {
   const { addToCart, getFormattedPrice, wishlist, toggleWishlist, popularProductIds, t } = useAppContext();
+  const { flyToCart } = useCartFly();
   const hasDiscount = (product.discount || 0) > 0;
   const isOutOfStock = product.stock <= 0;
   const stockLevel = getStockLevel(product.stock);
   const isList = variant === 'list';
+  const location = useLocation();
+  // Carried on the link rather than relied on via navigate(-1) on the other end: this card
+  // renders in a lot of different contexts (Home's featured carousel, the Shop grid with its
+  // filters, wishlist, similar products on another product's own page...), and each needs the
+  // product page's "back" to return to *this* exact page - the browser history stack alone can't
+  // reliably tell those apart if anything else navigated in between.
+  const returnTo = `${location.pathname}${location.search}`;
 
   const ratingRef = useRef<HTMLDivElement>(null);
   const [showRatingBreakdown, setShowRatingBreakdown] = useState(false);
@@ -47,7 +56,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
 
   return (
     <div className={`group bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:shadow-emerald-900/10 transition-all duration-500 ${isList ? 'flex flex-row items-stretch' : 'h-full flex flex-col transform hover:-translate-y-1'}`}>
-      <Link to={`/product/${product.id}`} className={`block relative overflow-hidden bg-white ${isList ? 'w-36 sm:w-48 shrink-0 aspect-square' : 'aspect-square'}`}>
+      <Link to={`/product/${product.id}`} state={{ from: returnTo }} className={`block relative overflow-hidden bg-white ${isList ? 'w-36 sm:w-48 shrink-0 aspect-square' : 'aspect-square'}`}>
         <img
           src={product.image}
           alt={product.name}
@@ -81,7 +90,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
       </Link>
       <div className="p-3 sm:p-6 flex-1 min-w-0 flex flex-col">
         <div className="flex justify-between items-start gap-1.5 sm:gap-2 mb-2 sm:mb-4">
-          <Link to={`/product/${product.id}`} className="flex-1 min-w-0 text-xs sm:text-base font-bold text-slate-900 dark:text-emerald-50 hover:text-emerald-800 transition-colors tracking-tight line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
+          <Link to={`/product/${product.id}`} state={{ from: returnTo }} className="flex-1 min-w-0 text-xs sm:text-base font-bold text-slate-900 dark:text-emerald-50 hover:text-emerald-800 transition-colors tracking-tight line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
             {product.name}
           </Link>
           <div
@@ -125,7 +134,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, isWishlist = false, 
             </span>
           </div>
           <button
-            onClick={() => addToCart(product)}
+            onClick={(e) => { flyToCart(product.image, e.currentTarget); addToCart(product); }}
             disabled={isOutOfStock}
             className="shrink-0 max-w-[52%] flex items-center justify-center gap-1 sm:gap-2 bg-orange-500 text-white hover:bg-orange-600 hover:text-white px-2.5 py-2 sm:px-5 sm:py-2.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-wide sm:tracking-widest transition-all shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
           >
