@@ -40,7 +40,7 @@ interface AppContextType {
   clearCart: () => void;
   user: UserType | null; // Currently logged-in user
   token: string | null; // JWT for the currently logged-in user
-  login: (identifier: string, password: string) => Promise<boolean>;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; retryAfterSeconds?: number }>;
   signup: (fullName: string, username: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
   // Set by login() when the account has 2FA enabled - a correct password alone doesn't sign
@@ -955,7 +955,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
 
-  const login = async (identifier: string, password: string): Promise<boolean> => {
+  const login = async (identifier: string, password: string): Promise<{ success: boolean; retryAfterSeconds?: number }> => {
     try {
       const response = await apiFetch<
         { user: UserType; token: string } | { requiresTwoFactor: true; pendingToken: string; email: string }
@@ -964,16 +964,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if ('requiresTwoFactor' in response) {
         setTwoFactorPending({ pendingToken: response.pendingToken, email: response.email });
         showToast('Enter the code we just emailed you to finish signing in.', 'info');
-        return true;
+        return { success: true };
       }
 
       setUser(response.user);
       setToken(response.token);
       showToast(`Welcome, ${response.user.name.split(' ')[0]}!`, 'success');
-      return true;
+      return { success: true };
     } catch (e) {
       showToast(e instanceof ApiError ? e.message : 'Invalid email/username or password.', 'error');
-      return false;
+      return {
+        success: false,
+        retryAfterSeconds: e instanceof ApiError ? e.retryAfterSeconds : undefined,
+      };
     }
   };
 

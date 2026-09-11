@@ -62,6 +62,10 @@ app.use(cors({
   origin: corsOrigins,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  // Response headers are hidden from client-side JS on a cross-origin request unless explicitly
+  // exposed here - without this, a rate-limited response's Retry-After is invisible to the
+  // frontend, so a lockout screen has no way to say how long to wait.
+  exposedHeaders: ['Retry-After'],
   maxAge: 86400, // lets the browser cache a preflight's result for a day instead of re-asking on every request
 }));
 app.use(express.json({ limit: '10mb' })); // images now go through /api/uploads as real files, not base64 JSON; 10mb covers a base64-encoded invoice PDF for /orders/:id/send-invoice

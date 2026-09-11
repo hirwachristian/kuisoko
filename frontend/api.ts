@@ -3,7 +3,7 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public data?: unknown) {
+  constructor(public status: number, message: string, public data?: unknown, public retryAfterSeconds?: number) {
     super(message);
   }
 }
@@ -22,7 +22,12 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, token
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    throw new ApiError(response.status, data?.error ?? 'Something went wrong.', data);
+    // Rate-limited responses carry how long to wait before trying again - surfaced so a lockout
+    // screen (e.g. too many login attempts) can tell the user an actual time instead of just
+    // "try again later".
+    const retryAfterHeader = response.headers.get('Retry-After');
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : undefined;
+    throw new ApiError(response.status, data?.error ?? 'Something went wrong.', data, retryAfterSeconds);
   }
   return data as T;
 }
