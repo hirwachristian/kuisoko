@@ -5,6 +5,8 @@ import MtnBadge from './MtnBadge';
 
 const phoneSchema = z.string().regex(/^07\d{8}$/, "Phone number must be 10 digits starting with 07");
 const codeSchema = z.string().regex(/^\d{6}$/, "Merchant code must be 6 digits");
+// Cash on Delivery has no phone/merchant code - just a short customer-facing note.
+const noteSchema = z.string().trim().min(1, "Enter a short note (e.g. Pay when it arrives)");
 
 const AdminPaymentMethods: React.FC = () => {
   const { paymentMethods, updatePaymentMethods } = useAppContext();
@@ -14,7 +16,7 @@ const AdminPaymentMethods: React.FC = () => {
 
   const handleAddPayment = () => {
     setError(null);
-    const schema = selectedType === 'Momo Pay' ? codeSchema : phoneSchema;
+    const schema = selectedType === 'Momo Pay' ? codeSchema : selectedType === 'Cash on Delivery' ? noteSchema : phoneSchema;
     const result = schema.safeParse(methodDetail);
 
     if (!result.success) {
@@ -47,13 +49,14 @@ const AdminPaymentMethods: React.FC = () => {
              <option value="MTN">MTN</option>
              <option value="Airtel">Airtel</option>
              <option value="Momo Pay">Momo Pay</option>
+             <option value="Cash on Delivery">Cash on Delivery</option>
           </select>
           <div className="flex-1">
-            <input 
+            <input
               value={methodDetail}
               onChange={(e) => { setMethodDetail(e.target.value); setError(null); }}
               className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-900 dark:text-emerald-100"
-              placeholder={selectedType === 'Momo Pay' ? 'Enter Code' : 'Enter Number'}
+              placeholder={selectedType === 'Momo Pay' ? 'Enter Code' : selectedType === 'Cash on Delivery' ? 'e.g. Pay when it arrives' : 'Enter Number'}
             />
             {error && <p className="text-rose-600 dark:text-rose-400 text-sm mt-1">{error}</p>}
           </div>

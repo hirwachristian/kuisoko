@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, PropsWithChildren, useEffect, useRef, useMemo } from 'react';
-import { Product, CartItem, User as UserType, Category, Order, FooterLink, ReviewNotification, SubscriberNotification, Enquiry } from '../types'; // Import Order and FooterLink
+import { Product, CartItem, User as UserType, Category, Order, FooterLink, ReviewNotification, SubscriberNotification, Enquiry, ReturnRequestNotification } from '../types'; // Import Order and FooterLink
 import { apiFetch, ApiError } from '../api';
 import {
   CategorySection,
@@ -9,6 +9,13 @@ import {
 } from '../constants'; // Corrected import path
 import { playNotificationSound } from '../utils';
 import { translate, translateCategory, Language } from '../translations';
+import { usePolling } from '../hooks/usePolling';
+
+// Shoppers' already-open Home/Shop pages stay in sync with catalog changes an admin makes
+// elsewhere (a new product, a price/stock change, a new category) without needing a manual
+// refresh - not instant, just re-checked periodically, matching the polling this app already
+// uses for chat/notifications rather than adding a whole new real-time/WebSocket layer for it.
+const CATALOG_POLL_MS = 45000;
 
 interface CategoryWithId {
   id: string;
@@ -33,8 +40,8 @@ interface AppContextType {
   clearCart: () => void;
   user: UserType | null; // Currently logged-in user
   token: string | null; // JWT for the currently logged-in user
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (fullName: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
+  login: (identifier: string, password: string) => Promise<boolean>;
+  signup: (fullName: string, username: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
   // Set by login() when the account has 2FA enabled - a correct password alone doesn't sign
   // anyone in at that point, this is what the sign-in page uses to show the "enter your code"
@@ -61,27 +68,36 @@ interface AppContextType {
   products: Product[];
   popularProductIds: Set<string>; // Most-reviewed product id within each category, for the "Popular" badge
   refreshProduct: (productId: string) => Promise<void>;
+  refreshProducts: () => Promise<void>;
   addProduct: (newProduct: Omit<Product, 'id' | 'rating' | 'reviews'>) => Promise<boolean>;
   updateProduct: (updatedProduct: Product) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
   // Order Management
   orders: Order[]; // New: orders state
   // Subtotal/shipping/tax/total are computed server-side from items + delivery district; only pass the inputs.
-  addOrder: (orderInput: { customerName: string; deliveryAddress: Order['deliveryAddress']; items: CartItem[]; currency?: string; paymentMethod?: string; couponCode?: string }) => Promise<Order | null>;
+  addOrder: (orderInput: { customerName: string; deliveryAddress: Order['deliveryAddress']; items: CartItem[]; currency?: string; paymentMethod?: string; couponCode?: string; verificationToken?: string }) => Promise<Order | null>;
   updateOrder: (updatedOrder: Order) => Promise<boolean>; // New: updateOrder function
   deleteOrder: (orderId: string) => Promise<boolean>; // New: deleteOrder function
   confirmOrderPayment: (orderId: string) => Promise<boolean>;
+  assignRider: (orderId: string, riderId: string | null) => Promise<boolean>;
   unreadOrderCount: number; // New: count of pending orders
   unreadUserCount: number; // New: count of unread users
   unreadReviewCount: number; // count of unread review notifications
   unreadSubscriberCount: number; // count of unread new-subscriber notifications
+  unreadReturnRequestCount: number; // count of unread (pending) return requests
   chatAdminUnreadCount: number; // count of unread customer chat messages, across every conversation
   enquiryUnreadCount: number; // count of unread Contact Us submissions (admin sidebar badge)
   unreadNotificationCount: number; // New: count of pending orders + unread users + unread reviews + unread subscribers + unread chat messages
   reviewNotifications: ReviewNotification[]; // recent reviews across all products, for the notification bell
   subscriberNotifications: SubscriberNotification[]; // recent newsletter signups, for the notification bell
+  returnRequestNotifications: ReturnRequestNotification[]; // pending/recent return requests, for the notification bell
+  markReturnRequestAsRead: (id: string) => Promise<void>;
+  requestReturn: (orderId: string, reason: string) => Promise<boolean>;
+  acknowledgeReturnResult: (returnRequestId: string) => Promise<void>;
   markUserAsRead: (userId: string) => Promise<void>; // New: mark user as read
   markOrderAsRead: (orderId: string) => Promise<void>; // New: mark order as read
+  markRiderStopAlertAsRead: (orderId: string) => Promise<void>;
+  markDeliveryConfirmedAsRead: (orderId: string) => Promise<void>;
   markReviewAsRead: (reviewId: string) => Promise<void>;
   markSubscriberAsRead: (subscriberId: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>; // New: mark all notifications as read
@@ -96,7 +112,7 @@ interface AppContextType {
   siteAnnouncements: SiteAnnouncement[];
   // User Management (All Users)
   allUsers: UserType[]; // New: all users state for admin panel
-  addUser: (newUser: Omit<UserType, 'id'> & { password?: string }) => Promise<void>;
+  addUser: (newUser: Omit<UserType, 'id' | 'username'> & { username?: string; password?: string }) => Promise<void>;
   updateUser: (updatedUser: Partial<UserType> & { id: string }) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   // Toast Notification System
@@ -113,6 +129,8 @@ interface AppContextType {
     quickLinks: FooterLink[];
     supportLinks: FooterLink[];
     copyrightText: string;
+    storeLat: number | null;
+    storeLng: number | null;
   };
   updateFooterLocation: (lines: string[]) => void;
   updateFooterPhoneNumber: (number: string) => void;
@@ -121,6 +139,7 @@ interface AppContextType {
   updateFooterQuickLinks: (links: FooterLink[]) => void;
   updateFooterSupportLinks: (links: FooterLink[]) => void;
   updateFooterCopyrightText: (text: string) => void;
+  updateStoreCoordinates: (lat: number, lng: number) => void;
   // Admin Profile Management (for the currently logged-in admin)
   updateCurrentUser: (updatedUser: Partial<UserType>) => Promise<void>;
   deleteCurrentUser: () => void;
@@ -186,14 +205,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('kuisoko-token'));
   const [twoFactorPending, setTwoFactorPending] = useState<{ pendingToken: string; email: string } | null>(null);
 
-  // Periodically re-fetches admin notification sources (orders/users/reviews) below,
-  // so the bell badge + sound reflect new activity without needing a page reload.
+  // Periodically re-fetches admin notification sources (orders/users/reviews) below, so the bell
+  // badge + sound reflect new activity without needing a page reload. usePolling (rather than a
+  // plain interval) also pauses this while the admin's tab is in the background and immediately
+  // catches up the moment they switch back to it, instead of waiting out the rest of the interval.
   const [notificationPollTick, setNotificationPollTick] = useState(0);
-  useEffect(() => {
+  usePolling(() => {
     if (!token || user?.role !== 'admin') return;
-    const interval = setInterval(() => setNotificationPollTick(t => t + 1), 30000);
-    return () => clearInterval(interval);
-  }, [token, user?.role]);
+    setNotificationPollTick(t => t + 1);
+  }, 10000);
 
   // All users - fetched from the database (admin only)
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
@@ -230,6 +250,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })();
     return () => { cancelled = true; };
   }, []);
+
+  usePolling(() => {
+    apiFetch<{ categories: CategoryWithId[] }>('/categories')
+      .then(({ categories: fetched }) => setCategoriesData(fetched))
+      .catch((e) => console.error('Error polling categories:', e));
+  }, CATALOG_POLL_MS);
 
   const categories = useMemo(() => categoriesData.map(c => c.name), [categoriesData]);
   const categoryHierarchy = useMemo(() => {
@@ -299,6 +325,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { cancelled = true; };
   }, []);
 
+  // Deliberately not a dependency of the cart-reconstruction effect above (only
+  // token/productsLoaded are), so this refreshing in the background never resets/re-fetches the
+  // cart - it only keeps the catalog itself (prices, stock, new products, edits) current.
+  usePolling(() => {
+    apiFetch<{ products: Product[] }>('/products')
+      .then(({ products: fetched }) => setProducts(fetched))
+      .catch((e) => console.error('Error polling products:', e));
+  }, CATALOG_POLL_MS);
+
   interface ServerCartLine {
     productId: string;
     quantity: number;
@@ -324,6 +359,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let cancelled = false;
     (async () => {
       try {
+        // Whatever was added to the cart before signing in/up on this browser gets merged into
+        // the account, rather than silently discarded the instant the (empty, for a brand new
+        // account) server cart becomes the source of truth - matching quantities into any line
+        // the account already has for the same product rather than overwriting it, capped at
+        // current stock. Guest storage is only ever cleared once this has actually gone through,
+        // so a failed merge just leaves it to retry on the next sign-in instead of losing it.
+        const guestRaw = localStorage.getItem('kuisoko-cart-guest');
+        let guestItems: CartItem[] = [];
+        try { guestItems = guestRaw ? JSON.parse(guestRaw) : []; } catch { guestItems = []; }
+
+        if (guestItems.length > 0) {
+          const { items: existingLines } = await apiFetch<{ items: ServerCartLine[] }>('/cart', {}, token);
+          for (const guestItem of guestItems) {
+            const existing = existingLines.find(l => l.productId === guestItem.id);
+            const currentStock = products.find(p => p.id === guestItem.id)?.stock ?? guestItem.stock;
+            const mergedQty = Math.max(1, Math.min((existing?.quantity ?? 0) + guestItem.quantity, currentStock));
+            await apiFetch(`/cart/${guestItem.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                quantity: mergedQty,
+                selectedColor: guestItem.selectedColor ?? existing?.selectedColor ?? null,
+                selectedSize: guestItem.selectedSize ?? existing?.selectedSize ?? null,
+                unitPrice: guestItem.price ?? existing?.unitPrice ?? null,
+              }),
+            }, token);
+          }
+          localStorage.removeItem('kuisoko-cart-guest');
+        }
+
         const { items } = await apiFetch<{ items: ServerCartLine[] }>('/cart', {}, token);
         if (cancelled) return;
         const reconstructed = items.reduce<CartItem[]>((acc, line) => {
@@ -549,6 +613,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let cancelled = false;
     (async () => {
       try {
+        // Whatever was favorited before signing in/up on this browser gets merged into the
+        // account's wishlist, rather than silently discarded the instant the (empty, for a brand
+        // new account) server wishlist becomes the source of truth. Guest storage is only ever
+        // cleared once this has actually gone through, so a failed merge just leaves it to retry
+        // on the next sign-in instead of losing it.
+        const guestRaw = localStorage.getItem('kuisoko-wishlist-guest');
+        let guestIds: string[] = [];
+        try { guestIds = guestRaw ? JSON.parse(guestRaw) : []; } catch { guestIds = []; }
+
+        if (guestIds.length > 0) {
+          const { productIds: existingIds } = await apiFetch<{ productIds: string[] }>('/wishlist', {}, token);
+          const toAdd = guestIds.filter((id) => !existingIds.includes(id));
+          await Promise.all(toAdd.map((id) => apiFetch(`/wishlist/${id}`, { method: 'POST' }, token)));
+          localStorage.removeItem('kuisoko-wishlist-guest');
+        }
+
         const { productIds } = await apiFetch<{ productIds: string[] }>('/wishlist', {}, token);
         if (!cancelled) setWishlist(productIds);
       } catch (e) {
@@ -711,6 +791,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Return/refund requests (admin only) - shared by the bell badge count and the notification panel
+  const [returnRequestNotifications, setReturnRequestNotifications] = useState<ReturnRequestNotification[]>([]);
+
+  useEffect(() => {
+    if (!token || user?.role !== 'admin') {
+      setReturnRequestNotifications([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { returnRequests } = await apiFetch<{ returnRequests: ReturnRequestNotification[] }>('/returns', {}, token);
+        if (!cancelled) setReturnRequestNotifications(returnRequests);
+      } catch (e) {
+        console.error('Error fetching return request notifications:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, user?.role, notificationPollTick]);
+
+  const markReturnRequestAsRead = async (id: string) => {
+    setReturnRequestNotifications(prev => prev.map(r => (r.id === id ? { ...r, unread: false } : r)));
+    try {
+      await apiFetch(`/returns/${id}/read`, { method: 'PATCH' }, token);
+    } catch (e) {
+      console.error('Error marking return request as read:', e);
+    }
+  };
+
+  // Customer-facing: request a return on one of their own Delivered orders. `orders` refreshes
+  // itself via its own poll, so the new request's status shows up there shortly rather than
+  // needing to be threaded back through this call.
+  const requestReturn = async (orderId: string, reason: string): Promise<boolean> => {
+    try {
+      await apiFetch('/returns', { method: 'POST', body: JSON.stringify({ orderId, reason }) }, token);
+      showToast('Your return request has been submitted.', 'success');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not submit your return request.', 'error');
+      return false;
+    }
+  };
+
+  // Customer-facing: dismiss the "your return was approved/rejected" flag once they've seen it.
+  const acknowledgeReturnResult = async (returnRequestId: string) => {
+    try {
+      await apiFetch(`/returns/${returnRequestId}/acknowledge`, { method: 'PATCH' }, token);
+    } catch (e) {
+      console.error('Error acknowledging return result:', e);
+    }
+  };
+
   // Newsletter subscription state for the currently signed-in user
   const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -783,7 +915,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const unreadUserCount = useMemo(() => allUsers.filter(u => u.unread).length, [allUsers]);
   const unreadReviewCount = useMemo(() => reviewNotifications.filter(r => r.unread).length, [reviewNotifications]);
   const unreadSubscriberCount = useMemo(() => subscriberNotifications.filter(s => s.unread).length, [subscriberNotifications]);
-  const unreadNotificationCount = unreadOrderCount + unreadUserCount + unreadReviewCount + unreadSubscriberCount + chatAdminUnreadCount;
+  const unreadRiderStopCount = useMemo(() => orders.filter(o => o.riderStopAlertUnread).length, [orders]);
+  const unreadDeliveryConfirmedCount = useMemo(() => orders.filter(o => o.deliveryConfirmedUnread).length, [orders]);
+  const unreadReturnRequestCount = useMemo(() => returnRequestNotifications.filter(r => r.unread).length, [returnRequestNotifications]);
+  const unreadNotificationCount = unreadOrderCount + unreadUserCount + unreadReviewCount + unreadSubscriberCount + unreadRiderStopCount + unreadDeliveryConfirmedCount + unreadReturnRequestCount + chatAdminUnreadCount;
 
   // Plays a chime whenever the unread count goes up (new order/user/review) - not on initial load or on decreases.
   const prevUnreadNotificationCountRef = useRef<number | null>(null);
@@ -820,14 +955,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (identifier: string, password: string): Promise<boolean> => {
     try {
       const response = await apiFetch<
-        { user: UserType; token: string } | { requiresTwoFactor: true; pendingToken: string }
-      >('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+        { user: UserType; token: string } | { requiresTwoFactor: true; pendingToken: string; email: string }
+      >('/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) });
 
       if ('requiresTwoFactor' in response) {
-        setTwoFactorPending({ pendingToken: response.pendingToken, email });
+        setTwoFactorPending({ pendingToken: response.pendingToken, email: response.email });
         showToast('Enter the code we just emailed you to finish signing in.', 'info');
         return true;
       }
@@ -837,7 +972,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast(`Welcome, ${response.user.name.split(' ')[0]}!`, 'success');
       return true;
     } catch (e) {
-      showToast(e instanceof ApiError ? e.message : 'Invalid email or password.', 'error');
+      showToast(e instanceof ApiError ? e.message : 'Invalid email/username or password.', 'error');
       return false;
     }
   };
@@ -918,11 +1053,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const signup = async (fullName: string, email: string, phoneNumber: string, password: string): Promise<boolean> => {
+  const signup = async (fullName: string, username: string, email: string, phoneNumber: string, password: string): Promise<boolean> => {
     try {
       const { user: newUser, token: authToken } = await apiFetch<{ user: UserType; token: string }>(
         '/auth/signup',
-        { method: 'POST', body: JSON.stringify({ fullName, email, phoneNumber, password }) }
+        { method: 'POST', body: JSON.stringify({ fullName, username, email, phoneNumber, password }) }
       );
       setUser(newUser);
       setToken(authToken);
@@ -1126,6 +1261,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Re-fetches the whole catalog on demand - used right after a bulk CSV import so newly
+  // created/updated products show up immediately instead of waiting on the next catalog poll.
+  const refreshProducts = async () => {
+    try {
+      const { products: fetched } = await apiFetch<{ products: Product[] }>('/products');
+      setProducts(fetched);
+    } catch (e) {
+      console.error('Error refreshing products:', e);
+    }
+  };
+
   const addProduct = async (newProduct: Omit<Product, 'id' | 'rating' | 'reviews'>): Promise<boolean> => {
     try {
       const { product } = await apiFetch<{ product: Product }>('/products', {
@@ -1170,7 +1316,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Order Management Functions
-  const addOrder = async (orderInput: { customerName: string; deliveryAddress: Order['deliveryAddress']; items: CartItem[]; currency?: string; paymentMethod?: string; couponCode?: string }): Promise<Order | null> => {
+  const addOrder = async (orderInput: { customerName: string; deliveryAddress: Order['deliveryAddress']; items: CartItem[]; currency?: string; paymentMethod?: string; couponCode?: string; verificationToken?: string }): Promise<Order | null> => {
     try {
       const { order } = await apiFetch<{ order: Order }>('/orders', {
         method: 'POST',
@@ -1180,6 +1326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           currency: orderInput.currency,
           paymentMethod: orderInput.paymentMethod,
           couponCode: orderInput.couponCode,
+          verificationToken: orderInput.verificationToken,
           items: orderInput.items.map((item) => ({
             productId: item.id,
             name: item.name,
@@ -1223,6 +1370,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     } catch (e) {
       showToast(e instanceof ApiError ? e.message : 'Could not confirm payment.', 'error');
+      return false;
+    }
+  };
+
+  const assignRider = async (orderId: string, riderId: string | null): Promise<boolean> => {
+    try {
+      const { order } = await apiFetch<{ order: Order }>(`/orders/${orderId}/rider`, {
+        method: 'PATCH',
+        body: JSON.stringify({ riderId }),
+      }, token);
+      setOrders(prev => prev.map((o) => (o.id === order.id ? order : o)));
+      showToast(riderId ? `Rider assigned to order #${order.orderNumber || order.id}.` : 'Rider unassigned.', 'info');
+      return true;
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not assign rider.', 'error');
       return false;
     }
   };
@@ -1304,11 +1466,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const markRiderStopAlertAsRead = async (orderId: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, riderStopAlertUnread: false } : o));
+    try {
+      await apiFetch(`/orders/${orderId}/acknowledge-rider-stop`, { method: 'PATCH' }, token);
+    } catch (e) {
+      console.error('Error acknowledging rider-stop alert:', e);
+    }
+  };
+
+  const markDeliveryConfirmedAsRead = async (orderId: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, deliveryConfirmedUnread: false } : o));
+    try {
+      await apiFetch(`/orders/${orderId}/acknowledge-delivery`, { method: 'PATCH' }, token);
+    } catch (e) {
+      console.error('Error acknowledging delivery confirmation:', e);
+    }
+  };
+
   const markAllNotificationsAsRead = async () => {
     setAllUsers(prev => prev.map(u => ({ ...u, unread: false })));
-    setOrders(prev => prev.map(o => ({ ...o, unread: false })));
+    setOrders(prev => prev.map(o => ({ ...o, unread: false, riderStopAlertUnread: false, deliveryConfirmedUnread: false })));
     setReviewNotifications(prev => prev.map(r => ({ ...r, unread: false })));
     setSubscriberNotifications(prev => prev.map(s => ({ ...s, unread: false })));
+    setReturnRequestNotifications(prev => prev.map(r => ({ ...r, unread: false })));
     try {
       await apiFetch('/notifications/mark-all-read', { method: 'POST' }, token); // also clears reviews server-side
       showToast('All notifications marked as read.', 'success');
@@ -1334,6 +1515,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateFooterLocation = (lines: string[]) => {
     patchFooterSettings({ locationLines: lines }, 'Footer location updated.');
+  };
+
+  const updateStoreCoordinates = (lat: number, lng: number) => {
+    patchFooterSettings({ storeLat: lat, storeLng: lng }, 'Store location updated.');
   };
 
   const updateFooterPhoneNumber = (number: string) => {
@@ -1412,15 +1597,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       categories, categoryHierarchy, categoryTranslations: dbCategoryTranslations,
       addCategory, updateCategoryName, deleteCategory,
       addCategorySection, updateCategorySection, deleteCategorySection,
-      products, popularProductIds, refreshProduct, addProduct, updateProduct, deleteProduct,
-      orders, addOrder, updateOrder, deleteOrder, confirmOrderPayment, unreadNotificationCount, unreadOrderCount, unreadUserCount, unreadReviewCount, unreadSubscriberCount, chatAdminUnreadCount, enquiryUnreadCount, reviewNotifications, subscriberNotifications, markUserAsRead, markOrderAsRead, markReviewAsRead, markSubscriberAsRead, markAllNotificationsAsRead,
+      products, popularProductIds, refreshProduct, refreshProducts, addProduct, updateProduct, deleteProduct,
+      orders, addOrder, updateOrder, deleteOrder, confirmOrderPayment, assignRider, unreadNotificationCount, unreadOrderCount, unreadUserCount, unreadReviewCount, unreadSubscriberCount, unreadReturnRequestCount, chatAdminUnreadCount, enquiryUnreadCount, reviewNotifications, subscriberNotifications, returnRequestNotifications, markUserAsRead, markOrderAsRead, markRiderStopAlertAsRead, markDeliveryConfirmedAsRead, markReviewAsRead, markSubscriberAsRead, markReturnRequestAsRead, requestReturn, acknowledgeReturnResult, markAllNotificationsAsRead,
       hiddenNotificationIds, hideNotification, bulkHideNotifications,
       isSubscribed, subscribeToNewsletter, unsubscribeFromNewsletter, siteAnnouncements,
       allUsers, addUser, updateUser, deleteUser, // New: User management functions
       toastMessage, toastType, showToast, hideToast,
       footerSettings,
       updateFooterLocation, updateFooterPhoneNumber, updateFooterWhatsappNumber, updateFooterEmail,
-      updateFooterQuickLinks, updateFooterSupportLinks, updateFooterCopyrightText,
+      updateFooterQuickLinks, updateFooterSupportLinks, updateFooterCopyrightText, updateStoreCoordinates,
       updateCurrentUser, deleteCurrentUser,
       isMaintenanceMode, toggleMaintenanceMode,
       getFormattedPrice,

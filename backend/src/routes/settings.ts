@@ -12,14 +12,14 @@ const router = Router();
 async function getFooterSettings() {
   const settingsResult = await pool.query(
     `SELECT location_lines AS "locationLines", phone_number AS "phoneNumber", whatsapp_number AS "whatsappNumber",
-            email_address AS "emailAddress", copyright_text AS "copyrightText"
+            email_address AS "emailAddress", copyright_text AS "copyrightText", store_lat AS "storeLat", store_lng AS "storeLng"
      FROM footer_settings WHERE id = 1`
   );
   const linksResult = await pool.query(
     `SELECT link_type AS "linkType", label, to_path AS "to" FROM footer_links ORDER BY display_order`
   );
   return {
-    ...(settingsResult.rows[0] ?? { locationLines: [], phoneNumber: null, whatsappNumber: null, emailAddress: null, copyrightText: null }),
+    ...(settingsResult.rows[0] ?? { locationLines: [], phoneNumber: null, whatsappNumber: null, emailAddress: null, copyrightText: null, storeLat: null, storeLng: null }),
     quickLinks: linksResult.rows.filter((l) => l.linkType === 'quick').map(({ label, to }) => ({ label, to })),
     supportLinks: linksResult.rows.filter((l) => l.linkType === 'support').map(({ label, to }) => ({ label, to })),
   };
@@ -40,6 +40,8 @@ const footerUpdateSchema = z.object({
   whatsappNumber: z.string().trim().optional(),
   emailAddress: z.string().trim().optional(),
   copyrightText: z.string().trim().optional(),
+  storeLat: z.number().gte(-90).lte(90).nullable().optional(),
+  storeLng: z.number().gte(-180).lte(180).nullable().optional(),
   quickLinks: z.array(linkSchema).optional(),
   supportLinks: z.array(linkSchema).optional(),
 });
@@ -59,9 +61,14 @@ router.patch('/footer', authenticate, requireAdmin, async (req, res, next) => {
            phone_number = COALESCE($2, phone_number),
            whatsapp_number = COALESCE($3, whatsapp_number),
            email_address = COALESCE($4, email_address),
-           copyright_text = COALESCE($5, copyright_text)
+           copyright_text = COALESCE($5, copyright_text),
+           store_lat = COALESCE($6, store_lat),
+           store_lng = COALESCE($7, store_lng)
          WHERE id = 1`,
-        [data.locationLines ?? null, data.phoneNumber ?? null, data.whatsappNumber ?? null, data.emailAddress ?? null, data.copyrightText ?? null]
+        [
+          data.locationLines ?? null, data.phoneNumber ?? null, data.whatsappNumber ?? null, data.emailAddress ?? null, data.copyrightText ?? null,
+          data.storeLat ?? null, data.storeLng ?? null,
+        ]
       );
 
       for (const [linkType, links] of [['quick', data.quickLinks], ['support', data.supportLinks]] as const) {

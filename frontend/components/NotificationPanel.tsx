@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { X, ShoppingCart, User, Bell, Star, Mail, Trash2, CheckCheck } from 'lucide-react';
+import { X, ShoppingCart, User, Bell, Star, Mail, Trash2, CheckCheck, MapPinOff, PackageCheck, AlertTriangle, RotateCcw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAppContext } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -18,13 +18,19 @@ const NOTIFICATION_STYLES = {
   user: { icon: User, bg: 'bg-purple-100 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-400' },
   review: { icon: Star, bg: 'bg-amber-100 dark:bg-amber-950', text: 'text-amber-700 dark:text-amber-400' },
   subscriber: { icon: Mail, bg: 'bg-blue-100 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-400' },
+  'rider-stopped': { icon: MapPinOff, bg: 'bg-rose-100 dark:bg-rose-950', text: 'text-rose-700 dark:text-rose-400' },
+  'delivered': { icon: PackageCheck, bg: 'bg-emerald-100 dark:bg-emerald-950', text: 'text-emerald-700 dark:text-emerald-400' },
+  'low-stock': { icon: AlertTriangle, bg: 'bg-orange-100 dark:bg-orange-950', text: 'text-orange-700 dark:text-orange-400' },
+  'return-request': { icon: RotateCcw, bg: 'bg-purple-100 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-400' },
 } as const;
+
+const LOW_STOCK_THRESHOLD = 10;
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
   const {
-    orders, allUsers, reviewNotifications, subscriberNotifications, getFormattedPrice,
+    orders, allUsers, products, reviewNotifications, subscriberNotifications, returnRequestNotifications, getFormattedPrice,
     markAllNotificationsAsRead, hiddenNotificationIds, hideNotification, bulkHideNotifications,
-    markUserAsRead, markOrderAsRead, markReviewAsRead, markSubscriberAsRead,
+    markUserAsRead, markOrderAsRead, markRiderStopAlertAsRead, markDeliveryConfirmedAsRead, markReviewAsRead, markSubscriberAsRead, markReturnRequestAsRead,
   } = useAppContext();
   const navigate = useNavigate();
   const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
@@ -107,6 +113,56 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose }) => {
       actionLink: '/admin/settings/business-notifications',
       unread: subscriber.unread ?? true,
       onClick: () => markSubscriberAsRead(subscriber.id)
+    })),
+    ...orders.filter(order => order.riderStopAlertAt).map(order => ({
+      id: `rider-stop-${order.id}`,
+      type: 'rider-stopped' as const,
+      title: order.riderName ? `${order.riderName} Stopped Sharing Location` : 'Rider Stopped Sharing Location',
+      body: `${order.riderName || 'The rider'} stopped sharing their location for #${order.orderNumber || order.id} before it was delivered.`,
+      timestamp: formatTime(order.riderStopAlertAt!),
+      actionLabel: 'View Order',
+      actionLink: '/admin/orders',
+      unread: order.riderStopAlertUnread ?? false,
+      onClick: () => markRiderStopAlertAsRead(order.id)
+    })),
+    ...orders.filter(order => order.deliveryConfirmedAt).map(order => ({
+      id: `delivered-${order.id}`,
+      type: 'delivered' as const,
+      title: 'Order Delivered',
+      body: `#${order.orderNumber || order.id} for ${order.customerName} was delivered by ${order.riderName || 'the rider'}. Total: ${getFormattedPrice(order.total)}.`,
+      timestamp: formatTime(order.deliveryConfirmedAt!),
+      actionLabel: 'View Order',
+      actionLink: '/admin/orders',
+      unread: order.deliveryConfirmedUnread ?? false,
+      onClick: () => markDeliveryConfirmedAsRead(order.id)
+    })),
+    // Composed live from current stock, not a stored event - there's nothing to "mark read" here,
+    // it simply stops appearing once the admin restocks the product above the threshold (or
+    // reappears if it dips low again later, even after being dismissed once - an accepted
+    // limitation shared with how dismissal works for every other notification type here).
+    ...products.filter(product => product.stock < LOW_STOCK_THRESHOLD).map(product => ({
+      id: `low-stock-${product.id}`,
+      type: 'low-stock' as const,
+      title: product.stock <= 0 ? 'Out of Stock' : 'Low Stock',
+      body: product.stock <= 0
+        ? `"${product.name}" is out of stock.`
+        : `"${product.name}" has only ${product.stock} left in stock.`,
+      timestamp: '',
+      actionLabel: 'Manage Stock',
+      actionLink: '/admin/products',
+      unread: true,
+      onClick: () => {}
+    })),
+    ...returnRequestNotifications.map(rr => ({
+      id: `return-request-${rr.id}`,
+      type: 'return-request' as const,
+      title: rr.status === 'pending' ? 'New Return Request' : `Return Request ${rr.status === 'approved' ? 'Approved' : 'Rejected'}`,
+      body: `${rr.customerName} on #${rr.orderNumber}: "${rr.reason}"`,
+      timestamp: formatTime(rr.requestedAt),
+      actionLabel: 'View Request',
+      actionLink: '/admin/returns',
+      unread: rr.unread,
+      onClick: () => markReturnRequestAsRead(rr.id)
     }))
   ].filter(n => !hiddenNotificationIds.includes(n.id))
    .sort((a, b) => (a.unread === b.unread ? 0 : a.unread ? -1 : 1));

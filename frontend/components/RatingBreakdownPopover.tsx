@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Star, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -24,6 +24,7 @@ const RatingBreakdownPopover: React.FC<RatingBreakdownPopoverProps> = ({
 }) => {
   const { t } = useAppContext();
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     const POPOVER_WIDTH = 288;
@@ -94,6 +95,7 @@ const RatingBreakdownPopover: React.FC<RatingBreakdownPopoverProps> = ({
       </div>
       <Link
         to={`/product/${productId}?tab=reviews`}
+        state={{ from: `${location.pathname}${location.search}` }}
         onClick={onClose}
         className="mt-4 block text-center text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-orange-500 transition-colors"
       >

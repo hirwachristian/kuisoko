@@ -1,21 +1,51 @@
 
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'motion/react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Sector, BarChart, Bar, Legend, LineChart, Line
 } from 'recharts';
 import {
   LayoutDashboard, Users, Receipt, Calendar, Plus, ArrowUpRight, Zap,
-  Box, Folder, ClipboardList, Package, Printer, Download, Wallet, RefreshCw, FileText, Bell
+  Box, Folder, ClipboardList, Package, Printer, Download, Wallet, RefreshCw, FileText
 } from 'lucide-react';
 import { ORDER_STATUS_COLORS } from '../constants';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch } from '../api';
 import CategoryPerformanceChart from './CategoryPerformanceChart';
 import KuISOKOLogoSVG from './KuISOKOLogoSVG';
-import NotificationPanel from './NotificationPanel';
+import AnimatedStatCard from './AnimatedStatCard';
+
+const SPARKLINE_DAYS = 14;
+
+/** Buckets dated records into a fixed-length array of daily totals, oldest to newest, ending
+ * today - used to build each stat card's real sparkline from actual timestamps rather than
+ * fabricated data. `value` defaults to 1 per record (a count); pass it for a sum (e.g. revenue). */
+function buildDailySeries(records: { date: string; value?: number }[], days = SPARKLINE_DAYS): number[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const series = new Array(days).fill(0);
+  for (const r of records) {
+    const d = new Date(r.date);
+    if (isNaN(d.getTime())) continue;
+    d.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today.getTime() - d.getTime()) / 86400000);
+    const idx = days - 1 - diffDays;
+    if (idx >= 0 && idx < days) series[idx] += r.value ?? 1;
+  }
+  return series;
+}
+
+/** Percent change between the second half and first half of a daily series - a simple, honest
+ * "this period vs. the one before it" comparison. Returns null when there's no earlier-half
+ * baseline to compare against, rather than showing a misleading/infinite percentage. */
+function computeTrendPercent(series: number[]): number | null {
+  const half = Math.floor(series.length / 2);
+  const recent = series.slice(half).reduce((a, b) => a + b, 0);
+  const prior = series.slice(0, half).reduce((a, b) => a + b, 0);
+  if (prior === 0) return null;
+  return ((recent - prior) / prior) * 100;
+}
 
 // Custom Legend component for the Pie Chart
 // It now directly accepts chartData, totalPieValue, and getFormattedPrice
@@ -124,9 +154,11 @@ const ProductNameTick = (props: any) => {
 
 // Fix: Changed from default export to named export
 export const AdminDashboardContent: React.FC = () => {
-  const { user, token, logout, categories, products, orders, getFormattedPrice, categoryHierarchy, unreadNotificationCount } = useAppContext();
-  const [totalUsers, setTotalUsers] = useState<number | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const { user, token, logout, categories, products, orders, getFormattedPrice, categoryHierarchy } = useAppContext();
+  // Full records (not just a count) so the Total Users card can draw a real signups-over-time
+  // sparkline from `registrationDate`, the same way the Orders/Revenue cards do from `orders`.
+  const [userRecords, setUserRecords] = useState<{ registrationDate?: string }[] | null>(null);
+  const totalUsers = userRecords?.length ?? null;
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly' | 'annually'>('daily');
   const [reportYear, setReportYear] = useState<number>(new Date().getFullYear());
   const [timeRange, setTimeRange] = useState<'all' | 'thisMonth' | 'custom'>('all');
@@ -163,8 +195,8 @@ export const AdminDashboardContent: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        const { users } = await apiFetch<{ users: unknown[] }>('/users', {}, token);
-        if (!cancelled) setTotalUsers(users.length);
+        const { users } = await apiFetch<{ users: { registrationDate?: string }[] }>('/users', {}, token);
+        if (!cancelled) setUserRecords(users);
       } catch (e) {
         console.error('Error fetching user count:', e);
       }
@@ -280,6 +312,24 @@ export const AdminDashboardContent: React.FC = () => {
     () => orders.filter(order => order.paymentStatus === 'paid').reduce((sum, order) => sum + order.total, 0),
     [orders]
   );
+
+  // Real day-by-day series for the overview cards' sparklines/trend pills - built from actual
+  // registration/order dates, never fabricated. Products/Categories have no per-day creation data
+  // on the frontend, so those two cards intentionally get the count-up animation only, no sparkline.
+  const usersDailySeries = useMemo(
+    () => buildDailySeries((userRecords ?? []).filter(u => u.registrationDate).map(u => ({ date: u.registrationDate! }))),
+    [userRecords]
+  );
+  const usersTrendPercent = useMemo(() => computeTrendPercent(usersDailySeries), [usersDailySeries]);
+
+  const ordersDailySeries = useMemo(() => buildDailySeries(orders.map(o => ({ date: o.date }))), [orders]);
+  const ordersTrendPercent = useMemo(() => computeTrendPercent(ordersDailySeries), [ordersDailySeries]);
+
+  const revenueDailySeries = useMemo(
+    () => buildDailySeries(orders.filter(o => o.paymentStatus === 'paid').map(o => ({ date: o.date, value: o.total }))),
+    [orders]
+  );
+  const revenueTrendPercent = useMemo(() => computeTrendPercent(revenueDailySeries), [revenueDailySeries]);
 
   // All-time order counts by status, for the website summary report - unlike ordersAnalytics
   // below, this is never time-range filtered, since the report is meant to be a full snapshot.
@@ -489,9 +539,27 @@ export const AdminDashboardContent: React.FC = () => {
           </div>
 
           <div style={{ breakInside: 'avoid' }}>
-            <div style={{ marginTop: '40px', fontSize: '13px', color: '#666' }}>
-              <p><strong>Issued by:</strong> {user?.name || 'Admin'}</p>
-              <p><strong>Email:</strong> {user?.email || 'admin@example.com'}</p>
+            {/* Company stamp sits beside the "Issued by" block in a flex row, not on top of it,
+                so it can never end up overlapping (and obscuring) that text - kept in this same
+                breakInside:'avoid' block, not positioned against the whole possibly-multi-page
+                report, so it reliably lands next to the signature wherever that ends up. */}
+            <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '20px' }}>
+              <div style={{ fontSize: '13px', color: '#666' }}>
+                <p><strong>Issued by:</strong> {user?.name || 'Admin'}</p>
+                <p><strong>Email:</strong> {user?.email || 'admin@example.com'}</p>
+              </div>
+              <img
+                src="/branding/stamp.png"
+                alt=""
+                style={{
+                  width: '110px',
+                  height: 'auto',
+                  opacity: 0.9,
+                  transform: 'rotate(-14deg)',
+                  flexShrink: 0,
+                  pointerEvents: 'none',
+                }}
+              />
             </div>
             <div style={{ marginTop: '48px', paddingTop: '28px', borderTop: '2px solid #0B5D3B', textAlign: 'center' }}>
               <p style={{ fontSize: '20px', fontWeight: 900, margin: '0 0 4px', color: '#0B5D3B' }}>KuISOKO</p>
@@ -537,22 +605,6 @@ export const AdminDashboardContent: React.FC = () => {
                   <FileText size={18} />
                   <span>Generate Report</span>
               </button>
-              <button
-                onClick={() => setShowNotifications(prev => !prev)}
-                className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                aria-label="Notifications"
-                title="Notifications"
-              >
-                <Bell size={18} />
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-slate-900">
-                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                  </span>
-                )}
-              </button>
-              <AnimatePresence>
-                {showNotifications && <NotificationPanel onClose={() => setShowNotifications(false)} />}
-              </AnimatePresence>
             </div>
           </div>
           {timeRange === 'custom' && (
@@ -582,65 +634,52 @@ export const AdminDashboardContent: React.FC = () => {
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
-          {/* Total Users Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-emerald-50 dark:bg-emerald-950 border border-emerald-100 dark:border-emerald-900 shadow-sm transition-colors duration-300">
-            <div className="flex justify-between items-start">
-              <p className="text-emerald-900 dark:text-emerald-200 text-sm font-semibold uppercase tracking-wider">Total Users</p>
-              <div className="w-10 h-10 rounded-full bg-white dark:bg-emerald-900 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
-                <Users size={20} />
-              </div>
-            </div>
-            <p className="text-emerald-950 dark:text-white tracking-tight text-3xl font-black">{totalUsers ?? '—'}</p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 italic">Registered accounts</p>
-          </div>
+          <AnimatedStatCard
+            label="Total Users"
+            value={totalUsers ?? 0}
+            icon={Users}
+            color="emerald"
+            caption="Registered accounts"
+            sparkline={userRecords ? usersDailySeries : undefined}
+            trendPercent={usersTrendPercent}
+          />
 
-          {/* Products Overview Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-orange-50 dark:bg-orange-950 border border-orange-100 dark:border-orange-900 shadow-sm transition-colors duration-300">
-            <div className="flex justify-between items-start">
-              <p className="text-orange-900 dark:text-orange-200 text-sm font-semibold uppercase tracking-wider">Total Products</p>
-              <div className="w-10 h-10 rounded-full bg-white dark:bg-orange-900 flex items-center justify-center text-orange-700 dark:text-orange-300">
-                <Box size={20} />
-              </div>
-            </div>
-            <p className="text-orange-950 dark:text-white tracking-tight text-3xl font-black">{productsAnalytics.totalProducts}</p>
-            <p className="text-xs text-orange-600 dark:text-orange-400 italic">Total stock: {productsAnalytics.totalStock}</p>
-          </div>
+          <AnimatedStatCard
+            label="Total Products"
+            value={productsAnalytics.totalProducts}
+            icon={Box}
+            color="orange"
+            caption={`Total stock: ${productsAnalytics.totalStock}`}
+          />
 
-          {/* Categories Overview Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900 shadow-sm transition-colors duration-300">
-            <div className="flex justify-between items-start">
-              <p className="text-blue-900 dark:text-blue-200 text-sm font-semibold uppercase tracking-wider">Total Categories</p>
-              <div className="w-10 h-10 rounded-full bg-white dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300">
-                <Folder size={20} />
-              </div>
-            </div>
-            <p className="text-blue-950 dark:text-white tracking-tight text-3xl font-black">{categoriesAnalytics.totalCategories}</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 italic">Total sub-sections: {categoriesAnalytics.totalSubSections}</p>
-          </div>
+          <AnimatedStatCard
+            label="Total Categories"
+            value={categoriesAnalytics.totalCategories}
+            icon={Folder}
+            color="blue"
+            caption={`Total sub-sections: ${categoriesAnalytics.totalSubSections}`}
+          />
 
-          {/* Orders Overview Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-900 shadow-sm transition-colors duration-300">
-            <div className="flex justify-between items-start">
-              <p className="text-purple-900 dark:text-purple-200 text-sm font-semibold uppercase tracking-wider">Total Orders</p>
-              <div className="w-10 h-10 rounded-full bg-white dark:bg-purple-900 flex items-center justify-center text-purple-700 dark:text-purple-300">
-                <ClipboardList size={20} />
-              </div>
-            </div>
-            <p className="text-purple-950 dark:text-white tracking-tight text-3xl font-black">{ordersAnalytics.totalOrders}</p>
-            <p className="text-xs text-purple-600 dark:text-purple-400 italic">Revenue: {getFormattedPrice(ordersAnalytics.deliveredOrdersRevenue)}</p>
-          </div>
+          <AnimatedStatCard
+            label="Total Orders"
+            value={ordersAnalytics.totalOrders}
+            icon={ClipboardList}
+            color="purple"
+            caption={`Revenue: ${getFormattedPrice(ordersAnalytics.deliveredOrdersRevenue)}`}
+            sparkline={ordersDailySeries}
+            trendPercent={ordersTrendPercent}
+          />
 
-          {/* Total Revenue Card */}
-          <div className="flex flex-col gap-2 rounded-2xl p-4 sm:p-6 bg-amber-50 dark:bg-amber-950 border border-amber-100 dark:border-amber-900 shadow-sm transition-colors duration-300">
-            <div className="flex justify-between items-start">
-              <p className="text-amber-900 dark:text-amber-200 text-sm font-semibold uppercase tracking-wider">Total Revenue</p>
-              <div className="w-10 h-10 rounded-full bg-white dark:bg-amber-900 flex items-center justify-center text-amber-700 dark:text-amber-300">
-                <Wallet size={20} />
-              </div>
-            </div>
-            <p className="text-amber-950 dark:text-white tracking-tight text-3xl font-black">{getFormattedPrice(totalRevenue)}</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 italic">Confirmed payments only</p>
-          </div>
+          <AnimatedStatCard
+            label="Total Revenue"
+            value={totalRevenue}
+            formatValue={getFormattedPrice}
+            icon={Wallet}
+            color="amber"
+            caption="Confirmed payments only"
+            sparkline={revenueDailySeries}
+            trendPercent={revenueTrendPercent}
+          />
         </div>
 
 

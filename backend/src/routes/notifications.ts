@@ -44,9 +44,12 @@ router.post('/mark-all-read', async (_req, res, next) => {
   try {
     await withTransaction(async (client) => {
       await client.query(`UPDATE orders SET is_unread = false WHERE is_unread = true`);
+      await client.query(`UPDATE orders SET rider_stop_alert_unread = false WHERE rider_stop_alert_unread = true`);
+      await client.query(`UPDATE orders SET delivery_confirmed_unread = false WHERE delivery_confirmed_unread = true`);
       await client.query(`UPDATE users SET is_unread = false WHERE is_unread = true`);
       await client.query(`UPDATE reviews SET is_unread = false WHERE is_unread = true`);
       await client.query(`UPDATE newsletter_subscribers SET is_unread = false WHERE is_unread = true`);
+      await client.query(`UPDATE return_requests SET is_unread = false WHERE is_unread = true`);
     });
     return res.status(204).send();
   } catch (err) {

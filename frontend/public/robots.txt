@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /cart
+Disallow: /reset-password
+Disallow: /confirm-email-change
+
+Sitemap: https://frontend-production-fa7b4.up.railway.app/sitemap.xml

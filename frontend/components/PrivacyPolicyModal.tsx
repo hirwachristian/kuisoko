@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shield, Lock, Eye, FileText } from 'lucide-react';
+import { X, Shield, Lock, Eye, FileText, Share2, Clock, UserCheck } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const PrivacyPolicyModal: React.FC = () => {
@@ -29,6 +29,30 @@ const PrivacyPolicyModal: React.FC = () => {
             </section>
 
             <section className="flex items-start gap-4">
+              <Shield className="text-emerald-600 mt-1" size={24} />
+              <div>
+                <h3 className="font-bold text-slate-800">{t('privacy_usage_title')}</h3>
+                <p>{t('privacy_usage_body')}</p>
+              </div>
+            </section>
+
+            <section className="flex items-start gap-4">
+              <Share2 className="text-emerald-600 mt-1" size={24} />
+              <div>
+                <h3 className="font-bold text-slate-800">{t('privacy_sharing_title')}</h3>
+                <p>{t('privacy_sharing_body')}</p>
+              </div>
+            </section>
+
+            <section className="flex items-start gap-4">
+              <Clock className="text-emerald-600 mt-1" size={24} />
+              <div>
+                <h3 className="font-bold text-slate-800">{t('privacy_retention_title')}</h3>
+                <p>{t('privacy_retention_body')}</p>
+              </div>
+            </section>
+
+            <section className="flex items-start gap-4">
               <Lock className="text-emerald-600 mt-1" size={24} />
               <div>
                 <h3 className="font-bold text-slate-800">{t('privacy_security_title')}</h3>
@@ -37,10 +61,10 @@ const PrivacyPolicyModal: React.FC = () => {
             </section>
 
             <section className="flex items-start gap-4">
-              <Shield className="text-emerald-600 mt-1" size={24} />
+              <UserCheck className="text-emerald-600 mt-1" size={24} />
               <div>
-                <h3 className="font-bold text-slate-800">{t('privacy_usage_title')}</h3>
-                <p>{t('privacy_usage_body')}</p>
+                <h3 className="font-bold text-slate-800">{t('privacy_rights_title')}</h3>
+                <p>{t('privacy_rights_body')}</p>
               </div>
             </section>
 

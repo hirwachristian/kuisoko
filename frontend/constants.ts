@@ -936,6 +936,7 @@ export const ORDER_STATUS_COLORS = {
   'Shipped': { bg: 'bg-emerald-100', text: 'text-emerald-700' },
   'Delivered': { bg: 'bg-emerald-100', text: 'text-emerald-700' },
   'Cancelled': { bg: 'bg-red-100', text: 'text-red-700' },
+  'Returned': { bg: 'bg-purple-100', text: 'text-purple-700' },
 };
 
 export const initialOrdersData: Order[] = [
@@ -1090,6 +1091,8 @@ export const INITIAL_FOOTER_SETTINGS = {
     { label: 'Terms of Service', to: '#' },
   ],
   copyrightText: `© ${new Date().getFullYear()} KuISOKO Inc. All rights reserved. Built for MVP.`,
+  storeLat: null as number | null,
+  storeLng: null as number | null,
 };
 
 export const INITIAL_MAINTENANCE_MODE = false; // Added for new feature
@@ -1098,6 +1101,7 @@ export const initialUsersData: User[] = [
   {
     id: 'user4',
     name: 'Test User',
+    username: 'testuser',
     email: 'user@gmail.com',
     address: '123 Test Lane, Test City',
     role: 'user',
@@ -1107,6 +1111,7 @@ export const initialUsersData: User[] = [
   {
     id: 'admin1',
     name: 'Alex Mbugua',
+    username: 'alexmbugua',
     email: 'admin@gmail.com',
     address: '789 Admin Tower, Central City',
     role: 'admin',
@@ -1116,6 +1121,7 @@ export const initialUsersData: User[] = [
   {
     id: 'user1',
     name: 'Jane Doe',
+    username: 'janedoe',
     email: 'jane@example.com',
     address: '123 Marketplace Ave, Digital City',
     role: 'user',
@@ -1125,6 +1131,7 @@ export const initialUsersData: User[] = [
   {
     id: 'user2',
     name: 'John Smith',
+    username: 'johnsmith',
     email: 'john.smith@example.com',
     address: '456 Commerce St, Cyberville',
     role: 'user',
@@ -1134,6 +1141,7 @@ export const initialUsersData: User[] = [
   {
     id: 'user3',
     name: 'Alice Johnson',
+    username: 'alicejohnson',
     email: 'alice.j@example.com',
     address: '789 Retail Rd, E-city',
     role: 'user',

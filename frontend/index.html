@@ -11,8 +11,14 @@
     /* iOS Safari computes the bounce/rubber-band scrollable area from the <html> element, not
        <body> - so overflow-x:hidden on body alone still lets the whole page rock side-to-side
        during a vertical swipe whenever any descendant is even 1px wider than the viewport
-       (a filter sidebar, a chart legend, a badge, etc.). Locking both elements closes that gap. */
-    html, body { overflow-x: hidden; max-width: 100%; }
+       (a filter sidebar, a chart legend, a badge, etc.). html alone is enough to close that gap -
+       critically, it must NOT also go on body: any element with overflow-x set to something other
+       than 'visible' has its overflow-y computed value forced from 'visible' to 'auto' too (a CSS
+       overflow-module rule), which would make body its own separate scroll container - and any
+       position:sticky descendant (the navbar) then sticks relative to body's scrollport instead of
+       the real one, which never scrolls independently, so it just scrolls away with the page. */
+    html { overflow-x: hidden; }
+    html, body { max-width: 100%; }
     body { font-family: 'Inter', sans-serif; }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

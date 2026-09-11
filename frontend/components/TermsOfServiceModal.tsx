@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileText, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react';
+import { X, FileText, ShieldCheck, UserCheck, AlertTriangle, RotateCcw, Scale } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const TermsOfServiceModal: React.FC = () => {
@@ -37,10 +37,26 @@ const TermsOfServiceModal: React.FC = () => {
             </section>
 
             <section className="flex items-start gap-4">
+              <RotateCcw className="text-emerald-600 mt-1" size={24} />
+              <div>
+                <h3 className="font-bold text-slate-800">{t('terms_returns_title')}</h3>
+                <p>{t('terms_returns_body')}</p>
+              </div>
+            </section>
+
+            <section className="flex items-start gap-4">
               <AlertTriangle className="text-emerald-600 mt-1" size={24} />
               <div>
                 <h3 className="font-bold text-slate-800">{t('terms_liability_title')}</h3>
                 <p>{t('terms_liability_body')}</p>
+              </div>
+            </section>
+
+            <section className="flex items-start gap-4">
+              <Scale className="text-emerald-600 mt-1" size={24} />
+              <div>
+                <h3 className="font-bold text-slate-800">{t('terms_governing_law_title')}</h3>
+                <p>{t('terms_governing_law_body')}</p>
               </div>
             </section>
 

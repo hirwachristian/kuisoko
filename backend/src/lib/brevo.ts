@@ -65,6 +65,30 @@ export function sendOrderProcessingEmail(to: string, name: string, orderNumber: 
   });
 }
 
+export function sendDeliveryArrivingEmail(to: string, name: string, orderNumber: string): Promise<boolean> {
+  return sendEmail({
+    to,
+    toName: name,
+    subject: `Your order ${orderNumber} is almost there!`,
+    htmlContent: `
+      <p>Hi ${name},</p>
+      <p>Your delivery rider has arrived near your address for order ${orderNumber}. Please get ready to receive it!</p>
+    `,
+  });
+}
+
+export function sendBackInStockEmail(to: string, productName: string, productUrl: string, variantLabel?: string): Promise<boolean> {
+  return sendEmail({
+    to,
+    subject: `Back in stock: ${productName}`,
+    htmlContent: `
+      <p>Hi,</p>
+      <p>Good news - "${productName}"${variantLabel ? ` (${variantLabel})` : ''} is back in stock at KuISOKO.</p>
+      <p><a href="${productUrl}">View the product</a> before it sells out again.</p>
+    `,
+  });
+}
+
 export function sendInvoiceEmail(to: string, name: string, orderNumber: string, pdfBase64: string): Promise<boolean> {
   return sendEmail({
     to,
@@ -100,10 +124,29 @@ export function sendPasswordResetEmail(to: string, name: string, resetUrl: strin
     toName: name,
     subject: 'Reset your KuISOKO password',
     htmlContent: `
-      <p>Hi ${name},</p>
-      <p>We received a request to reset your KuISOKO password. Click the link below to choose a new one:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;background-color:#f8fafc;padding:24px 16px;">
+        <div style="background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+          <div style="background-color:#065f46;padding:24px 32px;">
+            <span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-0.3px;">Ku<span style="color:#f97316;">I</span>SOKO</span>
+          </div>
+          <div style="padding:32px;">
+            <p style="font-size:16px;color:#0f172a;margin:0 0 8px;">Hi ${name},</p>
+            <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 24px;">
+              We received a request to reset the password for your KuISOKO account. Click the button below to choose a new one.
+            </p>
+            <div style="text-align:center;margin:0 0 28px;">
+              <a href="${resetUrl}" style="display:inline-block;background-color:#065f46;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:12px;">Reset Password</a>
+            </div>
+            <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 4px;">This link expires in <strong>1 hour</strong> and can only be used once.</p>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 24px;">Didn't request this? You can safely ignore this email - your password won't change.</p>
+            <p style="font-size:12px;color:#cbd5e1;line-height:1.5;margin:0;word-break:break-all;">
+              Button not working? Paste this link into your browser:<br/>
+              <a href="${resetUrl}" style="color:#94a3b8;">${resetUrl}</a>
+            </p>
+          </div>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#94a3b8;margin:20px 0 0;">© ${new Date().getFullYear()} KuISOKO. All rights reserved.</p>
+      </div>
     `,
   });
 }
@@ -145,6 +188,36 @@ export function sendEmailChangeVerification(to: string, name: string, confirmUrl
       <p>We received a request to change the email address on your KuISOKO account to this one. Click the link below to confirm it:</p>
       <p><a href="${confirmUrl}">${confirmUrl}</a></p>
       <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email - your account email won't change.</p>
+    `,
+  });
+}
+
+export function sendCheckoutVerificationEmail(to: string, name: string, code: string): Promise<boolean> {
+  const digits = code.split('');
+  return sendEmail({
+    to,
+    toName: name,
+    subject: `${code} is your KuISOKO verification code`,
+    htmlContent: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;background-color:#f8fafc;padding:24px 16px;">
+        <div style="background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+          <div style="background-color:#065f46;padding:24px 32px;">
+            <span style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-0.3px;">Ku<span style="color:#f97316;">I</span>SOKO</span>
+          </div>
+          <div style="padding:32px;">
+            <p style="font-size:16px;color:#0f172a;margin:0 0 8px;">Hi ${name},</p>
+            <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 24px;">
+              Enter this code to confirm your order on KuISOKO. It confirms the order is really coming from you.
+            </p>
+            <div style="display:flex;justify-content:center;gap:10px;margin:0 0 24px;">
+              ${digits.map((d) => `<span style="display:inline-block;width:48px;height:56px;line-height:56px;text-align:center;font-size:26px;font-weight:800;color:#065f46;background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">${d}</span>`).join('')}
+            </div>
+            <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 4px;">This code expires in <strong>10 minutes</strong>.</p>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0;">Didn't request this? You can safely ignore this email - no order will be placed without it.</p>
+          </div>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#94a3b8;margin:20px 0 0;">© ${new Date().getFullYear()} KuISOKO. All rights reserved.</p>
+      </div>
     `,
   });
 }

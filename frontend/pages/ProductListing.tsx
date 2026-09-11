@@ -242,7 +242,7 @@ const ProductListing: React.FC = () => {
           about the sidebar's position or size can ever depend on how much content (or how little)
           is in the results pane. The row itself sticks below the navbar while in view; only the
           product grid inside it scrolls, and pagination/footer are reached by scrolling past it. */}
-      <div className="flex flex-col md:flex-row md:sticky md:top-24 md:h-[calc(100vh_-_6rem)] gap-8">
+      <div className="flex flex-col md:flex-row md:sticky md:top-[var(--header-offset,6rem)] md:h-[calc(100vh_-_var(--header-offset,6rem))] gap-8">
         {/* md:h-full + overflow-y-auto: only kicks in if expanding several categories' dropdowns
             at once makes the sidebar taller than the available space - otherwise inert. */}
         <aside className="w-full md:w-64 md:h-full md:overflow-y-auto flex-shrink-0 space-y-8">

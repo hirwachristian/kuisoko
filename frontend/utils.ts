@@ -1,3 +1,28 @@
+// Standard clothing-size progression - letter sizes don't sort correctly alphabetically
+// ('L' < 'M' < 'S' < 'XL' < 'XS'), so they need an explicit small-to-large ordering instead.
+const LETTER_SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL', '5XL'];
+
+/** Compares two product variant sizes so they can always be shown smallest-to-largest, whether
+ * they're numeric (shoe/measurement sizes like "39", "40.5") or letter sizes (S/M/L/XL). Numeric
+ * sizes compare as numbers (never as strings, where "10" would wrongly sort before "9"); letter
+ * sizes use the standard XS-5XL progression. An unrecognized size (a one-off label an admin typed
+ * that's neither) sorts after every size this function does understand, alphabetically among
+ * themselves, rather than landing at a misleading position in the middle. */
+export function compareSizes(a: string, b: string): number {
+  const aNum = /^\d+(\.\d+)?$/.test(a.trim()) ? parseFloat(a) : null;
+  const bNum = /^\d+(\.\d+)?$/.test(b.trim()) ? parseFloat(b) : null;
+  if (aNum !== null && bNum !== null) return aNum - bNum;
+  if (aNum !== null) return -1;
+  if (bNum !== null) return 1;
+
+  const aIdx = LETTER_SIZE_ORDER.indexOf(a.trim().toUpperCase());
+  const bIdx = LETTER_SIZE_ORDER.indexOf(b.trim().toUpperCase());
+  if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+  if (aIdx !== -1) return -1;
+  if (bIdx !== -1) return 1;
+  return a.localeCompare(b);
+}
+
 export type StockLevel = 'out' | 'low' | 'medium' | 'high';
 
 /** Stock color-coding used across product cards and the product detail page:

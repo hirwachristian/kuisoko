@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
+import RiderLocationMap from '../components/RiderLocationMap';
 import { Order } from '../types';
 import { getInitials } from '../utils';
 import { apiFetch, ApiError } from '../api';
@@ -16,6 +17,7 @@ const TRACKING_ICONS: Record<string, React.ElementType> = {
   'Shipped': Truck,
   'Delivered': PackageCheck,
   'Cancelled': X,
+  'Returned': RefreshCw,
 };
 
 // A distinct color per status, tuned for at-a-glance scanning in a customer's own order list
@@ -27,10 +29,11 @@ const CUSTOMER_STATUS_STYLES: Record<Order['status'], string> = {
   'Shipped': 'bg-orange-100 text-orange-700',
   'Delivered': 'bg-emerald-100 text-emerald-700',
   'Cancelled': 'bg-rose-100 text-rose-700',
+  'Returned': 'bg-purple-100 text-purple-700',
 };
 
 const UserDashboard: React.FC = () => {
-  const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, theme, toggleTheme, updateCurrentUser, token, showToast, t } = useAppContext();
+  const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, theme, toggleTheme, updateCurrentUser, token, showToast, addToCart, requestReturn, acknowledgeReturnResult, t } = useAppContext();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(
@@ -38,8 +41,34 @@ const UserDashboard: React.FC = () => {
   );
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
   const navigate = useNavigate();
   const mainRef = useRef<HTMLElement>(null);
+
+  // Once the customer opens an order carrying an unseen return resolution (approved/rejected),
+  // clear that flag server-side - the banner itself is the notification, this just stops it from
+  // being flagged as new the next time they look.
+  useEffect(() => {
+    setShowReturnForm(false);
+    setReturnReason('');
+    if (selectedOrder?.returnRequest?.customerUnread) {
+      acknowledgeReturnResult(selectedOrder.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.id]);
+
+  const handleSubmitReturn = async () => {
+    if (!selectedOrder || !returnReason.trim() || isSubmittingReturn) return;
+    setIsSubmittingReturn(true);
+    const ok = await requestReturn(selectedOrder.id, returnReason.trim());
+    setIsSubmittingReturn(false);
+    if (ok) {
+      setShowReturnForm(false);
+      setReturnReason('');
+    }
+  };
 
   // <main> is its own scroll container (overflow-y-auto below), not the window - so switching
   // tabs (or opening/closing an order's details) while scrolled down left the new view starting
@@ -108,6 +137,49 @@ const UserDashboard: React.FC = () => {
     await updateCurrentUser({ address: addressDraft.trim() });
     setIsSavingAddress(false);
     setIsEditingAddress(false);
+  };
+
+  // Re-adds a past order's items to the cart using each product's *current* data (price, stock,
+  // images) rather than the order's own snapshot - a "buy again" should reflect what the item
+  // actually costs and looks like today, not what it cost when this order was placed. Items whose
+  // product was deleted since, or whose exact color/size no longer exists, are skipped with a
+  // toast rather than silently failing or adding something the shopper didn't ask for.
+  const handleReorder = (order: Order) => {
+    let addedCount = 0;
+    let skippedCount = 0;
+    for (const item of order.items) {
+      const currentProduct = products.find((p) => p.id === item.productId);
+      if (!currentProduct) {
+        skippedCount++;
+        continue;
+      }
+      if (item.selectedColor || item.selectedSize) {
+        const variant = currentProduct.variants?.find(
+          (v) => v.color === item.selectedColor && v.size === item.selectedSize
+        );
+        if (!variant || variant.stock <= 0) {
+          skippedCount++;
+          continue;
+        }
+        addToCart({ ...currentProduct, selectedColor: item.selectedColor, selectedSize: item.selectedSize }, item.quantity);
+      } else {
+        if (currentProduct.stock <= 0) {
+          skippedCount++;
+          continue;
+        }
+        addToCart(currentProduct, item.quantity);
+      }
+      addedCount++;
+    }
+    if (addedCount > 0) {
+      showToast(
+        skippedCount > 0 ? t('dashboard_reorder_partial', { added: addedCount, skipped: skippedCount }) : t('dashboard_reorder_success'),
+        skippedCount > 0 ? 'info' : 'success'
+      );
+      navigate('/cart');
+    } else {
+      showToast(t('dashboard_reorder_none_available'), 'error');
+    }
   };
 
   const NAV_ITEMS: { key: string; labelKey: string; icon: React.ElementType }[] = [
@@ -227,9 +299,17 @@ const UserDashboard: React.FC = () => {
                     <button onClick={() => setSelectedOrder(null)} className="text-emerald-600 dark:text-emerald-400 text-sm font-bold hover:underline">
                       ← {t('dashboard_back_to_orders')}
                     </button>
-                    <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-full ${CUSTOMER_STATUS_STYLES[selectedOrder.status]}`}>
-                      {t(`status_${selectedOrder.status.toLowerCase()}`)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-full ${CUSTOMER_STATUS_STYLES[selectedOrder.status]}`}>
+                        {t(`status_${selectedOrder.status.toLowerCase()}`)}
+                      </span>
+                      <button
+                        onClick={() => handleReorder(selectedOrder)}
+                        className="flex items-center gap-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-full transition-colors"
+                      >
+                        <RefreshCw size={13} /> {t('dashboard_buy_again')}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -295,6 +375,92 @@ const UserDashboard: React.FC = () => {
                     </div>
                   </div>
 
+                  {selectedOrder.status === 'Shipped' && selectedOrder.deliveryVerificationCode && (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-5 sm:p-6 flex items-center gap-4">
+                      <div className="w-11 h-11 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0">
+                        <KeyRound size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-emerald-50">{t('order_verification_code_title')}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{t('order_verification_code_subtitle')}</p>
+                        <p className="text-2xl font-black tracking-[0.3em] text-emerald-800 dark:text-emerald-400 mt-1.5">{selectedOrder.deliveryVerificationCode}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedOrder.status === 'Shipped' && selectedOrder.riderId && (
+                    <RiderLocationMap orderId={selectedOrder.id} riderName={selectedOrder.riderName} />
+                  )}
+
+                  {selectedOrder.status === 'Delivered' && (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-6 sm:p-8 text-center">
+                      <div className="w-14 h-14 rounded-full bg-emerald-700 text-white flex items-center justify-center mx-auto mb-3">
+                        <PackageCheck size={26} />
+                      </div>
+                      <p className="font-black text-lg text-slate-900 dark:text-emerald-50">{t('order_delivered_thank_you_title')}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 max-w-sm mx-auto">{t('order_delivered_thank_you_message')}</p>
+                    </div>
+                  )}
+
+                  {selectedOrder.returnRequest && (
+                    <div className={`rounded-2xl p-5 sm:p-6 border ${
+                      selectedOrder.returnRequest.status === 'pending'
+                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900'
+                        : selectedOrder.returnRequest.status === 'approved'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900'
+                        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-900'
+                    }`}>
+                      <p className="font-bold text-slate-900 dark:text-emerald-50">
+                        {selectedOrder.returnRequest.status === 'pending' && t('order_return_pending_title')}
+                        {selectedOrder.returnRequest.status === 'approved' && t('order_return_approved_title')}
+                        {selectedOrder.returnRequest.status === 'rejected' && t('order_return_rejected_title')}
+                      </p>
+                      {selectedOrder.returnRequest.status === 'rejected' && selectedOrder.returnRequest.adminNote && (
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5">{selectedOrder.returnRequest.adminNote}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedOrder.status === 'Delivered' && (!selectedOrder.returnRequest || selectedOrder.returnRequest.status === 'rejected') && (
+                    <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      {showReturnForm ? (
+                        <div className="space-y-3">
+                          <textarea
+                            rows={3}
+                            value={returnReason}
+                            onChange={(e) => setReturnReason(e.target.value)}
+                            placeholder={t('order_return_reason_placeholder')}
+                            disabled={isSubmittingReturn}
+                            className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100 disabled:opacity-60 resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleSubmitReturn}
+                              disabled={isSubmittingReturn || !returnReason.trim()}
+                              className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800 transition-colors disabled:opacity-50"
+                            >
+                              {t('order_return_submit')}
+                            </button>
+                            <button
+                              onClick={() => { setShowReturnForm(false); setReturnReason(''); }}
+                              disabled={isSubmittingReturn}
+                              className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              {t('dashboard_cancel')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowReturnForm(true)}
+                          className="flex items-center gap-1.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        >
+                          <RefreshCw size={15} /> {t('order_request_return')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {selectedOrder.trackingHistory && selectedOrder.trackingHistory.length > 0 && (
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-4 text-sm">{t('dashboard_tracking_history')}</h3>
@@ -337,7 +503,10 @@ const UserDashboard: React.FC = () => {
                           className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-left hover:shadow-md transition-shadow"
                         >
                           <div className="min-w-0">
-                            <p className="font-bold text-slate-900 dark:text-emerald-50 truncate">Order #{order.orderNumber || order.id}</p>
+                            <p className="font-bold text-slate-900 dark:text-emerald-50 truncate flex items-center gap-1.5">
+                              Order #{order.orderNumber || order.id}
+                              {order.returnRequest?.customerUnread && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />}
+                            </p>
                             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                               {order.items.length} {order.items.length === 1 ? t('dashboard_item') : t('dashboard_items')} · {getFormattedPrice(order.total)}
                             </p>

@@ -1,15 +1,18 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, Tag, ShoppingCart, Settings, LogOut, Users, Receipt, Calendar, Zap, Sun, Moon, Ticket, MessageCircle, Mail, Menu, X } from 'lucide-react';
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence } from 'motion/react';
+import { LayoutDashboard, Package, Tag, ShoppingCart, Settings, LogOut, Users, Receipt, Calendar, Zap, Sun, Moon, Ticket, MessageCircle, Mail, Menu, X, Bell, RotateCcw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import KuISOKOAdminLogo from './KuISOKOAdminLogo';
+import NotificationPanel from './NotificationPanel';
 
 const AdminLayout: React.FC = () => {
-  const { user, logout, categories, theme, toggleTheme, unreadOrderCount, unreadUserCount, chatAdminUnreadCount, enquiryUnreadCount } = useAppContext();
+  const { user, logout, categories, theme, toggleTheme, unreadOrderCount, unreadUserCount, chatAdminUnreadCount, enquiryUnreadCount, unreadReturnRequestCount, unreadNotificationCount } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
   // Close the mobile sidebar automatically whenever the admin navigates to a new page.
@@ -54,16 +57,9 @@ const AdminLayout: React.FC = () => {
     };
   }, []); 
 
-  // Redirect if not logged in or not an admin
+  // Not logged in or not an admin - straight to sign-in, no unauthorized-message page to land on.
   if (!user || user.role !== 'admin') {
-    // In a real app, you'd navigate or show a proper unauthorized message
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-900">
-        Unauthorized access. Please
-        <Link to="/signin" className="text-emerald-600 underline ml-1">sign in</Link>
-        as an admin.
-      </div>
-    );
+    return <Navigate to="/signin" replace />;
   }
 
   // Adjusted isActive to check if the current path starts with the link's path for settings sub-pages
@@ -90,16 +86,35 @@ const AdminLayout: React.FC = () => {
         <div className="flex flex-col gap-8 py-6 px-4">
           {/* Logo/Brand */}
           <div className="flex items-center justify-between">
-            <Link to="/">
+            <Link to="/admin">
               <KuISOKOAdminLogo />
             </Link>
-            <button
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="lg:hidden p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-              aria-label="Close menu"
-            >
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Desktop-only bell - the sidebar is always visible at this breakpoint, so this is
+                  reachable from every admin page, not just the dashboard home. Mobile gets its
+                  own copy in the sticky top bar below, since the sidebar itself is off-screen
+                  there until the hamburger opens it. */}
+              <button
+                onClick={() => setShowNotifications(prev => !prev)}
+                className="hidden lg:flex relative items-center justify-center w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                aria-label="Notifications"
+                title="Notifications"
+              >
+                <Bell size={18} />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-slate-900">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="lg:hidden p-2 -mr-2 rounded-lg text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
           {/* Navigation Links */}
           <nav className="flex flex-col gap-1">
@@ -180,6 +195,18 @@ const AdminLayout: React.FC = () => {
                 </span>
               )}
             </Link>
+            <Link
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${isActive('/admin/returns') ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-emerald-50'}`}
+              to="/admin/returns"
+            >
+              <RotateCcw size={20} className={`${isActive('/admin/returns') ? 'text-emerald-600 dark:text-emerald-400' : ''}`} />
+              <p className="text-sm font-medium">Returns</p>
+              {unreadReturnRequestCount > 0 && (
+                <span className="ml-auto w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                  {unreadReturnRequestCount > 9 ? '9+' : unreadReturnRequestCount}
+                </span>
+              )}
+            </Link>
             <div className="my-4 border-t border-slate-200 dark:border-slate-800"></div>
             <Link
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${isActive('/admin/settings') ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-emerald-50'}`}
@@ -233,19 +260,40 @@ const AdminLayout: React.FC = () => {
         {/* Mobile-only top bar: hamburger to open the sidebar drawer, since the sidebar itself is
             off-screen below the lg breakpoint. */}
         <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-30">
-          <Link to="/">
+          <Link to="/admin">
             <KuISOKOAdminLogo />
           </Link>
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowNotifications(prev => !prev)}
+              className="relative p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Notifications"
+              title="Notifications"
+            >
+              <Bell size={20} />
+              {unreadNotificationCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-slate-900">
+                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+          </div>
         </div>
         <Outlet /> {/* Renders the child route component (e.g., AdminDashboardContent or AdminManageProducts) */}
       </main>
+      {/* Rendered outside <aside> deliberately - that sidebar is translated off-screen on mobile
+          when closed, and CSS `transform` on an ancestor becomes the containing block for any
+          `position: fixed` descendant, which would drag this panel off-screen with it. */}
+      <AnimatePresence>
+        {showNotifications && <NotificationPanel onClose={() => setShowNotifications(false)} />}
+      </AnimatePresence>
     </div>
   );
 };

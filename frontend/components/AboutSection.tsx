@@ -1,13 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useInView } from 'motion/react';
 import { ShieldCheck, Truck, Lock, Headphones, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useCountUp } from '../hooks/useCountUp';
 
 const ABOUT_IMAGES = ['/about/about-1.jpg', '/about/about-2.jpg', '/about/about-3.jpg'];
+
+/** One stat in the About page's counter row - a plain string (e.g. "24/7") renders as-is, while a
+ * number counts up from 0 the first time the row scrolls into view, matching the same effect used
+ * on the admin dashboard's overview cards. */
+const StatValue: React.FC<{ value: number | string; isInView: boolean; suffix?: string }> = ({ value, isInView, suffix }) => {
+  const counted = useCountUp(typeof value === 'number' ? value : 0, isInView && typeof value === 'number');
+  if (typeof value !== 'number') return <>{value}</>;
+  return <>{counted}{suffix}</>;
+};
 
 const AboutSection: React.FC = () => {
   const { t, products, categories } = useAppContext();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const statsRef = useRef<HTMLDivElement>(null);
+  // Not `once: true` - deliberately re-counts from 0 every time this row scrolls into view again
+  // (leaving the section and scrolling back, or navigating away and back), not just the first time
+  // it's ever seen in a page load.
+  const statsInView = useInView(statsRef, { once: false, amount: 0.5 });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -23,14 +39,14 @@ const AboutSection: React.FC = () => {
     { icon: Headphones, titleKey: 'about_value_4_title', bodyKey: 'about_value_4_body' },
   ];
 
-  const stats = [
-    { value: `${products.length}+`, labelKey: 'about_stat_products' },
-    { value: `${categories.length}`, labelKey: 'about_stat_categories' },
+  const stats: { value: number | string; suffix?: string; labelKey: string }[] = [
+    { value: products.length, suffix: '+', labelKey: 'about_stat_products' },
+    { value: categories.length, labelKey: 'about_stat_categories' },
     { value: '24/7', labelKey: 'about_stat_support' },
   ];
 
   return (
-    <section id="about" className="scroll-mt-28 max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+    <section id="about" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8" style={{ scrollMarginTop: 'var(--header-offset, 112px)' }}>
       {/* Intro: image panel + copy */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16">
         <div className="aspect-[4/3] rounded-[2.5rem] bg-emerald-950 relative overflow-hidden shadow-2xl shadow-emerald-900/30">
@@ -68,10 +84,12 @@ const AboutSection: React.FC = () => {
           <p className="text-slate-500 dark:text-emerald-300 text-base leading-relaxed mb-8">
             {t('about_mission_body')}
           </p>
-          <div className="grid grid-cols-3 gap-3 sm:gap-10">
+          <div ref={statsRef} className="grid grid-cols-3 gap-3 sm:gap-10">
             {stats.map((s, i) => (
               <div key={i} className="text-center sm:text-left">
-                <div className="text-xl sm:text-3xl font-black text-emerald-900 dark:text-emerald-300 tracking-tight">{s.value}</div>
+                <div className="text-xl sm:text-3xl font-black text-emerald-900 dark:text-emerald-300 tracking-tight tabular-nums">
+                  <StatValue value={s.value} suffix={s.suffix} isInView={statsInView} />
+                </div>
                 <div className="text-[11px] sm:text-sm text-slate-500 dark:text-emerald-400 font-medium">{t(s.labelKey)}</div>
               </div>
             ))}

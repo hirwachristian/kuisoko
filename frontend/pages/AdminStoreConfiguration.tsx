@@ -54,7 +54,7 @@ const LinkForm: React.FC<{
 };
 
 const AdminStoreConfiguration: React.FC = () => {
-  const { showToast, token, footerSettings, updateFooterLocation, updateFooterPhoneNumber, updateFooterWhatsappNumber, updateFooterEmail, updateFooterQuickLinks, updateFooterSupportLinks, updateFooterCopyrightText, isMaintenanceMode, toggleMaintenanceMode } = useAppContext();
+  const { showToast, token, footerSettings, updateFooterLocation, updateFooterPhoneNumber, updateFooterWhatsappNumber, updateFooterEmail, updateFooterQuickLinks, updateFooterSupportLinks, updateFooterCopyrightText, updateStoreCoordinates, isMaintenanceMode, toggleMaintenanceMode } = useAppContext();
 
   // Shop Preferences States
   const [makeWishlistPublic, setMakeWishlistPublic] = useState(false);
@@ -66,6 +66,8 @@ const AdminStoreConfiguration: React.FC = () => {
   const [whatsappNumberInput, setWhatsappNumberInput] = useState(footerSettings.whatsappNumber);
   const [emailInput, setEmailInput] = useState(footerSettings.emailAddress);
   const [copyrightInput, setCopyrightInput] = useState(footerSettings.copyrightText);
+  const [storeLatInput, setStoreLatInput] = useState(footerSettings.storeLat != null ? String(footerSettings.storeLat) : '');
+  const [storeLngInput, setStoreLngInput] = useState(footerSettings.storeLng != null ? String(footerSettings.storeLng) : '');
 
   const handleSaveAll = () => {
     updateFooterLocation(locationInput.split('\n'));
@@ -73,6 +75,11 @@ const AdminStoreConfiguration: React.FC = () => {
     updateFooterWhatsappNumber(whatsappNumberInput);
     updateFooterEmail(emailInput);
     updateFooterCopyrightText(copyrightInput);
+    const lat = parseFloat(storeLatInput);
+    const lng = parseFloat(storeLngInput);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      updateStoreCoordinates(lat, lng);
+    }
     showToast('Store configuration saved!', 'success');
   };
 
@@ -286,7 +293,20 @@ const AdminStoreConfiguration: React.FC = () => {
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2 mb-4">Use two different numbers if your call line and WhatsApp line aren't the same.</p>
         <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Email Address" />
-        <textarea rows={3} value={locationInput} onChange={(e) => setLocationInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-4 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Location" />
+        <textarea rows={3} value={locationInput} onChange={(e) => setLocationInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 mb-2 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Location" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-1.5">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5"><MapPin size={13} /> Store Latitude</label>
+            <input type="text" inputMode="decimal" value={storeLatInput} onChange={(e) => setStoreLatInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="e.g. -1.9441" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-1.5"><MapPin size={13} /> Store Longitude</label>
+            <input type="text" inputMode="decimal" value={storeLngInput} onChange={(e) => setStoreLngInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="e.g. 30.0619" />
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Used to show the store on delivery-tracking maps. Find these by right-clicking your shop on Google Maps and copying the coordinates.
+        </p>
         <input type="text" value={copyrightInput} onChange={(e) => setCopyrightInput(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600" placeholder="Copyright" />
 
         {/* Footer Links - the Quick Links and Support Links columns shown in the site footer,

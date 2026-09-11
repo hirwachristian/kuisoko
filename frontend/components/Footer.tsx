@@ -4,12 +4,17 @@ import React from 'react';
 // Fix: Ensure correct `react-router-dom` named imports for v6+.
 // The existing import statement is correct for `react-router-dom` v6+.
 import { Link } from 'react-router-dom';
+import { Instagram } from 'lucide-react';
 import KuISOKOLogoSVG from './KuISOKOLogoSVG'; // Import the new SVG logo component
+import TikTokIcon from './TikTokIcon';
+import WhatsAppIcon from './WhatsAppIcon';
 import { useAppContext } from '../context/AppContext';
 
 const Footer = () => {
   const { footerSettings, toggleFAQ, toggleShippingPolicy, toggleTermsOfService, togglePrivacyPolicy, user, isSubscribed, subscribeToNewsletter, unsubscribeFromNewsletter, t } = useAppContext();
-  const { locationLines, phoneNumber, emailAddress, quickLinks, supportLinks, copyrightText } = footerSettings;
+  const { locationLines, phoneNumber, whatsappNumber, emailAddress, quickLinks, supportLinks, copyrightText } = footerSettings;
+  const effectiveWhatsappNumber = whatsappNumber || phoneNumber;
+  const whatsappUrl = `https://wa.me/${effectiveWhatsappNumber.replace(/[^\d]/g, '')}?text=${encodeURIComponent(t('contact_whatsapp_default_message'))}`;
   const [isProcessingSubscription, setIsProcessingSubscription] = React.useState(false);
   const [newsletterEmail, setNewsletterEmail] = React.useState('');
 
@@ -66,6 +71,38 @@ const Footer = () => {
           <p className="text-[11px] text-emerald-100/40 dark:text-slate-500 uppercase tracking-wide mt-3">
             {t('footer_newsletter_disclaimer')}
           </p>
+
+          <div className="mt-5">
+            <p className="text-[11px] font-semibold text-emerald-100/40 dark:text-slate-500 uppercase tracking-wide mb-2.5">
+              {t('footer_follow_us')}
+            </p>
+            <div className="flex items-center gap-2.5">
+              <span
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 text-emerald-100/40 dark:text-slate-500 cursor-default"
+                aria-label={t('footer_instagram_aria')}
+                title={t('footer_instagram_aria')}
+              >
+                <Instagram size={16} />
+              </span>
+              <span
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 text-emerald-100/40 dark:text-slate-500 cursor-default"
+                aria-label={t('footer_tiktok_aria')}
+                title={t('footer_tiktok_aria')}
+              >
+                <TikTokIcon size={15} />
+              </span>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 text-emerald-100/60 dark:text-slate-400 hover:bg-green-500 hover:text-white transition-colors"
+                aria-label={t('footer_whatsapp_aria')}
+                title={t('footer_whatsapp_aria')}
+              >
+                <WhatsAppIcon size={16} />
+              </a>
+            </div>
+          </div>
         </div>
         <div>
           <h4 className="text-white dark:text-emerald-50 font-semibold mb-4">{t('footer_quick_links')}</h4>
