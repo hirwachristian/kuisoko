@@ -9,7 +9,7 @@ import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG'; // Import the new SVG
 import { useAppContext } from '../context/AppContext'; // Import AppContext
 
 const SignIn: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ const SignIn: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = await login(email, password);
+    const success = await login(identifier, password);
     if (!success) {
       setError(t('auth_invalid_credentials'));
     }
@@ -52,6 +52,8 @@ const SignIn: React.FC = () => {
     if (user) {
       if (user.role === 'admin') {
         navigate('/admin');
+      } else if (user.role === 'rider') {
+        navigate('/rider');
       } else {
         navigate('/'); // Redirect regular users to the homepage
       }
@@ -137,19 +139,19 @@ const SignIn: React.FC = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="block text-sm font-semibold text-slate-700 mb-2">
-                {t('auth_email')}
+              <label htmlFor="email-or-username" className="block text-sm font-semibold text-slate-700 mb-2">
+                {t('auth_email_or_username')}
               </label>
               <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="email-or-username"
+                name="identifier"
+                type="text"
+                autoComplete="username"
                 required
                 className="appearance-none rounded-xl relative block w-full px-5 py-3 border border-slate-200 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-800 focus:border-transparent text-sm transition-all bg-white"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('auth_email_or_username_placeholder')}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
             </div>
             <div className="mt-4">

@@ -4,25 +4,54 @@ import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
 import { apiFetch, ApiError } from '../api';
 import { useAppContext } from '../context/AppContext';
 
+type Step = 'enter-username' | 'confirm' | 'sent';
+
 const ForgotPassword: React.FC = () => {
   const { t } = useAppContext();
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
+  const [username, setUsername] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [step, setStep] = useState<Step>('enter-username');
+  const [status, setStatus] = useState<'idle' | 'loading'>('idle');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
+    setError('');
     try {
-      await apiFetch('/auth/forgot-password', {
+      const result = await apiFetch<{ maskedEmail: string }>('/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ username }),
       });
-      setStatus('sent');
+      setMaskedEmail(result.maskedEmail);
+      setStep('confirm');
     } catch (err) {
-      setStatus('error');
       setError(err instanceof ApiError ? err.message : t('auth_something_wrong_retry'));
+    } finally {
+      setStatus('idle');
     }
+  };
+
+  const handleConfirmSend = async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      await apiFetch('/auth/forgot-password/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+      });
+      setStep('sent');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('auth_something_wrong_retry'));
+    } finally {
+      setStatus('idle');
+    }
+  };
+
+  const handleUseDifferentUsername = () => {
+    setStep('enter-username');
+    setMaskedEmail('');
+    setError('');
   };
 
   return (
@@ -36,39 +65,72 @@ const ForgotPassword: React.FC = () => {
             {t('auth_forgot_password_title')}
           </h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            {t('auth_forgot_password_subtitle')}
+            {step === 'enter-username' && t('auth_forgot_password_subtitle')}
+            {step === 'confirm' && t('auth_forgot_password_confirm_subtitle')}
+            {step === 'sent' && t('auth_reset_link_sent')}
           </p>
         </div>
 
-        {status === 'sent' ? (
+        {step === 'sent' ? (
           <div className="text-center space-y-6">
-            <p className="text-sm text-slate-600">
-              {t('auth_reset_link_sent', { email })}
-            </p>
             <Link to="/signin" className="inline-block font-bold text-emerald-800 hover:text-emerald-900 transition-colors">
               {t('auth_back_to_sign_in')}
             </Link>
           </div>
+        ) : step === 'confirm' ? (
+          <div className="mt-8 space-y-6">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-5 py-4 text-center">
+              <p className="text-sm text-slate-600">{t('auth_forgot_password_send_to')}</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">{maskedEmail}</p>
+            </div>
+
+            {error && (
+              <div className="text-sm text-red-600 text-center" role="alert">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleConfirmSend}
+              disabled={status === 'loading'}
+              className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-emerald-800 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-700 transition-all shadow-lg shadow-emerald-800/20 active:scale-95 disabled:opacity-60"
+            >
+              {status === 'loading' ? t('auth_sending') : t('auth_send_reset_link')}
+            </button>
+
+            <div className="text-center text-sm">
+              <button
+                type="button"
+                onClick={handleUseDifferentUsername}
+                className="font-bold text-emerald-800 hover:text-emerald-900 transition-colors"
+              >
+                {t('auth_use_different_username')}
+              </button>
+            </div>
+          </div>
         ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <form className="mt-8 space-y-6" onSubmit={handleLookup}>
             <div>
-              <label htmlFor="email-address" className="block text-sm font-semibold text-slate-700 mb-2">
-                {t('auth_email')}
+              <label htmlFor="username" className="block text-sm font-semibold text-slate-700 mb-2">
+                {t('auth_username')}
               </label>
               <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
                 required
+                minLength={3}
+                maxLength={20}
                 className="appearance-none rounded-xl relative block w-full px-5 py-3 border border-slate-200 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-800 focus:border-transparent text-sm transition-all bg-white"
-                placeholder={t('auth_enter_email_placeholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('auth_username_placeholder')}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
 
-            {status === 'error' && (
+            {error && (
               <div className="text-sm text-red-600 text-center" role="alert">
                 {error}
               </div>
@@ -79,7 +141,7 @@ const ForgotPassword: React.FC = () => {
               disabled={status === 'loading'}
               className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-lg font-bold rounded-2xl text-white bg-emerald-800 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-700 transition-all shadow-lg shadow-emerald-800/20 active:scale-95 disabled:opacity-60"
             >
-              {status === 'loading' ? t('auth_sending') : t('auth_send_reset_link')}
+              {status === 'loading' ? t('auth_sending') : t('auth_continue')}
             </button>
 
             <div className="text-center text-sm">

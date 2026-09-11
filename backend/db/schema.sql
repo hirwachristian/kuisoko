@@ -6,8 +6,8 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto; -- gives us gen_random_uuid()
 
-CREATE TYPE user_role AS ENUM ('user', 'admin');
-CREATE TYPE order_status AS ENUM ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled');
+CREATE TYPE user_role AS ENUM ('user', 'admin', 'rider');
+CREATE TYPE order_status AS ENUM ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned');
 CREATE TYPE footer_link_type AS ENUM ('quick', 'support');
 
 -- Shared trigger: keep updated_at current on every UPDATE
@@ -22,9 +22,10 @@ $$ LANGUAGE plpgsql;
 -- Users
 -- ---------------------------------------------------------------------------
 CREATE TABLE users (
-  id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  id                TEXT PRIMARY KEY, -- app-generated, format KU-XXXXXX (see lib/userId.ts) - not a DB identity column
   name              TEXT NOT NULL,
-  email             TEXT NOT NULL UNIQUE,
+  username          TEXT NOT NULL UNIQUE, -- public-facing handle, shown on reviews instead of name; login/password-reset identifier
+  email             TEXT NOT NULL, -- not unique: one email may back up to MAX_ACCOUNTS_PER_EMAIL accounts (see lib/accountLimits.ts)
   password_hash     TEXT NOT NULL,
   phone_number      TEXT,
   address           TEXT,
@@ -33,17 +34,19 @@ CREATE TABLE users (
   is_active         BOOLEAN NOT NULL DEFAULT true, -- admin can deactivate to block login
   is_unread         BOOLEAN NOT NULL DEFAULT true, -- new-registration flag for admin notifications
   two_factor_enabled BOOLEAN NOT NULL DEFAULT false, -- email-based 2FA at login, see two_factor_codes
+  last_active_at    TIMESTAMPTZ, -- last authenticated request; used for the customer-facing "admin is online" indicator
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE INDEX idx_users_email ON users (email);
 
 -- "Forgot password" flow: single-use, expiring reset tokens emailed to the account holder.
 -- Only the SHA-256 hash of the token is stored, never the raw value.
 CREATE TABLE password_reset_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash  TEXT NOT NULL UNIQUE,
   expires_at  TIMESTAMPTZ NOT NULL,
   used_at     TIMESTAMPTZ,
@@ -55,7 +58,7 @@ CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)
 -- account's email can't be changed without proving control of the new inbox first.
 CREATE TABLE email_change_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   new_email   TEXT NOT NULL,
   token_hash  TEXT NOT NULL UNIQUE,
   expires_at  TIMESTAMPTZ NOT NULL,
@@ -70,7 +73,7 @@ CREATE INDEX idx_email_change_tokens_user_id ON email_change_tokens(user_id);
 -- account password (see POST /auth/2fa/disable), so it doesn't need a row here.
 CREATE TABLE two_factor_codes (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code_hash   TEXT NOT NULL,
   expires_at  TIMESTAMPTZ NOT NULL,
   used_at     TIMESTAMPTZ,
@@ -122,6 +125,8 @@ CREATE TABLE products (
   stock          INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
   featured       BOOLEAN NOT NULL DEFAULT false,
   image_hash     TEXT,                                             -- perceptual hash (dHash) of images[0], for "search by photo"
+  color_images   JSONB NOT NULL DEFAULT '{}'::jsonb,                -- maps a variant color to one of `images`, so picking that color can jump the gallery to its photo
+  group_buy_enabled BOOLEAN NOT NULL DEFAULT false,                 -- admin opt-in for "buy together" group orders on this product
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -144,8 +149,9 @@ CREATE INDEX idx_product_variants_product_id ON product_variants(product_id);
 CREATE TABLE reviews (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id  UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  user_id     TEXT REFERENCES users(id) ON DELETE SET NULL,
   user_name   TEXT NOT NULL,          -- snapshot, survives account deletion
+  user_username TEXT,                 -- snapshot of the reviewer's username at submission time, shown publicly instead of user_name
   rating      SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment     TEXT,
   image       TEXT,
@@ -180,7 +186,7 @@ CREATE TRIGGER trg_reviews_refresh_rating
 -- Wishlist (user <-> product)
 -- ---------------------------------------------------------------------------
 CREATE TABLE wishlists (
-  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   product_id  UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, product_id)
@@ -190,7 +196,7 @@ CREATE TABLE wishlists (
 -- Cart (user <-> product) - per-account, persists across logout/login and devices
 -- ---------------------------------------------------------------------------
 CREATE TABLE cart_items (
-  user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   product_id     UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   quantity       INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
   selected_color TEXT,
@@ -265,7 +271,7 @@ CREATE TRIGGER trg_coupons_updated_at BEFORE UPDATE ON coupons
 CREATE TABLE orders (
   id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number                BIGINT NOT NULL UNIQUE DEFAULT generate_order_number(), -- human-readable, displayed as KS-<order_number>
-  user_id                     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  user_id                     TEXT REFERENCES users(id) ON DELETE SET NULL,
   customer_name               TEXT NOT NULL,          -- snapshot
   delivery_full_name          TEXT NOT NULL,
   delivery_phone_number       TEXT NOT NULL,
@@ -276,13 +282,28 @@ CREATE TABLE orders (
   delivery_street_address     TEXT NOT NULL,
   delivery_house_building_no  TEXT,
   delivery_additional_info    TEXT,
+  rider_id                    TEXT REFERENCES users(id) ON DELETE SET NULL, -- delivery rider assigned to this order, if any
+  rider_stop_alert_at         TIMESTAMPTZ, -- set when the assigned rider stops sharing their location while this order is still Shipped
+  rider_stop_alert_unread     BOOLEAN NOT NULL DEFAULT false, -- admin notification state for the above, independent of the order's own unread flag
+  delivery_lat                DOUBLE PRECISION, -- best-effort geocode of the delivery address, cached so it's only ever looked up once
+  delivery_lng                DOUBLE PRECISION,
+  delivery_geocoded_at        TIMESTAMPTZ, -- set once attempted, even on failure (lat/lng stay NULL) - prevents retrying an address that doesn't resolve
+  rider_accepted_at           TIMESTAMPTZ, -- set when the assigned rider explicitly accepts this delivery; only one Shipped order per rider may have this set at a time
+  delivery_verification_code  TEXT, -- 4-digit code generated when marked Shipped; shown to the customer, given to the rider to confirm drop-off
+  delivery_verify_attempts    INT NOT NULL DEFAULT 0, -- failed code-verification attempts; locked out past a threshold
+  delivery_confirmed_at       TIMESTAMPTZ, -- set when the rider's code verification actually completes the delivery
+  delivery_confirmed_unread   BOOLEAN NOT NULL DEFAULT false, -- admin notification state for the above
+  arrival_notified_at         TIMESTAMPTZ, -- set once the rider's live position comes within range of the delivery address
+  previous_rider_id           TEXT REFERENCES users(id) ON DELETE SET NULL, -- set on a genuine reassignment (not a first assignment or plain unassignment)
+  rider_reassigned_at         TIMESTAMPTZ,
   order_date                  TIMESTAMPTZ NOT NULL DEFAULT now(),
   subtotal                    NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (subtotal >= 0), -- RWF, sum of item prices
   shipping_fee                NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (shipping_fee >= 0), -- RWF, from the matched shipping zone
   shipping_zone               TEXT,                    -- name of the shipping zone applied
   tax                         NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (tax >= 0), -- RWF
   coupon_code                 TEXT,                    -- code applied at checkout, if any
-  discount_amount             NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0), -- RWF, from the coupon
+  group_order_id              UUID, -- REFERENCES group_orders(id) ON DELETE SET NULL, added below (group_orders is defined later in this file)
+  discount_amount             NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0), -- RWF, from a coupon or a group-buy tier
   total                       NUMERIC(12,2) NOT NULL CHECK (total >= 0), -- stored in RWF; subtotal + shipping_fee + tax - discount_amount
   currency                    TEXT,                    -- display currency label, e.g. 'RWF'
   status                      order_status NOT NULL DEFAULT 'Pending',
@@ -294,6 +315,7 @@ CREATE TABLE orders (
 );
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_rider_id ON orders(rider_id);
 CREATE TRIGGER trg_orders_updated_at BEFORE UPDATE ON orders
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
@@ -318,6 +340,16 @@ CREATE TABLE order_tracking_events (
   description  TEXT
 );
 CREATE INDEX idx_order_tracking_events_order_id ON order_tracking_events(order_id);
+
+-- One row per rider, upserted on every ping - only "where are they right now" is needed, not a
+-- trail, so this stays small no matter how often a rider's phone pings while delivering.
+CREATE TABLE rider_locations (
+  rider_id        TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  lat             DOUBLE PRECISION NOT NULL,
+  lng             DOUBLE PRECISION NOT NULL,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  sharing_active  BOOLEAN NOT NULL DEFAULT false -- false once the rider stops/pauses sharing; lat/lng/updated_at still hold their last known position
+);
 
 -- ---------------------------------------------------------------------------
 -- MTN MoMo "Request to Pay" transactions
@@ -344,7 +376,7 @@ CREATE TRIGGER trg_momo_transactions_updated_at BEFORE UPDATE ON momo_transactio
 CREATE TABLE newsletter_subscribers (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email            TEXT NOT NULL UNIQUE,
-  user_id          BIGINT REFERENCES users(id) ON DELETE SET NULL, -- set if the subscriber is also a registered user
+  user_id          TEXT REFERENCES users(id) ON DELETE SET NULL, -- set if the subscriber is also a registered user
   is_active        BOOLEAN NOT NULL DEFAULT true,
   is_unread        BOOLEAN NOT NULL DEFAULT true, -- new-subscriber flag for admin notifications
   subscribed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -370,6 +402,8 @@ CREATE TABLE footer_settings (
   whatsapp_number TEXT,
   email_address   TEXT,
   copyright_text  TEXT,
+  store_lat       DOUBLE PRECISION, -- one-time admin-entered coordinates, shown as a reference point on delivery maps
+  store_lng       DOUBLE PRECISION,
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TRIGGER trg_footer_settings_updated_at BEFORE UPDATE ON footer_settings
@@ -431,14 +465,17 @@ CREATE TRIGGER trg_site_announcements_updated_at BEFORE UPDATE ON site_announcem
 -- user_id), all admins share the same inbox. Read flags are tracked separately per side so
 -- each party's unread badge only reflects messages the *other* side sent.
 CREATE TABLE chat_messages (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  sender_role    TEXT NOT NULL CHECK (sender_role IN ('user', 'admin')),
-  sender_id      BIGINT REFERENCES users(id) ON DELETE SET NULL,
-  body           TEXT NOT NULL,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  read_by_user   BOOLEAN NOT NULL DEFAULT false,
-  read_by_admin  BOOLEAN NOT NULL DEFAULT false
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sender_role      TEXT NOT NULL CHECK (sender_role IN ('user', 'admin')),
+  sender_id        TEXT REFERENCES users(id) ON DELETE SET NULL,
+  body             TEXT, -- nullable: a message can be attachment-only
+  attachment_url   TEXT,
+  attachment_type  TEXT, -- mime type, so the UI knows image vs generic file
+  attachment_name  TEXT, -- original filename, shown in the UI instead of the randomized storage name
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read_by_user     BOOLEAN NOT NULL DEFAULT false,
+  read_by_admin    BOOLEAN NOT NULL DEFAULT false
 );
 CREATE INDEX idx_chat_messages_user_id ON chat_messages(user_id, created_at);
 
@@ -454,10 +491,66 @@ CREATE TABLE enquiries (
   status      TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'replied')),
   reply_body  TEXT,
   replied_at  TIMESTAMPTZ,
-  replied_by  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  replied_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
   is_unread   BOOLEAN NOT NULL DEFAULT true,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_enquiries_created_at ON enquiries(created_at DESC);
+
+CREATE TABLE return_requests (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id     UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  reason       TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  admin_note   TEXT, -- rejection reason, or an optional note on approval
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at  TIMESTAMPTZ,
+  is_unread    BOOLEAN NOT NULL DEFAULT true, -- admin notification state
+  customer_unread BOOLEAN NOT NULL DEFAULT false -- set once resolved, so the customer sees it flagged on their order
+);
+CREATE INDEX idx_return_requests_order_id ON return_requests(order_id);
+-- One live request per order at a time - a rejected request can be re-submitted (e.g. with more
+-- detail), but a pending or already-approved one blocks a duplicate.
+CREATE UNIQUE INDEX idx_return_requests_active ON return_requests(order_id) WHERE status IN ('pending', 'approved');
+
+CREATE TABLE back_in_stock_requests (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id  UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  color       TEXT NOT NULL DEFAULT '',
+  size        TEXT NOT NULL DEFAULT '',
+  email       TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  notified_at TIMESTAMPTZ
+);
+CREATE INDEX idx_back_in_stock_product ON back_in_stock_requests(product_id, color, size) WHERE notified_at IS NULL;
+CREATE UNIQUE INDEX idx_back_in_stock_unique_pending ON back_in_stock_requests(product_id, color, size, lower(email)) WHERE notified_at IS NULL;
+
+-- Email-based verification required before a customer can complete a WhatsApp checkout - see
+-- migrations/041_checkout_verification_codes.sql.
+CREATE TABLE checkout_verification_codes (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email       TEXT NOT NULL,
+  code_hash   TEXT NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used_at     TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_checkout_verification_codes_email ON checkout_verification_codes(lower(email));
+
+-- "Guriza hamwe" (buy together) group orders - see migrations/042_group_buying.sql.
+CREATE TABLE group_orders (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code             TEXT NOT NULL UNIQUE,
+  product_id       UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  max_participants INT NOT NULL,
+  tiers            JSONB NOT NULL,
+  status           TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'full', 'expired')),
+  expires_at       TIMESTAMPTZ NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_group_orders_code ON group_orders(code);
+
+ALTER TABLE orders ADD CONSTRAINT orders_group_order_id_fkey FOREIGN KEY (group_order_id) REFERENCES group_orders(id) ON DELETE SET NULL;
+CREATE INDEX idx_orders_group_order_id ON orders(group_order_id);
 
 COMMIT;

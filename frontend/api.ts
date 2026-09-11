@@ -1,9 +1,9 @@
 // In production this must point at the deployed backend (set VITE_API_BASE_URL at build time) -
 // the localhost fallback only works for local dev, where the backend runs on :4000.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public data?: unknown) {
     super(message);
   }
 }
@@ -22,7 +22,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, token
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    throw new ApiError(response.status, data?.error ?? 'Something went wrong.');
+    throw new ApiError(response.status, data?.error ?? 'Something went wrong.', data);
   }
   return data as T;
 }
