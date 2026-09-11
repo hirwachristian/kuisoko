@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
+import { couponValidateLimiter } from '../middleware/rateLimit.js';
 import { validateCoupon } from '../lib/coupons.js';
 import { HttpError } from '../lib/httpError.js';
 
@@ -119,7 +120,7 @@ const validateSchema = z.object({
 
 // POST /api/coupons/validate - public: preview a coupon's discount for the checkout page.
 // Does not consume a usage slot - that only happens when the order is actually placed.
-router.post('/validate', async (req, res, next) => {
+router.post('/validate', couponValidateLimiter, async (req, res, next) => {
   const parsed = validateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });

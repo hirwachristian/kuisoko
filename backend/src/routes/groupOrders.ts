@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { PoolClient } from 'pg';
 import { pool, withTransaction } from '../db.js';
 import { optionalAuthenticate } from '../middleware/auth.js';
+import { groupOrderLimiter } from '../middleware/rateLimit.js';
 import { HttpError } from '../lib/httpError.js';
 import { deliveryAddressSchema, insertOrder, fetchOrderById } from './orders.js';
 
@@ -68,7 +69,7 @@ const groupOrderCreateSchema = z.object({
 
 // POST /api/group-orders - starts a new group for a product and immediately places the starter's
 // own order as its first participant (at whatever tier 1 participant unlocks - none, by default).
-router.post('/', optionalAuthenticate, async (req, res, next) => {
+router.post('/', groupOrderLimiter, optionalAuthenticate, async (req, res, next) => {
   const parsed = groupOrderCreateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
@@ -177,7 +178,7 @@ const groupOrderJoinSchema = z.object({
 });
 
 // POST /api/group-orders/:code/join - adds a new participant's own order to an open group.
-router.post('/:code/join', optionalAuthenticate, async (req, res, next) => {
+router.post('/:code/join', groupOrderLimiter, optionalAuthenticate, async (req, res, next) => {
   const parsed = groupOrderJoinSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });

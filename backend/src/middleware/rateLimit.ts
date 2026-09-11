@@ -151,3 +151,58 @@ export const riderLocationLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many location updates. Please slow down.' },
 });
+
+/** MTN MoMo payment requests: public and unauthenticated (guest checkout) - each call triggers a
+ * real approval prompt on whatever phone number is given, and nothing ties that number to the
+ * caller. Without this, the endpoint could be used to repeatedly push payment prompts to a phone
+ * number that was never asked for them. */
+export const momoRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many payment requests. Please try again in a few minutes.' },
+});
+
+/** Coupon validation: public and unauthenticated - the only thing standing between this and
+ * brute-forcing short/guessable discount codes. */
+export const couponValidateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again in a few minutes.' },
+});
+
+/** Back-in-stock signups: public and unauthenticated - caps how many arbitrary email addresses
+ * one IP can queue up for a future restock notification (those do eventually get a real email,
+ * once the item restocks, so this is a delayed spam vector otherwise). */
+export const restockNotifyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
+
+/** Group order creation/joining: guest checkout allowed, same reasoning as orderCreateLimiter -
+ * bounds how fast one IP can spin up or join group-buy codes. */
+export const groupOrderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again in a few minutes.' },
+});
+
+/** Placing an order: guest checkout allowed, and already gated behind email verification, but
+ * that verification isn't single-use - this is the backstop against a script placing orders in a
+ * tight loop once it has a verified token. Generous enough that a real customer placing a few
+ * separate orders never notices it. */
+export const orderCreateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many orders placed. Please try again in a few minutes.' },
+});

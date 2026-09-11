@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { PoolClient } from 'pg';
 import { pool, withTransaction } from '../db.js';
 import { authenticate, optionalAuthenticate, requireAdmin } from '../middleware/auth.js';
-import { checkoutVerificationCodeLimiter, checkoutVerificationVerifyLimiter } from '../middleware/rateLimit.js';
+import { checkoutVerificationCodeLimiter, checkoutVerificationVerifyLimiter, orderCreateLimiter } from '../middleware/rateLimit.js';
 import { HttpError } from '../lib/httpError.js';
 import { calculateShippingFee } from '../lib/shipping.js';
 import { validateCoupon } from '../lib/coupons.js';
@@ -447,7 +447,7 @@ export async function insertOrder(
 // straight from the database (locked, so a concurrent price change can't race it either);
 // otherwise a tampered request body could buy a real, stocked product for whatever price it liked
 // and have that price honored all the way through to the MTN MoMo charge.
-router.post('/', optionalAuthenticate, async (req, res, next) => {
+router.post('/', orderCreateLimiter, optionalAuthenticate, async (req, res, next) => {
   const parsed = createOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message });

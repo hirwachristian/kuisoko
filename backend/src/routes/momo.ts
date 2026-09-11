@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool, withTransaction } from '../db.js';
 import { optionalAuthenticate } from '../middleware/auth.js';
+import { momoRequestLimiter } from '../middleware/rateLimit.js';
 import { requestToPay, getTransactionStatus, normalizeRwandaMsisdn, isMomoConfigured } from '../lib/momo.js';
 
 const router = Router();
@@ -13,7 +14,7 @@ const requestSchema = z.object({
 
 // POST /api/momo/request-to-pay - guest checkout allowed, mirroring guest order creation.
 // Triggers the MTN MoMo approval prompt on the customer's phone for the order's total.
-router.post('/request-to-pay', optionalAuthenticate, async (req, res, next) => {
+router.post('/request-to-pay', momoRequestLimiter, optionalAuthenticate, async (req, res, next) => {
   if (!isMomoConfigured()) {
     return res.status(503).json({ error: 'Mobile money payment is not configured on this server yet.' });
   }

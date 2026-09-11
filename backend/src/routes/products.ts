@@ -10,7 +10,7 @@ import { authenticate, optionalAuthenticate, requireAdmin } from '../middleware/
 import { HttpError } from '../lib/httpError.js';
 import { getAppUrl } from '../lib/appUrl.js';
 import { computeImageHash, hammingDistance, fetchImageBuffer } from '../lib/imageHash.js';
-import { imageSearchLimiter } from '../middleware/rateLimit.js';
+import { imageSearchLimiter, restockNotifyLimiter } from '../middleware/rateLimit.js';
 import { sendBackInStockEmail } from '../lib/brevo.js';
 
 const router = Router();
@@ -172,7 +172,7 @@ const notifyRestockSchema = z.object({
 // POST /api/products/:id/notify-restock - public: sign up to be emailed once this product (or, if
 // it has variants, this specific color/size) is back in stock. Rejected while it's already in
 // stock, since there's nothing to wait for - the customer should just buy it.
-router.post('/:id/notify-restock', async (req, res, next) => {
+router.post('/:id/notify-restock', restockNotifyLimiter, async (req, res, next) => {
   const parsed = notifyRestockSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
   const color = parsed.data.color ?? '';
