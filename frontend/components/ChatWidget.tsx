@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { MessageCircle, X, Send, Paperclip, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch, ApiError } from '../api';
 import { ChatMessage } from '../types';
+import ChatAttachment from '../components/ChatAttachment';
 
 const CLOSED_POLL_MS = 20000;
 const OPEN_POLL_MS = 4000;
+const STATUS_POLL_MS = 30000;
 
 const formatTime = (dateString: string) => {
   const d = new Date(dateString);
@@ -20,10 +22,30 @@ const ChatWidget: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [adminOnline, setAdminOnline] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEligible = !!user && user.role === 'user';
+
+  // Poll whether an admin is currently active, so the header can show a live "online" indicator.
+  useEffect(() => {
+    if (!isEligible) return;
+    let cancelled = false;
+    const fetchStatus = async () => {
+      try {
+        const { online } = await apiFetch<{ online: boolean }>('/chat/admin-status', {}, token);
+        if (!cancelled) setAdminOnline(online);
+      } catch (e) {
+        console.error('Error fetching admin status:', e);
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, STATUS_POLL_MS);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isEligible, token]);
 
   // Poll the unread count while the widget is closed, so the badge stays current without opening it.
   useEffect(() => {
@@ -94,6 +116,32 @@ const ChatWidget: React.FC = () => {
     }
   };
 
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file || isUploading || isSending) return;
+
+    setIsUploading(true);
+    setLoadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await apiFetch<{ url: string; originalName: string }>('/uploads', {
+        method: 'POST',
+        body: formData,
+      }, token);
+      const { message } = await apiFetch<{ message: ChatMessage }>('/chat/messages', {
+        method: 'POST',
+        body: JSON.stringify({ attachmentUrl: url, attachmentType: file.type, attachmentName: file.name }),
+      }, token);
+      setMessages(prev => [...prev, message]);
+    } catch (e) {
+      setLoadError(e instanceof ApiError ? e.message : t('chat_error_send'));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   if (!isEligible) return null;
 
   return (
@@ -103,7 +151,17 @@ const ChatWidget: React.FC = () => {
           <div className="bg-emerald-800 dark:bg-emerald-900 px-5 py-4 flex items-center justify-between shrink-0">
             <div>
               <h3 className="text-white font-black text-sm">{t('chat_widget_title')}</h3>
-              <p className="text-emerald-200 text-xs">{t('chat_widget_subtitle')}</p>
+              {adminOnline ? (
+                <p className="text-emerald-200 text-xs flex items-center gap-1.5 mt-0.5">
+                  <span className="relative flex w-2 h-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full w-2 h-2 bg-green-400" />
+                  </span>
+                  {t('chat_admin_online')}
+                </p>
+              ) : (
+                <p className="text-emerald-200 text-xs">{t('chat_widget_subtitle')}</p>
+              )}
             </div>
             <button
               onClick={() => setIsOpen(false)}
@@ -128,7 +186,10 @@ const ChatWidget: React.FC = () => {
                     ? 'bg-emerald-700 text-white rounded-br-md'
                     : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-md'
                 }`}>
-                  <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                  {msg.attachmentUrl && (
+                    <ChatAttachment url={msg.attachmentUrl} type={msg.attachmentType} name={msg.attachmentName} />
+                  )}
+                  {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
                   <p className={`text-[10px] mt-1 ${msg.senderRole === 'user' ? 'text-emerald-200' : 'text-slate-400 dark:text-slate-500'}`}>
                     {formatTime(msg.createdAt)}
                   </p>
@@ -139,6 +200,20 @@ const ChatWidget: React.FC = () => {
           </div>
 
           <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || isSending}
+              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-500 transition-colors disabled:opacity-50"
+              aria-label={t('chat_attach_file')}
+            >
+              {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+            </button>
             <input
               type="text"
               value={input}
@@ -166,6 +241,9 @@ const ChatWidget: React.FC = () => {
         aria-label={isOpen ? t('chat_close') : t('chat_open')}
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
+        {!isOpen && adminOnline && (
+          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white dark:border-slate-950" />
+        )}
         {!isOpen && unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-slate-950">
             {unreadCount > 9 ? '9+' : unreadCount}

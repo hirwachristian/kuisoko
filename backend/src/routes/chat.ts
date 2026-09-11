@@ -9,11 +9,31 @@ router.use(authenticate);
 
 const MESSAGE_COLUMNS = `
   id, user_id AS "userId", sender_role AS "senderRole", sender_id AS "senderId",
-  body, created_at AS "createdAt", read_by_user AS "readByUser", read_by_admin AS "readByAdmin"
+  body, attachment_url AS "attachmentUrl", attachment_type AS "attachmentType", attachment_name AS "attachmentName",
+  created_at AS "createdAt", read_by_user AS "readByUser", read_by_admin AS "readByAdmin"
 `;
 
+// A message needs text, an attachment, or both - never neither.
 const sendSchema = z.object({
-  body: z.string().trim().min(1, 'Message cannot be empty').max(2000, 'Message is too long'),
+  body: z.string().trim().max(2000, 'Message is too long').optional(),
+  attachmentUrl: z.string().trim().min(1).optional(),
+  attachmentType: z.string().trim().min(1).optional(),
+  attachmentName: z.string().trim().min(1).optional(),
+}).refine((data) => (data.body && data.body.length > 0) || data.attachmentUrl, {
+  message: 'Message cannot be empty',
+});
+
+// GET /api/chat/admin-status - is any admin currently active? Backs the customer-facing
+// "admin is online" indicator. Any authenticated user (not just admins) can check this.
+router.get('/admin-status', async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT EXISTS (SELECT 1 FROM users WHERE role = 'admin' AND last_active_at > now() - interval '2 minutes') AS online`
+    );
+    return res.json({ online: result.rows[0].online });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // GET /api/chat/messages - the logged-in customer's own conversation with admin.
@@ -57,9 +77,9 @@ router.post('/messages', async (req, res, next) => {
   try {
     const userId = req.authUser!.id;
     const result = await pool.query(
-      `INSERT INTO chat_messages (user_id, sender_role, sender_id, body, read_by_user, read_by_admin)
-       VALUES ($1, 'user', $1, $2, true, false) RETURNING ${MESSAGE_COLUMNS}`,
-      [userId, parsed.data.body]
+      `INSERT INTO chat_messages (user_id, sender_role, sender_id, body, attachment_url, attachment_type, attachment_name, read_by_user, read_by_admin)
+       VALUES ($1, 'user', $1, $2, $3, $4, $5, true, false) RETURNING ${MESSAGE_COLUMNS}`,
+      [userId, parsed.data.body ?? null, parsed.data.attachmentUrl ?? null, parsed.data.attachmentType ?? null, parsed.data.attachmentName ?? null]
     );
     return res.status(201).json({ message: result.rows[0] });
   } catch (err) {
@@ -74,12 +94,14 @@ router.get('/conversations', requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT u.id AS "userId", u.name, u.email, u.profile_image AS "profileImage",
-             lm.body AS "lastMessageBody", lm.created_at AS "lastMessageAt", lm.sender_role AS "lastMessageSenderRole",
+             lm.body AS "lastMessageBody", lm.attachment_url AS "lastMessageAttachmentUrl",
+             lm.attachment_type AS "lastMessageAttachmentType",
+             lm.created_at AS "lastMessageAt", lm.sender_role AS "lastMessageSenderRole",
              COALESCE(uc.count, 0)::int AS "unreadCount"
       FROM (SELECT DISTINCT user_id FROM chat_messages) cu
       JOIN users u ON u.id = cu.user_id
       JOIN LATERAL (
-        SELECT body, created_at, sender_role FROM chat_messages
+        SELECT body, attachment_url, attachment_type, created_at, sender_role FROM chat_messages
         WHERE user_id = cu.user_id ORDER BY created_at DESC LIMIT 1
       ) lm ON true
       LEFT JOIN (
@@ -132,9 +154,9 @@ router.post('/messages/:userId', requireAdmin, async (req, res, next) => {
   }
   try {
     const result = await pool.query(
-      `INSERT INTO chat_messages (user_id, sender_role, sender_id, body, read_by_user, read_by_admin)
-       VALUES ($1, 'admin', $2, $3, false, true) RETURNING ${MESSAGE_COLUMNS}`,
-      [req.params.userId, req.authUser!.id, parsed.data.body]
+      `INSERT INTO chat_messages (user_id, sender_role, sender_id, body, attachment_url, attachment_type, attachment_name, read_by_user, read_by_admin)
+       VALUES ($1, 'admin', $2, $3, $4, $5, $6, false, true) RETURNING ${MESSAGE_COLUMNS}`,
+      [req.params.userId, req.authUser!.id, parsed.data.body ?? null, parsed.data.attachmentUrl ?? null, parsed.data.attachmentType ?? null, parsed.data.attachmentName ?? null]
     );
     return res.status(201).json({ message: result.rows[0] });
   } catch (err) {

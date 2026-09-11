@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Send, MessageCircle, ChevronLeft } from 'lucide-react';
+import { Send, MessageCircle, ChevronLeft, Paperclip, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch, ApiError } from '../api';
 import { ChatMessage, ChatConversation } from '../types';
+import ChatAttachment from '../components/ChatAttachment';
 
 const LIST_POLL_MS = 15000;
 const THREAD_POLL_MS = 5000;
@@ -24,7 +25,9 @@ const AdminMessages: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Conversation list, refreshed periodically so new customer threads show up without a reload.
   useEffect(() => {
@@ -95,6 +98,34 @@ const AdminMessages: React.FC = () => {
     }
   };
 
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !selectedUserId || isUploading || isSending) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await apiFetch<{ url: string; originalName: string }>('/uploads', {
+        method: 'POST',
+        body: formData,
+      }, token);
+      const { message } = await apiFetch<{ message: ChatMessage }>(`/chat/messages/${selectedUserId}`, {
+        method: 'POST',
+        body: JSON.stringify({ attachmentUrl: url, attachmentType: file.type, attachmentName: file.name }),
+      }, token);
+      setMessages(prev => [...prev, message]);
+      setConversations(prev => prev.map(c => c.userId === selectedUserId
+        ? { ...c, lastMessageBody: null, lastMessageAttachmentUrl: url, lastMessageAttachmentType: file.type, lastMessageAt: message.createdAt, lastMessageSenderRole: 'admin' }
+        : c));
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : 'Could not send the attachment.', 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const selectedConversation = conversations.find(c => c.userId === selectedUserId) || null;
 
   return (
@@ -132,7 +163,8 @@ const AdminMessages: React.FC = () => {
                 </div>
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{formatTime(c.lastMessageAt)}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
-                  {c.lastMessageSenderRole === 'admin' ? 'You: ' : ''}{c.lastMessageBody}
+                  {c.lastMessageSenderRole === 'admin' ? 'You: ' : ''}
+                  {c.lastMessageBody || (c.lastMessageAttachmentUrl ? (c.lastMessageAttachmentType?.startsWith('image/') ? '📷 Photo' : '📎 Attachment') : '')}
                 </p>
               </button>
             ))}
@@ -168,7 +200,10 @@ const AdminMessages: React.FC = () => {
                           ? 'bg-emerald-700 text-white rounded-br-md'
                           : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-md'
                       }`}>
-                        <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                        {msg.attachmentUrl && (
+                          <ChatAttachment url={msg.attachmentUrl} type={msg.attachmentType} name={msg.attachmentName} />
+                        )}
+                        {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
                         <p className={`text-[10px] mt-1 ${msg.senderRole === 'admin' ? 'text-emerald-200' : 'text-slate-400 dark:text-slate-500'}`}>
                           {formatTime(msg.createdAt)}
                         </p>
@@ -178,6 +213,20 @@ const AdminMessages: React.FC = () => {
                   <div ref={messagesEndRef} />
                 </div>
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 shrink-0">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileSelected}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || isSending}
+                    className="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-500 transition-colors disabled:opacity-50"
+                    aria-label="Attach a file"
+                  >
+                    {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+                  </button>
                   <input
                     type="text"
                     value={input}
