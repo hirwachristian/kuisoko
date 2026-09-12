@@ -339,6 +339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     quantity: number;
     selectedColor: string | null;
     selectedSize: string | null;
+    selectedImage: string | null;
     unitPrice: number | null;
   }
 
@@ -381,6 +382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 quantity: mergedQty,
                 selectedColor: guestItem.selectedColor ?? existing?.selectedColor ?? null,
                 selectedSize: guestItem.selectedSize ?? existing?.selectedSize ?? null,
+                selectedImage: guestItem.selectedImage ?? existing?.selectedImage ?? null,
                 unitPrice: guestItem.price ?? existing?.unitPrice ?? null,
               }),
             }, token);
@@ -398,6 +400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             quantity: line.quantity,
             selectedColor: line.selectedColor ?? undefined,
             selectedSize: line.selectedSize ?? undefined,
+            selectedImage: line.selectedImage ?? undefined,
             price: line.unitPrice ?? product.price,
           });
           return acc;
@@ -418,11 +421,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Fire-and-forget sync to the server cart for a signed-in user - the UI already updated
   // optimistically via setCart, this just persists it. Errors are logged, not surfaced, since the
   // add/remove/quantity toasts already gave the user their feedback for the action itself.
-  const syncCartLine = (productId: string, quantity: number, selectedColor?: string, selectedSize?: string, unitPrice?: number) => {
+  const syncCartLine = (productId: string, quantity: number, selectedColor?: string, selectedSize?: string, unitPrice?: number, selectedImage?: string) => {
     if (!token) return;
     apiFetch(`/cart/${productId}`, {
       method: 'PUT',
-      body: JSON.stringify({ quantity, selectedColor: selectedColor ?? null, selectedSize: selectedSize ?? null, unitPrice: unitPrice ?? null }),
+      body: JSON.stringify({ quantity, selectedColor: selectedColor ?? null, selectedSize: selectedSize ?? null, selectedImage: selectedImage ?? null, unitPrice: unitPrice ?? null }),
     }, token).catch((e) => console.error('Error syncing cart:', e));
   };
 
@@ -1078,7 +1081,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('You have been logged out.', 'info');
   };
 
-  const addToCart = (product: Product & { selectedColor?: string; selectedSize?: string }, quantity: number = 1) => {
+  const addToCart = (product: Product & { selectedColor?: string; selectedSize?: string; selectedImage?: string }, quantity: number = 1) => {
     if (product.stock <= 0) {
       showToast(`${product.name} is out of stock.`, 'error');
       return;
@@ -1098,10 +1101,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast(`${quantity} x ${product.name} added to cart.`, 'success');
       }
 
-      syncCartLine(product.id, newQty, product.selectedColor, product.selectedSize, product.price);
+      // Re-adding the same line just bumps its quantity and updates the remembered photo to
+      // whichever one was on screen this time, the same way its price can be refreshed by a
+      // later add - mirrors the mobile app's addToCart.
+      syncCartLine(product.id, newQty, product.selectedColor, product.selectedSize, product.price, product.selectedImage ?? existing?.selectedImage);
 
       if (existing) {
-        return prev.map(item => (item.id === product.id ? { ...item, quantity: newQty } : item));
+        return prev.map(item => (item.id === product.id ? { ...item, quantity: newQty, selectedImage: product.selectedImage ?? item.selectedImage } : item));
       }
       return [...prev, { ...product, quantity: newQty }];
     });
@@ -1124,7 +1130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newQty = Math.max(1, Math.min(item.quantity + delta, item.stock));
         if (newQty !== item.quantity) {
           showToast(`${item.name} quantity updated to ${newQty}.`, 'info');
-          syncCartLine(productId, newQty, item.selectedColor, item.selectedSize, item.price);
+          syncCartLine(productId, newQty, item.selectedColor, item.selectedSize, item.price, item.selectedImage);
         } else if (delta > 0) {
           showToast(`Only ${item.stock} of ${item.name} in stock.`, 'error');
         }
@@ -1333,7 +1339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           items: orderInput.items.map((item) => ({
             productId: item.id,
             name: item.name,
-            image: item.images?.[0],
+            image: item.selectedImage || item.images?.[0],
             price: item.price * (1 - (item.discount || 0) / 100), // effective per-unit price paid
             quantity: item.quantity,
             selectedColor: (item as any).selectedColor,

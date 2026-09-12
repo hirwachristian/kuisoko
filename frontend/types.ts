@@ -64,6 +64,10 @@ export interface CartItem extends Product {
   quantity: number;
   selectedColor?: string;
   selectedSize?: string;
+  // The exact photo shown when this was added - lets a product with no color variants (e.g.
+  // several plain photos of different styles) still carry the specific photo the customer was
+  // looking at, instead of always falling back to images[0].
+  selectedImage?: string;
   // Only present on an order's line items (not a live cart item) - there, `id` is the order line
   // row's own id, and `productId` is the actual product it refers to (which may since have been
   // deleted, unlike `id` which always exists).

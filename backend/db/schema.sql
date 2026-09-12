@@ -201,6 +201,7 @@ CREATE TABLE cart_items (
   quantity       INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
   selected_color TEXT,
   selected_size  TEXT,
+  selected_image TEXT,                                              -- the exact product photo shown when this was added, for products without color variants to hang the choice on
   unit_price     NUMERIC(12,2),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),

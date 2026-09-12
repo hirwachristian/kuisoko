@@ -498,7 +498,7 @@ const CartCheckout: React.FC = () => {
                     {checkoutItems.map(item => {
                       return (
                       <div key={item.id} className="flex items-start gap-3 sm:gap-4 mb-5 sm:mb-6">
-                        <img src={item.images[0]} alt={item.name} className="w-14 h-14 sm:w-20 sm:h-20 shrink-0 rounded-xl object-contain p-1 sm:p-1.5 bg-white border border-slate-100 dark:border-slate-800" />
+                        <img src={item.selectedImage || item.images[0]} alt={item.name} className="w-14 h-14 sm:w-20 sm:h-20 shrink-0 rounded-xl object-contain p-1 sm:p-1.5 bg-white border border-slate-100 dark:border-slate-800" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div className="font-bold text-sm sm:text-lg text-emerald-900 dark:text-emerald-100 truncate">{item.name.split(' - ')[0]}</div>

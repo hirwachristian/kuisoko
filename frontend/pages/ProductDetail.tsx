@@ -166,6 +166,12 @@ const ProductDetail: React.FC = () => {
     setActiveVideoIndex(null);
   };
 
+  // Whichever photo is on screen right now - reflects a color-variant jump (handleColorChange
+  // moves activeImgIndex to match) AND a product with no variants at all where the shopper just
+  // clicked a different thumbnail (e.g. picking "the second cap" among several plain photos with
+  // nothing else to hang that choice on), so it covers both cases with one read.
+  const currentImage = product.images[activeImgIndex] ?? product.images[0];
+
   const handleBuyNow = () => {
     // If variants exist, require selection
     if (product.variants && product.variants.length > 0 && !selectedVariant) {
@@ -177,8 +183,9 @@ const ProductDetail: React.FC = () => {
       images: imagesForColor(selectedVariant.color),
       price: selectedVariant.price || product.price,
       selectedColor: selectedVariant.color,
-      selectedSize: selectedVariant.size
-    } : product;
+      selectedSize: selectedVariant.size,
+      selectedImage: currentImage,
+    } : { ...product, selectedImage: currentImage };
     navigate('/cart?step=2', { state: { directBuyProduct: itemToBuy, quantity: qty } });
   };
 
@@ -213,8 +220,9 @@ const ProductDetail: React.FC = () => {
       images: imagesForColor(selectedVariant.color),
       price: selectedVariant.price || product.price,
       selectedColor: selectedVariant.color,
-      selectedSize: selectedVariant.size
-    } : product;
+      selectedSize: selectedVariant.size,
+      selectedImage: currentImage,
+    } : { ...product, selectedImage: currentImage };
     flyToCart(itemToAdd.images[0], e.currentTarget);
     addToCart(itemToAdd, qty);
   };
