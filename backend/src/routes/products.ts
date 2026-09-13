@@ -556,15 +556,19 @@ router.post('/import/csv', authenticate, requireAdmin, csvImportUpload.single('f
 });
 
 // pgvector's `<=>` operator returns cosine DISTANCE (1 - cosine similarity), so lower = more
-// visually/semantically similar. Thresholds picked from empirically comparing real catalog photos:
-// two different real photos of similar products (e.g. two different sneakers) land around
-// 0.30-0.35 distance, while clearly unrelated products land above 0.45. A real phone photo of a
-// physical product (its own lighting/background/angle) can land further from the clean catalog
-// shot than a confident match while still clearly being the same item, so when nothing clears the
-// confident bar we fall back to this looser cutoff rather than dead-ending on "no matches" - real
-// reverse-image search surfaces its best guesses instead of going blank.
+// visually/semantically similar. Threshold picked from empirically comparing real catalog photos:
+// a genuinely different photo of the same/similar product (e.g. a customer's own phone photo of a
+// sneaker vs. the catalog's two different sneaker listings) lands around 0.25-0.33 distance, with
+// a wide, clean gap before the next real-but-different product (~0.45) and unrelated ones (~0.55+).
+//
+// There is deliberately NO looser fallback tier anymore: an earlier version re-ran the query with
+// a much wider cutoff whenever nothing confident matched, so a photo with no real match in the
+// catalog (e.g. a picture of a dog, with no pet food/toy that actually resembles it) still
+// returned a page of tenuous "closest of what's here" guesses. That's not what "search by this
+// photo" should do - a shopper scanning a physical item wants either a real match or a clear "no
+// matching product," not a guess dressed up as a result. Returning zero rows here is a normal,
+// expected outcome the client is expected to handle with its own "no match" messaging.
 const MAX_COSINE_DISTANCE = 0.35;
-const FALLBACK_MAX_COSINE_DISTANCE = 0.55;
 
 // POST /api/products/search-by-image - public: find catalog products visually similar to an
 // uploaded photo (e.g. taken with a phone camera). Embeds the photo with CLIP's image encoder
@@ -579,19 +583,14 @@ router.post('/search-by-image', imageSearchLimiter, imageSearchUpload.single('im
     const embedding = await computeImageEmbedding(req.file.buffer);
     const vectorLiteral = toVectorLiteral(embedding);
 
-    const runQuery = (maxDistance: number) => pool.query(
+    const result = await pool.query(
       `SELECT ${PRODUCT_COLUMNS}
        FROM products p JOIN categories c ON c.id = p.category_id
        WHERE p.image_embedding IS NOT NULL AND (p.image_embedding <=> $1::vector) <= $2
        ORDER BY p.image_embedding <=> $1::vector
        LIMIT 12`,
-      [vectorLiteral, maxDistance]
+      [vectorLiteral, MAX_COSINE_DISTANCE]
     );
-
-    let result = await runQuery(MAX_COSINE_DISTANCE);
-    if (result.rowCount === 0) {
-      result = await runQuery(FALLBACK_MAX_COSINE_DISTANCE);
-    }
 
     const withVariants = await attachVariants(result.rows);
     return res.json({ products: await attachRatingBreakdown(withVariants) });
