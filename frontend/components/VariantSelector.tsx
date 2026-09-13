@@ -53,7 +53,10 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ variants, onVariantSe
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Colors */}
+      {/* Colors - shown as named text chips (matching the Size chips below, and the mobile app's
+          own variant chips) rather than color swatches, since a swatch can't represent a color
+          name accurately (e.g. "Navy" vs "Midnight Blue" render identically) and doesn't work at
+          all for multi-word/non-CSS color names from admin-entered variant data. */}
       <div>
         <h3 className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-2 sm:mb-3">Color</h3>
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -66,14 +69,18 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ variants, onVariantSe
                 disabled={outOfStock}
                 onClick={() => setSelectedColor(prev => (prev === color ? null : color))}
                 title={outOfStock ? `${color} - out of stock` : color}
-                className={`relative w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 overflow-hidden ${
-                  selectedColor === color ? 'border-indigo-600' : 'border-transparent'
-                } ${outOfStock ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
-                style={{ backgroundColor: color.toLowerCase() }}
+                className={`relative px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border ${
+                  selectedColor === color
+                    ? 'border-orange-500 bg-orange-100 text-orange-800'
+                    : outOfStock
+                    ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'border-slate-300 text-slate-900 hover:border-slate-400'
+                }`}
               >
+                {color}
                 {outOfStock && (
-                  <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-                    <span className="w-full h-[2px] bg-slate-900/70 dark:bg-white/70 rotate-45" />
+                  <span className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <span className="w-full h-[1.5px] bg-slate-300" />
                   </span>
                 )}
               </button>
