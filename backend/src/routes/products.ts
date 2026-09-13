@@ -9,7 +9,7 @@ import { pool, withTransaction } from '../db.js';
 import { authenticate, optionalAuthenticate, requireAdmin } from '../middleware/auth.js';
 import { HttpError } from '../lib/httpError.js';
 import { getAppUrl } from '../lib/appUrl.js';
-import { computeImageHash, hammingDistance, fetchImageBuffer } from '../lib/imageHash.js';
+import { computeImageEmbedding, toVectorLiteral, fetchImageBuffer } from '../lib/imageEmbedding.js';
 import { imageSearchLimiter, restockNotifyLimiter } from '../middleware/rateLimit.js';
 import { sendBackInStockEmail } from '../lib/brevo.js';
 
@@ -27,18 +27,19 @@ const imageSearchUpload = multer({
   },
 });
 
-/** Recomputes and stores a product's image_hash from its primary image, best-effort - a failed
- * fetch/hash (unreachable URL, corrupt file) should never fail the product create/update itself,
- * it just means that product won't surface in "search by photo" results. */
-function updateProductImageHash(productId: string, imageUrl: string | undefined) {
+/** Recomputes and stores a product's image_embedding from its primary image, best-effort - a
+ * failed fetch/embed (unreachable URL, corrupt file, model not ready yet) should never fail the
+ * product create/update itself, it just means that product won't surface in "search by photo"
+ * results until the next successful recompute. */
+function updateProductImageEmbedding(productId: string, imageUrl: string | undefined) {
   if (!imageUrl) return;
   (async () => {
     try {
       const buffer = await fetchImageBuffer(imageUrl);
-      const hash = await computeImageHash(buffer);
-      await pool.query(`UPDATE products SET image_hash = $1 WHERE id = $2`, [hash, productId]);
+      const embedding = await computeImageEmbedding(buffer);
+      await pool.query(`UPDATE products SET image_embedding = $1::vector WHERE id = $2`, [toVectorLiteral(embedding), productId]);
     } catch (err) {
-      console.error(`Could not compute image hash for product ${productId}:`, err);
+      console.error(`Could not compute image embedding for product ${productId}:`, err);
     }
   })();
 }
@@ -313,7 +314,7 @@ async function createProduct(data: z.infer<typeof productSchema>) {
     return id;
   });
 
-  updateProductImageHash(productId, data.images[0]);
+  updateProductImageEmbedding(productId, data.images[0]);
   return productId;
 }
 
@@ -400,7 +401,7 @@ async function updateProduct(id: string, data: z.infer<typeof productUpdateSchem
   });
 
   if (data.images && data.images.length > 0) {
-    updateProductImageHash(id, data.images[0]);
+    updateProductImageEmbedding(id, data.images[0]);
   }
 
   if (data.stock !== undefined || data.variants !== undefined) {
@@ -554,37 +555,45 @@ router.post('/import/csv', authenticate, requireAdmin, csvImportUpload.single('f
   return res.json({ created, updated, errors });
 });
 
-const MAX_HAMMING_DISTANCE = 20; // out of 64 bits (~31%) - a confident, near-duplicate match
-// A real phone photo of a physical product (its own lighting/background/angle) can land further
-// from the clean catalog shot than a confident match while still clearly being the same item, so
-// when nothing clears the confident bar we fall back to this looser cutoff rather than dead-ending
-// on "no matches" - real reverse-image search surfaces its best guesses instead of going blank.
-const FALLBACK_MAX_HAMMING_DISTANCE = 34; // out of 64 bits (~53%)
+// pgvector's `<=>` operator returns cosine DISTANCE (1 - cosine similarity), so lower = more
+// visually/semantically similar. Thresholds picked from empirically comparing real catalog photos:
+// two different real photos of similar products (e.g. two different sneakers) land around
+// 0.30-0.35 distance, while clearly unrelated products land above 0.45. A real phone photo of a
+// physical product (its own lighting/background/angle) can land further from the clean catalog
+// shot than a confident match while still clearly being the same item, so when nothing clears the
+// confident bar we fall back to this looser cutoff rather than dead-ending on "no matches" - real
+// reverse-image search surfaces its best guesses instead of going blank.
+const MAX_COSINE_DISTANCE = 0.35;
+const FALLBACK_MAX_COSINE_DISTANCE = 0.55;
 
 // POST /api/products/search-by-image - public: find catalog products visually similar to an
-// uploaded photo (e.g. taken with a phone camera), using a perceptual hash compared via Hamming
-// distance - a lightweight, self-hosted approximation of visual search rather than a full ML
-// vision model, sized for this catalog rather than needing a paid external API.
+// uploaded photo (e.g. taken with a phone camera). Embeds the photo with CLIP's image encoder
+// (backend/src/lib/imageEmbedding.ts - a real vision model run locally via Transformers.js, no
+// external API) and ranks the catalog by cosine distance in pgvector, so it recognizes the same
+// product across genuinely different photos rather than only matching near-identical image files.
 router.post('/search-by-image', imageSearchLimiter, imageSearchUpload.single('image'), async (req, res, next) => {
   if (!req.file) {
     return res.status(400).json({ error: 'An image file is required.' });
   }
   try {
-    const queryHash = await computeImageHash(req.file.buffer);
-    const result = await pool.query(
-      `SELECT ${PRODUCT_COLUMNS}, p.image_hash AS "imageHash"
-       FROM products p JOIN categories c ON c.id = p.category_id
-       WHERE p.image_hash IS NOT NULL`
-    );
-    const allRanked = result.rows
-      .map((row) => ({ ...row, distance: hammingDistance(queryHash, row.imageHash) }))
-      .sort((a, b) => a.distance - b.distance);
-    const confident = allRanked.filter((row) => row.distance <= MAX_HAMMING_DISTANCE);
-    const ranked = (confident.length > 0 ? confident : allRanked.filter((row) => row.distance <= FALLBACK_MAX_HAMMING_DISTANCE))
-      .slice(0, 12)
-      .map(({ imageHash, distance, ...product }) => product);
+    const embedding = await computeImageEmbedding(req.file.buffer);
+    const vectorLiteral = toVectorLiteral(embedding);
 
-    const withVariants = await attachVariants(ranked);
+    const runQuery = (maxDistance: number) => pool.query(
+      `SELECT ${PRODUCT_COLUMNS}
+       FROM products p JOIN categories c ON c.id = p.category_id
+       WHERE p.image_embedding IS NOT NULL AND (p.image_embedding <=> $1::vector) <= $2
+       ORDER BY p.image_embedding <=> $1::vector
+       LIMIT 12`,
+      [vectorLiteral, maxDistance]
+    );
+
+    let result = await runQuery(MAX_COSINE_DISTANCE);
+    if (result.rowCount === 0) {
+      result = await runQuery(FALLBACK_MAX_COSINE_DISTANCE);
+    }
+
+    const withVariants = await attachVariants(result.rows);
     return res.json({ products: await attachRatingBreakdown(withVariants) });
   } catch (err) {
     return next(err);

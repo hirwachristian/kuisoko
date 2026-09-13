@@ -5,6 +5,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto; -- gives us gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS vector; -- pgvector, for "search by photo" (products.image_embedding)
 
 CREATE TYPE user_role AS ENUM ('user', 'admin', 'rider');
 CREATE TYPE order_status AS ENUM ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned');
@@ -124,7 +125,7 @@ CREATE TABLE products (
   reviews_count  INT NOT NULL DEFAULT 0,                          -- denormalized, kept in sync by trigger below
   stock          INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
   featured       BOOLEAN NOT NULL DEFAULT false,
-  image_hash     TEXT,                                             -- perceptual hash (dHash) of images[0], for "search by photo"
+  image_embedding vector(512),                                     -- CLIP embedding of images[0], for "search by photo" (cosine distance via pgvector)
   color_images   JSONB NOT NULL DEFAULT '{}'::jsonb,                -- maps a variant color to one of `images`, so picking that color can jump the gallery to its photo
   group_buy_enabled BOOLEAN NOT NULL DEFAULT false,                 -- admin opt-in for "buy together" group orders on this product
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
