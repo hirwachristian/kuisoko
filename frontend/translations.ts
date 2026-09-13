@@ -145,6 +145,8 @@ export const translations: Record<Language, Record<string, string>> = {
     detail_review_deleted: 'Review deleted.',
     detail_view_image: 'View image {n}',
     detail_view_video: 'Play product video {n}',
+    detail_previous_image: 'Previous image',
+    detail_next_image: 'Next image',
 
     // Cart / Checkout
     cart_your_cart: 'Your Cart',
@@ -689,6 +691,8 @@ export const translations: Record<Language, Record<string, string>> = {
     detail_review_deleted: 'Igitekerezo cyasibwe.',
     detail_view_image: 'Reba ifoto {n}',
     detail_view_video: 'Reba video y\'igicuruzwa {n}',
+    detail_previous_image: 'Ifoto ibanziriza',
+    detail_next_image: 'Ifoto ikurikira',
 
     // Cart / Checkout
     cart_your_cart: 'Igikapu cyawe',

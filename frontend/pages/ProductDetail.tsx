@@ -343,6 +343,24 @@ const ProductDetail: React.FC = () => {
                 className="w-full h-full object-contain p-4 sm:p-8 animate-fade-in"
               />
             )}
+            {mediaCount > 1 && (
+              <>
+                <button
+                  onClick={() => goToMediaIndex(activeMediaIndex - 1)}
+                  aria-label={t('detail_previous_image')}
+                  className="absolute top-1/2 -translate-y-1/2 left-2 sm:left-4 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/90 shadow-lg border border-slate-100 text-slate-700 hover:text-emerald-700 hover:scale-105 transition-all z-10"
+                >
+                  <ChevronLeft size={18} className="sm:w-5 sm:h-5" />
+                </button>
+                <button
+                  onClick={() => goToMediaIndex(activeMediaIndex + 1)}
+                  aria-label={t('detail_next_image')}
+                  className="absolute top-1/2 -translate-y-1/2 right-2 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-white/90 shadow-lg border border-slate-100 text-slate-700 hover:text-emerald-700 hover:scale-105 transition-all z-10"
+                >
+                  <ChevronRight size={18} className="sm:w-5 sm:h-5" />
+                </button>
+              </>
+            )}
           </div>
           <div className="flex gap-2 sm:gap-4 flex-wrap">
             {displayImages.map((img, i) => (
