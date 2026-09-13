@@ -123,6 +123,46 @@ const UserDashboard: React.FC = () => {
     }
   };
 
+  // --- Change Password (PATCH /users/me only checks currentPassword against the stored hash
+  // when a new `password` is present in the body, so this reuses that same endpoint rather than
+  // needing a dedicated route) ---
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    if (!currentPassword || !newPassword) {
+      setPasswordError(t('dashboard_password_missing_fields'));
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError(t('auth_password_min_length'));
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError(t('dashboard_password_mismatch'));
+      return;
+    }
+    setIsSavingPassword(true);
+    try {
+      await apiFetch('/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ currentPassword, password: newPassword }),
+      }, token);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      showToast(t('dashboard_password_changed'), 'success');
+    } catch (err) {
+      setPasswordError(err instanceof ApiError ? err.message : t('dashboard_change_password_error'));
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   // --- Address Book ---
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressDraft, setAddressDraft] = useState(user?.address || '');
@@ -648,6 +688,63 @@ const UserDashboard: React.FC = () => {
                     className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
                   >
                     {isSavingProfile ? t('dashboard_saving') : t('dashboard_update_profile')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-8 max-w-lg space-y-5 mt-6">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-emerald-50 flex items-center gap-2">
+                  <KeyRound size={18} className="text-emerald-600 dark:text-emerald-400" /> {t('dashboard_change_password')}
+                </h2>
+                <div>
+                  <label htmlFor="currentPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    {t('dashboard_current_password')}
+                  </label>
+                  <input
+                    id="currentPassword"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="newPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    {t('dashboard_new_password')}
+                  </label>
+                  <input
+                    id="newPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="confirmNewPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    {t('dashboard_confirm_new_password')}
+                  </label>
+                  <input
+                    id="confirmNewPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
+                  />
+                </div>
+                {passwordError && (
+                  <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">{passwordError}</p>
+                )}
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={isSavingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+                    className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
+                  >
+                    {isSavingPassword ? t('dashboard_saving') : t('dashboard_change_password')}
                   </button>
                 </div>
               </div>
