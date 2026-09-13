@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
@@ -84,17 +84,55 @@ const UserDashboard: React.FC = () => {
 
   // --- Profile Settings ---
   const [fullName, setFullName] = useState(user?.name || '');
+  const [username, setUsername] = useState(user?.username || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   useEffect(() => {
     setFullName(user?.name || '');
+    setUsername(user?.username || '');
     setPhoneNumber(user?.phoneNumber || '');
-  }, [user?.name, user?.phoneNumber]);
+  }, [user?.name, user?.username, user?.phoneNumber]);
+
+  // Ports SignUp.tsx's live debounced availability check, with one addition: re-submitting the
+  // account's own current username unchanged must never be flagged "taken" - GET
+  // /auth/check-username is public/context-free (it has no idea who's asking or what their
+  // current username already is), so that guard has to live here on the client.
+  type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    const trimmed = username.trim().toLowerCase();
+    if (trimmed.length < 3 || trimmed === (user?.username || '').toLowerCase()) {
+      setUsernameStatus('idle');
+      setUsernameSuggestions([]);
+      return;
+    }
+    if (!/^[a-z0-9_]+$/.test(trimmed)) {
+      setUsernameStatus('invalid');
+      setUsernameSuggestions([]);
+      return;
+    }
+    setUsernameStatus('checking');
+    const handle = window.setTimeout(async () => {
+      try {
+        const result = await apiFetch<{ available: boolean; suggestions?: string[] }>(
+          `/auth/check-username?username=${encodeURIComponent(trimmed)}`
+        );
+        setUsernameStatus(result.available ? 'available' : 'taken');
+        setUsernameSuggestions(result.suggestions ?? []);
+      } catch {
+        setUsernameStatus('idle');
+      }
+    }, 500);
+    return () => window.clearTimeout(handle);
+  }, [username, user?.username]);
 
   const handleUpdateProfile = async () => {
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking') return;
     setIsSavingProfile(true);
-    await updateCurrentUser({ name: fullName.trim(), phoneNumber: phoneNumber.trim() });
+    await updateCurrentUser({ name: fullName.trim(), username: username.trim() || undefined, phoneNumber: phoneNumber.trim() });
     setIsSavingProfile(false);
   };
 
@@ -610,6 +648,59 @@ const UserDashboard: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label htmlFor="username" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    {t('auth_username')}
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="username"
+                      type="text"
+                      autoComplete="username"
+                      minLength={3}
+                      maxLength={20}
+                      pattern="[a-zA-Z0-9_]+"
+                      title={t('auth_username_hint')}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className={`w-full px-5 py-3 pr-10 rounded-xl bg-slate-50 dark:bg-slate-800 border outline-none focus:ring-2 focus:border-transparent text-slate-900 dark:text-emerald-100 ${
+                        usernameStatus === 'taken' || usernameStatus === 'invalid'
+                          ? 'border-rose-300 focus:ring-rose-600'
+                          : usernameStatus === 'available'
+                          ? 'border-emerald-300 focus:ring-emerald-500'
+                          : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
+                      }`}
+                    />
+                    <span className="absolute inset-y-0 right-3 flex items-center">
+                      {usernameStatus === 'checking' && <Loader2 size={16} className="animate-spin text-slate-400" />}
+                      {usernameStatus === 'available' && <Check size={16} className="text-emerald-600" />}
+                      {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X size={16} className="text-rose-500" />}
+                    </span>
+                  </div>
+                  {usernameStatus === 'taken' ? (
+                    <div className="mt-1.5">
+                      <p className="text-xs font-semibold text-rose-600">{t('auth_username_taken')}</p>
+                      {usernameSuggestions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {usernameSuggestions.map((suggestion) => (
+                            <button
+                              type="button"
+                              key={suggestion}
+                              onClick={() => setUsername(suggestion)}
+                              className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 font-semibold transition-colors"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : usernameStatus === 'invalid' ? (
+                    <p className="mt-1.5 text-xs font-semibold text-rose-600">{t('auth_username_hint')}</p>
+                  ) : usernameStatus === 'available' ? (
+                    <p className="mt-1.5 text-xs font-semibold text-emerald-600">{t('auth_username_available')}</p>
+                  ) : null}
+                </div>
+                <div>
                   <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     {t('auth_phone_number')}
                   </label>
@@ -684,7 +775,7 @@ const UserDashboard: React.FC = () => {
                 <div className="flex justify-end pt-4">
                   <button
                     onClick={handleUpdateProfile}
-                    disabled={isSavingProfile}
+                    disabled={isSavingProfile || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
                     className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
                   >
                     {isSavingProfile ? t('dashboard_saving') : t('dashboard_update_profile')}
