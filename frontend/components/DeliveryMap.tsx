@@ -1,18 +1,38 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Leaflet's default marker icon is loaded via a relative path baked into its own CSS, which
-// breaks once bundled - this points it at the actual asset URLs Vite resolves instead.
-delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
+// The live rider marker is a bike emoji (matches the mobile app's tracking map) rather than
+// Leaflet's default pin icon - a delivery rider reads more clearly on the map than a generic
+// location pin, and it's what actually moves, unlike the static store/destination markers below.
+const bikeIcon = L.divIcon({
+  html: '<div style="font-size:28px;line-height:28px;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.45))">\u{1F3CD}\u{FE0F}</div>',
+  className: '',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
 });
+
+// Tweens the marker from its current position to the new fix instead of teleporting there
+// (matches the mobile app's identical requestAnimationFrame easing), so the bike actually reads
+// as "moving" across the map the way a live-navigation app does, rather than popping every poll.
+const MOVE_DURATION_MS = 1200;
+function animateMarkerTo(marker: L.Marker | null, to: L.LatLngExpression) {
+  if (!marker) return;
+  const start = marker.getLatLng();
+  const end = L.latLng(to);
+  if (start.equals(end)) return;
+  const startTime = performance.now();
+  const step = (now: number) => {
+    const t = Math.min(1, (now - startTime) / MOVE_DURATION_MS);
+    const eased = 1 - Math.pow(1 - t, 2);
+    marker.setLatLng([
+      start.lat + (end.lat - start.lat) * eased,
+      start.lng + (end.lng - start.lng) * eased,
+    ]);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 
 export interface MapPoint {
   lat: number;
@@ -50,7 +70,7 @@ const DeliveryMap: React.FC<DeliveryMapProps> = ({ livePosition, isLive, store, 
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19,
       }).addTo(map);
-      liveMarkerRef.current = L.marker(livePos).addTo(map);
+      liveMarkerRef.current = L.marker(livePos, { icon: bikeIcon, zIndexOffset: 1000 }).addTo(map);
       mapRef.current = map;
 
       const bounds: L.LatLngExpression[] = [livePos];
@@ -78,8 +98,8 @@ const DeliveryMap: React.FC<DeliveryMapProps> = ({ livePosition, isLive, store, 
         map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [30, 30] });
       }
     } else {
-      liveMarkerRef.current?.setLatLng(livePos);
-      mapRef.current.panTo(livePos);
+      animateMarkerTo(liveMarkerRef.current, livePos);
+      mapRef.current.panTo(livePos, { animate: true, duration: 1 });
     }
     // Faded marker = last known spot, not a live position.
     liveMarkerRef.current?.setOpacity(isLive ? 1 : 0.55);
