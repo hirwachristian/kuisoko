@@ -9,6 +9,7 @@ import { HttpError } from '../lib/httpError.js';
 import { calculateShippingFee } from '../lib/shipping.js';
 import { validateCoupon } from '../lib/coupons.js';
 import { sendOrderProcessingEmail, sendInvoiceEmail, sendCheckoutVerificationEmail } from '../lib/brevo.js';
+import { sendPushToUser } from '../lib/pushNotifications.js';
 import { signCheckoutVerificationToken, verifyCheckoutVerificationToken } from '../lib/auth.js';
 import { checkAndNotifyRestock } from './products.js';
 import { geocodeAddress } from '../lib/geocode.js';
@@ -528,6 +529,19 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
     // Only on the transition into Processing, not on every subsequent save of that status.
     if (parsed.data.status === 'Processing' && previousStatus !== 'Processing' && order?.deliveryAddress.email) {
       sendOrderProcessingEmail(order.deliveryAddress.email, order.customerName, order.orderNumber);
+    }
+    // Push, not just email - only for the statuses a customer would actually want to know about
+    // right away, and only accounts with the mobile app installed (order.userId is null for guest
+    // checkouts, and sendPushToUser itself no-ops for an account with no registered device).
+    if (order?.userId && parsed.data.status !== previousStatus && ['Processing', 'Shipped', 'Delivered', 'Cancelled'].includes(parsed.data.status)) {
+      const orderLabel = `#${order.orderNumber}`;
+      const pushCopy: Record<string, string> = {
+        Processing: `Your order ${orderLabel} is being prepared.`,
+        Shipped: `Your order ${orderLabel} is on its way!`,
+        Delivered: `Your order ${orderLabel} has been delivered.`,
+        Cancelled: `Your order ${orderLabel} was cancelled.`,
+      };
+      sendPushToUser(order.userId, 'Order update', pushCopy[parsed.data.status], { orderId: order.id, type: 'order-status' });
     }
     // Cancelling or returning just restored stock for these items above - anyone waiting on a
     // back-in-stock signup for one of them may now be satisfied.

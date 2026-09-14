@@ -137,6 +137,47 @@ router.patch('/me', authenticate, async (req, res, next) => {
   }
 });
 
+const pushTokenSchema = z.object({
+  token: z.string().trim().min(1),
+  platform: z.enum(['ios', 'android']).optional(),
+});
+
+// POST /api/users/me/push-token - the mobile app only (website has no equivalent) - registers this
+// device's Expo push token against the signed-in account. Upserts on the token itself, not
+// (userId, token), since a token can only ever belong to one install - re-registering the same
+// token (app reopened, or a different account signed in on the same device) just re-points it.
+router.post('/me/push-token', authenticate, async (req, res, next) => {
+  const parsed = pushTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO push_tokens (user_id, token, platform) VALUES ($1, $2, $3)
+       ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform`,
+      [req.authUser!.id, parsed.data.token, parsed.data.platform ?? null]
+    );
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// DELETE /api/users/me/push-token - called on logout, so a signed-out device stops receiving
+// pushes meant for the account that just left it.
+router.delete('/me/push-token', authenticate, async (req, res, next) => {
+  const parsed = z.object({ token: z.string().trim().min(1) }).safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message });
+  }
+  try {
+    await pool.query(`DELETE FROM push_tokens WHERE token = $1 AND user_id = $2`, [parsed.data.token, req.authUser!.id]);
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
 const requestEmailChangeSchema = z.object({
   newEmail: z.string().trim().toLowerCase().email('Invalid email address'),
 });

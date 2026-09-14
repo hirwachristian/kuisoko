@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db.js';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
+import { sendPushToUser } from '../lib/pushNotifications.js';
 
 const router = Router();
 
@@ -157,6 +158,12 @@ router.post('/messages/:userId', requireAdmin, async (req, res, next) => {
       `INSERT INTO chat_messages (user_id, sender_role, sender_id, body, attachment_url, attachment_type, attachment_name, read_by_user, read_by_admin)
        VALUES ($1, 'admin', $2, $3, $4, $5, $6, false, true) RETURNING ${MESSAGE_COLUMNS}`,
       [req.params.userId, req.authUser!.id, parsed.data.body ?? null, parsed.data.attachmentUrl ?? null, parsed.data.attachmentType ?? null, parsed.data.attachmentName ?? null]
+    );
+    sendPushToUser(
+      req.params.userId,
+      'New message from support',
+      parsed.data.body?.trim() || 'Sent an attachment',
+      { type: 'chat-message' }
     );
     return res.status(201).json({ message: result.rows[0] });
   } catch (err) {
