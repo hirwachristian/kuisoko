@@ -164,6 +164,16 @@ export const momoRequestLimiter = rateLimit({
   message: { error: 'Too many payment requests. Please try again in a few minutes.' },
 });
 
+/** Paypack cashin requests: same reasoning as momoRequestLimiter above - public, unauthenticated,
+ * and each call pushes a real payment prompt to whatever phone number is given. */
+export const paypackRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many payment requests. Please try again in a few minutes.' },
+});
+
 /** Coupon validation: public and unauthenticated - the only thing standing between this and
  * brute-forcing short/guessable discount codes. */
 export const couponValidateLimiter = rateLimit({

@@ -15,6 +15,9 @@ import { Order } from '../types';
 // A payment method is treated as MTN MoMo (triggering the real "Request to Pay" phone prompt)
 // when its admin-configured name mentions momo/mobile money/mtn - see AdminPaymentMethods.tsx.
 const isMomoMethodName = (name: string) => /momo|mobile money|mtn/i.test(name);
+// Likewise for Paypack - also matches "Airtel", since Airtel Money isn't reachable through MTN's
+// own API above; Paypack is the only integration here that can push a prompt to an Airtel number.
+const isPaypackMethodName = (name: string) => /paypack|airtel/i.test(name);
 
 // Not one of the admin-configurable payment_methods rows - a fixed virtual option that's always
 // offered when the store has a WhatsApp number configured (Admin > Store Configuration).
@@ -40,11 +43,14 @@ const CartCheckout: React.FC = () => {
   const [selectedPayment, setSelectedPayment] = useState<string>('');
   const [addressData, setAddressData] = useState<any>(null); // State to store address data from AddressForm
 
-  // MTN MoMo "Request to Pay" flow state
-  const [momoPhone, setMomoPhone] = useState('');
-  const [momoFlow, setMomoFlow] = useState<'idle' | 'requesting' | 'awaiting-approval' | 'failed' | 'error'>('idle');
-  const [momoError, setMomoError] = useState<string | null>(null);
+  // Mobile money payment prompt flow state - shared between MTN MoMo (direct MTN Developer API)
+  // and Paypack (aggregates MTN + Airtel Money); which one is used is picked by the payment
+  // method name (see isMomoMethodName/isPaypackMethodName) and stored per-attempt in pendingProvider.
+  const [mobileMoneyPhone, setMobileMoneyPhone] = useState('');
+  const [mobileMoneyFlow, setMobileMoneyFlow] = useState<'idle' | 'requesting' | 'awaiting-approval' | 'failed' | 'error'>('idle');
+  const [mobileMoneyError, setMobileMoneyError] = useState<string | null>(null);
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<'momo' | 'paypack' | null>(null);
   const cancelledRef = useRef(false);
   const addressFormRef = useRef<AddressFormHandle>(null);
   useEffect(() => () => { cancelledRef.current = true; }, []);
@@ -142,11 +148,13 @@ const CartCheckout: React.FC = () => {
   }, [paymentMethods, selectedPayment]);
 
   useEffect(() => {
-    if (addressData?.phoneNumber && !momoPhone) setMomoPhone(addressData.phoneNumber);
+    if (addressData?.phoneNumber && !mobileMoneyPhone) setMobileMoneyPhone(addressData.phoneNumber);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addressData]);
 
   const isMomoSelected = isMomoMethodName(selectedPayment);
+  const isPaypackSelected = isPaypackMethodName(selectedPayment);
+  const isMobileMoneySelected = isMomoSelected || isPaypackSelected;
   const isWhatsAppSelected = selectedPayment === WHATSAPP_METHOD_NAME;
   const whatsappNumber = (footerSettings.whatsappNumber || footerSettings.phoneNumber || '').trim();
 
@@ -291,56 +299,62 @@ const CartCheckout: React.FC = () => {
     setStep(4);
   };
 
-  const pollMomoStatus = async (referenceId: string, order: Order) => {
+  // Both providers' request/status endpoints return the same shape (`{ referenceId }` /
+  // `{ status: 'PENDING' | 'SUCCESSFUL' | 'FAILED' }`), so one flow drives either of them off a
+  // provider-specific path prefix.
+  const pollMobileMoneyStatus = async (provider: 'momo' | 'paypack', referenceId: string, order: Order) => {
+    const statusPath = provider === 'momo' ? `/momo/status/${referenceId}` : `/paypack/status/${referenceId}`;
     const maxAttempts = 40; // ~2 minutes at 3s intervals
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 3000));
       if (cancelledRef.current) return;
       try {
-        const { status } = await apiFetch<{ status: 'PENDING' | 'SUCCESSFUL' | 'FAILED' }>(`/momo/status/${referenceId}`);
+        const { status } = await apiFetch<{ status: 'PENDING' | 'SUCCESSFUL' | 'FAILED' }>(statusPath);
         if (cancelledRef.current) return;
         if (status === 'SUCCESSFUL') {
-          setMomoFlow('idle');
+          setMobileMoneyFlow('idle');
           setPlacedOrderId(order.orderNumber || order.id);
           if (!directBuy) clearCart();
           setStep(4);
           return;
         }
         if (status === 'FAILED') {
-          setMomoFlow('failed');
+          setMobileMoneyFlow('failed');
           return;
         }
       } catch (e) {
         if (cancelledRef.current) return;
-        setMomoFlow('error');
-        setMomoError(e instanceof ApiError ? e.message : 'Could not check payment status.');
+        setMobileMoneyFlow('error');
+        setMobileMoneyError(e instanceof ApiError ? e.message : 'Could not check payment status.');
         return;
       }
     }
-    setMomoFlow('failed');
-    setMomoError(t('cart_momo_timeout'));
+    setMobileMoneyFlow('failed');
+    setMobileMoneyError(t('cart_momo_timeout'));
   };
 
-  const startMomoPayment = async (order: Order) => {
-    setMomoFlow('requesting');
-    setMomoError(null);
+  const startMobileMoneyPayment = async (provider: 'momo' | 'paypack', order: Order) => {
+    setPendingProvider(provider);
+    setMobileMoneyFlow('requesting');
+    setMobileMoneyError(null);
     try {
-      const { referenceId } = await apiFetch<{ referenceId: string }>('/momo/request-to-pay', {
+      const requestPath = provider === 'momo' ? '/momo/request-to-pay' : '/paypack/cashin';
+      const { referenceId } = await apiFetch<{ referenceId: string }>(requestPath, {
         method: 'POST',
-        body: JSON.stringify({ orderId: order.id, phoneNumber: momoPhone }),
+        body: JSON.stringify({ orderId: order.id, phoneNumber: mobileMoneyPhone }),
       });
-      setMomoFlow('awaiting-approval');
-      await pollMomoStatus(referenceId, order);
+      setMobileMoneyFlow('awaiting-approval');
+      await pollMobileMoneyStatus(provider, referenceId, order);
     } catch (e) {
-      setMomoFlow('error');
-      setMomoError(e instanceof ApiError ? e.message : 'Could not start the mobile money payment.');
+      setMobileMoneyFlow('error');
+      setMobileMoneyError(e instanceof ApiError ? e.message : 'Could not start the mobile money payment.');
     }
   };
 
-  const handleMomoCheckout = async (verificationToken: string) => {
-    if (!momoPhone.trim()) {
-      setMomoError(t('cart_momo_enter_phone'));
-      setMomoFlow('error');
+  const handleMobileMoneyCheckout = async (verificationToken: string) => {
+    if (!mobileMoneyPhone.trim()) {
+      setMobileMoneyError(t('cart_momo_enter_phone'));
+      setMobileMoneyFlow('error');
       return;
     }
     setIsPlacingOrder(true);
@@ -355,11 +369,11 @@ const CartCheckout: React.FC = () => {
     if (!order) return; // addOrder already surfaced the error via toast
 
     setPendingOrder(order);
-    await startMomoPayment(order);
+    await startMobileMoneyPayment(isPaypackSelected ? 'paypack' : 'momo', order);
   };
 
-  const retryMomoPayment = () => {
-    if (pendingOrder) startMomoPayment(pendingOrder);
+  const retryMobileMoneyPayment = () => {
+    if (pendingOrder && pendingProvider) startMobileMoneyPayment(pendingProvider, pendingOrder);
   };
 
   const handleCheckout = async () => {
@@ -374,8 +388,8 @@ const CartCheckout: React.FC = () => {
 
   const confirmAndPlaceOrder = async (verificationToken: string) => {
     setShowConfirmOrderModal(false);
-    if (isMomoSelected) {
-      await handleMomoCheckout(verificationToken);
+    if (isMobileMoneySelected) {
+      await handleMobileMoneyCheckout(verificationToken);
       return;
     }
     if (isWhatsAppSelected) {
@@ -571,16 +585,16 @@ const CartCheckout: React.FC = () => {
                     </p>
                   )}
 
-                  {isMomoSelected && (
+                  {isMobileMoneySelected && (
                     <div className="mb-4 sm:mb-6">
-                      <label htmlFor="momoPhone" className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-emerald-300 mb-2">
+                      <label htmlFor="mobileMoneyPhone" className="block text-xs sm:text-sm font-bold text-slate-700 dark:text-emerald-300 mb-2">
                         {t('cart_momo_phone_label')}
                       </label>
                       <input
-                        id="momoPhone"
+                        id="mobileMoneyPhone"
                         type="tel"
-                        value={momoPhone}
-                        onChange={(e) => setMomoPhone(e.target.value)}
+                        value={mobileMoneyPhone}
+                        onChange={(e) => setMobileMoneyPhone(e.target.value)}
                         placeholder="07XXXXXXXX"
                         className="w-full p-3 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-600 text-sm sm:text-base text-slate-900 dark:text-emerald-100"
                       />
@@ -592,7 +606,7 @@ const CartCheckout: React.FC = () => {
 
                   <div className="flex gap-3 sm:gap-4">
                     <button onClick={() => setStep(2)} className="flex-1 py-3 sm:py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">{t('cart_back')}</button>
-                    <button onClick={handleCheckout} disabled={isPlacingOrder || momoFlow !== 'idle'} className="flex-1 py-3 sm:py-4 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95 disabled:opacity-60">
+                    <button onClick={handleCheckout} disabled={isPlacingOrder || mobileMoneyFlow !== 'idle'} className="flex-1 py-3 sm:py-4 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95 disabled:opacity-60">
                       {isPlacingOrder ? t('cart_placing_order') : isWhatsAppSelected ? t('cart_whatsapp_continue') : t('cart_place_order')}
                     </button>
                   </div>
@@ -685,7 +699,7 @@ const CartCheckout: React.FC = () => {
                 {step === 3 && (
                   <button
                     onClick={handleCheckout}
-                    disabled={isPlacingOrder || momoFlow !== 'idle'}
+                    disabled={isPlacingOrder || mobileMoneyFlow !== 'idle'}
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 sm:py-4 rounded-xl text-sm sm:text-lg transition-all shadow-lg active:scale-95 disabled:opacity-60"
                   >
                     {isPlacingOrder ? t('cart_placing_order') : isWhatsAppSelected ? t('cart_whatsapp_continue') : t('cart_place_order')}
@@ -760,10 +774,10 @@ const CartCheckout: React.FC = () => {
         </div>
       )}
 
-      {momoFlow !== 'idle' && (
+      {mobileMoneyFlow !== 'idle' && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-8 max-w-sm w-full text-center shadow-2xl">
-            {(momoFlow === 'requesting' || momoFlow === 'awaiting-approval') && (
+            {(mobileMoneyFlow === 'requesting' || mobileMoneyFlow === 'awaiting-approval') && (
               <>
                 <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 rounded-full bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center">
                   <Smartphone size={24} className="sm:w-7 sm:h-7 text-emerald-700 dark:text-emerald-400" />
@@ -771,28 +785,28 @@ const CartCheckout: React.FC = () => {
                 {/mtn/i.test(selectedPayment) && <MtnBadge className="mb-3" />}
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-emerald-50 mb-2">{t('cart_momo_check_phone')}</h3>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">
-                  {momoFlow === 'requesting'
+                  {mobileMoneyFlow === 'requesting'
                     ? t('cart_momo_sending')
-                    : t('cart_momo_awaiting', { amount: getFormattedPrice(total), phone: momoPhone })}
+                    : t('cart_momo_awaiting', { amount: getFormattedPrice(total), phone: mobileMoneyPhone })}
                 </p>
                 <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
               </>
             )}
-            {momoFlow === 'failed' && (
+            {mobileMoneyFlow === 'failed' && (
               <>
                 <h3 className="text-base sm:text-lg font-bold text-rose-600 mb-2">{t('cart_momo_not_approved')}</h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">{momoError || t('cart_momo_declined')}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">{mobileMoneyError || t('cart_momo_declined')}</p>
                 <div className="flex gap-3">
-                  <button onClick={() => setMomoFlow('idle')} className="flex-1 py-2.5 sm:py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300">{t('cart_close')}</button>
-                  <button onClick={retryMomoPayment} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all">{t('cart_try_again')}</button>
+                  <button onClick={() => setMobileMoneyFlow('idle')} className="flex-1 py-2.5 sm:py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300">{t('cart_close')}</button>
+                  <button onClick={retryMobileMoneyPayment} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all">{t('cart_try_again')}</button>
                 </div>
               </>
             )}
-            {momoFlow === 'error' && (
+            {mobileMoneyFlow === 'error' && (
               <>
                 <h3 className="text-base sm:text-lg font-bold text-rose-600 mb-2">{t('cart_something_wrong')}</h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">{momoError}</p>
-                <button onClick={() => setMomoFlow('idle')} className="w-full py-2.5 sm:py-3 rounded-xl bg-slate-900 text-white text-sm sm:text-base font-bold">{t('cart_close')}</button>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-6">{mobileMoneyError}</p>
+                <button onClick={() => setMobileMoneyFlow('idle')} className="w-full py-2.5 sm:py-3 rounded-xl bg-slate-900 text-white text-sm sm:text-base font-bold">{t('cart_close')}</button>
               </>
             )}
           </div>

@@ -49,6 +49,7 @@ const AdminPaymentMethods: React.FC = () => {
              <option value="MTN">MTN</option>
              <option value="Airtel">Airtel</option>
              <option value="Momo Pay">Momo Pay</option>
+             <option value="Paypack">Paypack</option>
              <option value="Cash on Delivery">Cash on Delivery</option>
           </select>
           <div className="flex-1">

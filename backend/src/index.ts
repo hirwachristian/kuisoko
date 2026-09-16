@@ -17,6 +17,7 @@ import uploadsRouter from './routes/uploads.js';
 import reviewsRouter from './routes/reviews.js';
 import shippingRouter from './routes/shipping.js';
 import momoRouter from './routes/momo.js';
+import paypackRouter from './routes/paypack.js';
 import announcementsRouter from './routes/announcements.js';
 import couponsRouter from './routes/coupons.js';
 import chatRouter from './routes/chat.js';
@@ -26,6 +27,14 @@ import returnsRouter from './routes/returns.js';
 import groupOrdersRouter from './routes/groupOrders.js';
 import { UPLOADS_DIR } from './lib/uploads.js';
 import { initMonitoring, captureError } from './lib/monitoring.js';
+
+declare global {
+  namespace Express {
+    interface Request {
+      rawBody?: Buffer;
+    }
+  }
+}
 
 initMonitoring();
 
@@ -68,7 +77,13 @@ app.use(cors({
   exposedHeaders: ['Retry-After'],
   maxAge: 86400, // lets the browser cache a preflight's result for a day instead of re-asking on every request
 }));
-app.use(express.json({ limit: '10mb' })); // images now go through /api/uploads as real files, not base64 JSON; 10mb covers a base64-encoded invoice PDF for /orders/:id/send-invoice
+// `verify` stashes the exact raw bytes of every request body onto req.rawBody - the Paypack
+// webhook needs them to check its HMAC signature, since a re-serialized JSON.stringify(req.body)
+// is not guaranteed to byte-for-byte match what Paypack actually signed.
+app.use(express.json({
+  limit: '10mb', // images now go through /api/uploads as real files, not base64 JSON; 10mb covers a base64-encoded invoice PDF for /orders/:id/send-invoice
+  verify: (req, _res, buf) => { (req as express.Request).rawBody = buf; }, // body-parser's own Request type predates this augmentation, hence the cast
+}));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.get('/api/health', (_req, res) => {
@@ -89,6 +104,7 @@ app.use('/api/uploads', uploadsRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/shipping', shippingRouter);
 app.use('/api/momo', momoRouter);
+app.use('/api/paypack', paypackRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/coupons', couponsRouter);
 app.use('/api/chat', chatRouter);

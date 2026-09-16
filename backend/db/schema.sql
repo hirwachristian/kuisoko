@@ -373,6 +373,25 @@ CREATE TRIGGER trg_momo_transactions_updated_at BEFORE UPDATE ON momo_transactio
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------------------------------------------------------------------------
+-- Paypack (https://paypack.rw) cashin transactions - a second mobile money option
+-- (MTN + Airtel Money) alongside the direct MTN MoMo integration above.
+-- ---------------------------------------------------------------------------
+CREATE TABLE paypack_transactions (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ref           TEXT NOT NULL UNIQUE, -- transaction ref returned by Paypack's cashin call
+  order_id      UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  phone_number  TEXT NOT NULL,        -- local-format number (e.g. 0788123456) the cashin prompt was sent to
+  amount        NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+  currency      TEXT NOT NULL DEFAULT 'RWF',
+  status        TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SUCCESSFUL', 'FAILED')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_paypack_transactions_order_id ON paypack_transactions(order_id);
+CREATE TRIGGER trg_paypack_transactions_updated_at BEFORE UPDATE ON paypack_transactions
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------------
 -- Newsletter ("Join our inner circle") subscriptions
 -- ---------------------------------------------------------------------------
 CREATE TABLE newsletter_subscribers (
