@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireCustomer } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/cart - authenticated: the current user's saved cart lines. Returns just product ids +
 // line-specific fields (quantity/variant/price override) - the frontend already has the full
 // product catalog loaded and joins these against it, the same way it does for /wishlist.
-router.get('/', authenticate, async (req, res, next) => {
+router.get('/', authenticate, requireCustomer, async (req, res, next) => {
   try {
     const result = await pool.query(
       `SELECT product_id AS "productId", quantity, selected_color AS "selectedColor",
@@ -35,7 +35,7 @@ const upsertSchema = z.object({
 });
 
 // PUT /api/cart/:productId - authenticated: set (add or update) one cart line
-router.put('/:productId', authenticate, async (req, res, next) => {
+router.put('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     const body = upsertSchema.parse(req.body);
     await pool.query(
@@ -61,7 +61,7 @@ router.put('/:productId', authenticate, async (req, res, next) => {
 });
 
 // DELETE /api/cart/:productId - authenticated: remove one cart line
-router.delete('/:productId', authenticate, async (req, res, next) => {
+router.delete('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(`DELETE FROM cart_items WHERE user_id = $1 AND product_id = $2`, [req.authUser!.id, req.params.productId]);
     return res.status(204).send();
@@ -71,7 +71,7 @@ router.delete('/:productId', authenticate, async (req, res, next) => {
 });
 
 // DELETE /api/cart - authenticated: clear the whole cart (e.g. after checkout completes)
-router.delete('/', authenticate, async (req, res, next) => {
+router.delete('/', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(`DELETE FROM cart_items WHERE user_id = $1`, [req.authUser!.id]);
     return res.status(204).send();

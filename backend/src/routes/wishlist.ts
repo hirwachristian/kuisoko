@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireCustomer } from '../middleware/auth.js';
 
 const router = Router();
 
 // GET /api/wishlist - authenticated: product ids on the current user's wishlist
-router.get('/', authenticate, async (req, res, next) => {
+router.get('/', authenticate, requireCustomer, async (req, res, next) => {
   try {
     const result = await pool.query(`SELECT product_id AS "productId" FROM wishlists WHERE user_id = $1`, [req.authUser!.id]);
     return res.json({ productIds: result.rows.map((r) => r.productId) });
@@ -15,7 +15,7 @@ router.get('/', authenticate, async (req, res, next) => {
 });
 
 // POST /api/wishlist/:productId - authenticated: add a product
-router.post('/:productId', authenticate, async (req, res, next) => {
+router.post('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(
       `INSERT INTO wishlists (user_id, product_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -31,7 +31,7 @@ router.post('/:productId', authenticate, async (req, res, next) => {
 });
 
 // DELETE /api/wishlist/:productId - authenticated: remove a product
-router.delete('/:productId', authenticate, async (req, res, next) => {
+router.delete('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(`DELETE FROM wishlists WHERE user_id = $1 AND product_id = $2`, [req.authUser!.id, req.params.productId]);
     return res.status(204).send();

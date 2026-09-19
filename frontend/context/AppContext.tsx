@@ -647,6 +647,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [wishlist, token]);
 
   const toggleWishlist = async (productId: string) => {
+    // Rider/admin accounts aren't customers - same reasoning as the guard in addToCart above.
+    if (user && user.role !== 'user') {
+      showToast('Sign in with a customer account to shop.', 'error');
+      return;
+    }
     const isRemoving = wishlist.includes(productId);
     setWishlist(prev => (isRemoving ? prev.filter(id => id !== productId) : [...prev, productId]));
     showToast(isRemoving ? 'Removed from wishlist.' : 'Added to wishlist.', isRemoving ? 'info' : 'success');
@@ -1082,6 +1087,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addToCart = (product: Product & { selectedColor?: string; selectedSize?: string; selectedImage?: string }, quantity: number = 1) => {
+    // Rider/admin accounts aren't customers - block here (not just server-side) so the UI never
+    // shows a false "added to cart" toast for an action the backend will silently reject.
+    if (user && user.role !== 'user') {
+      showToast('Sign in with a customer account to shop.', 'error');
+      return;
+    }
     if (product.stock <= 0) {
       showToast(`${product.name} is out of stock.`, 'error');
       return;

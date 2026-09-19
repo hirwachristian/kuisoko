@@ -71,3 +71,13 @@ export const requireRider: RequestHandler = (req, res, next) => {
   }
   next();
 };
+
+/** Blocks admin/rider accounts from customer-only actions (cart, wishlist, placing orders).
+ * A guest - no req.authUser at all - passes through untouched, so this composes with
+ * optionalAuthenticate on routes that allow guest checkout, not just authenticate. */
+export const requireCustomer: RequestHandler = (req, res, next) => {
+  if (req.authUser && req.authUser.role !== 'user') {
+    return res.status(403).json({ error: 'This action is only available to customer accounts.' });
+  }
+  next();
+};
