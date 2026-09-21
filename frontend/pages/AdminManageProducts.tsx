@@ -9,6 +9,7 @@ import { apiFetch, ApiError, API_BASE_URL } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminPagination from '../components/AdminPagination';
 import AdminVariantManager from '../components/AdminVariantManager'; // Add this import
+import AdminImageDetailsManager from '../components/AdminImageDetailsManager';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const PRODUCTS_PER_PAGE = 5;
@@ -91,6 +92,7 @@ const AdminManageProducts: React.FC = () => {
   const [newProductGroupBuyEnabled, setNewProductGroupBuyEnabled] = useState(false);
   const [newProductVariants, setNewProductVariants] = useState<ProductVariant[]>([]);
   const [newProductColorImages, setNewProductColorImages] = useState<Record<string, string>>({});
+  const [newProductImageDetails, setNewProductImageDetails] = useState<Record<string, { name?: string; description?: string }>>({});
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
 
   // Edit Product Modal State
@@ -111,6 +113,7 @@ const AdminManageProducts: React.FC = () => {
   const [editingProductGroupBuyEnabled, setEditingProductGroupBuyEnabled] = useState(false);
   const [editingProductVariants, setEditingProductVariants] = useState<ProductVariant[]>([]);
   const [editingProductColorImages, setEditingProductColorImages] = useState<Record<string, string>>({});
+  const [editingProductImageDetails, setEditingProductImageDetails] = useState<Record<string, { name?: string; description?: string }>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
 
   // Delete Confirmation Modal State
@@ -256,6 +259,7 @@ const AdminManageProducts: React.FC = () => {
     setNewProductFeatured(false);
     setNewProductGroupBuyEnabled(false);
     setNewProductVariants([]);
+    setNewProductImageDetails({});
     setAddFormErrors({});
     setShowAddProductModal(true);
   };
@@ -308,6 +312,7 @@ const AdminManageProducts: React.FC = () => {
       groupBuyEnabled: newProductGroupBuyEnabled,
       variants: newProductVariants,
       colorImages: newProductColorImages,
+      imageDetails: newProductImageDetails,
     };
 
     const success = await addProduct(newProduct);
@@ -336,6 +341,7 @@ const AdminManageProducts: React.FC = () => {
     setEditingProductGroupBuyEnabled(!!product.groupBuyEnabled);
     setEditingProductVariants(product.variants || []);
     setEditingProductColorImages(product.colorImages || {});
+    setEditingProductImageDetails(product.imageDetails || {});
     setEditFormErrors({});
     setShowEditProductModal(true);
   };
@@ -394,6 +400,7 @@ const AdminManageProducts: React.FC = () => {
       groupBuyEnabled: editingProductGroupBuyEnabled,
       variants: editingProductVariants,
       colorImages: editingProductColorImages,
+      imageDetails: editingProductImageDetails,
       rating: products.find(p => p.id === editingProductId)?.rating || 4.5, // Preserve existing rating
       reviews: products.find(p => p.id === editingProductId)?.reviews || 0, // Preserve existing reviews
     };
@@ -819,6 +826,16 @@ const AdminManageProducts: React.FC = () => {
                 />
               </div>
 
+              <div className="col-span-full">
+                <AdminImageDetailsManager
+                  images={newProductImagePreviews}
+                  imageDetails={newProductImageDetails}
+                  onChange={setNewProductImageDetails}
+                  defaultName={newProductName || 'Product name'}
+                  defaultDescription={newProductDescription}
+                />
+              </div>
+
             </div>
 
             <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mt-6 sm:mt-8">
@@ -1051,6 +1068,16 @@ const AdminManageProducts: React.FC = () => {
                   colorImages={editingProductColorImages}
                   onColorImagesChange={setEditingProductColorImages}
                   productStock={parseInt(editingProductStock) || 0}
+                />
+              </div>
+
+              <div className="col-span-full">
+                <AdminImageDetailsManager
+                  images={editingProductImagePreviews}
+                  imageDetails={editingProductImageDetails}
+                  onChange={setEditingProductImageDetails}
+                  defaultName={editingProductName || 'Product name'}
+                  defaultDescription={editingProductDescription}
                 />
               </div>
 

@@ -47,7 +47,7 @@ function updateProductImageEmbedding(productId: string, imageUrl: string | undef
 const PRODUCT_COLUMNS = `
   p.id, p.name, p.description, p.price, p.discount, c.name AS category,
   p.sub_category AS "subCategory", p.images, p.video_urls AS "videoUrls", p.rating, p.reviews_count AS reviews,
-  p.stock, p.featured, p.color_images AS "colorImages", p.group_buy_enabled AS "groupBuyEnabled"
+  p.stock, p.featured, p.color_images AS "colorImages", p.image_details AS "imageDetails", p.group_buy_enabled AS "groupBuyEnabled"
 `;
 
 async function attachVariants<T extends { id: string }>(products: T[]) {
@@ -219,6 +219,13 @@ const variantSchema = z.object({
   stock: z.number().int().nonnegative().default(0),
 });
 
+// A per-image name/description override, both optional - an image with neither set has no entry
+// in `imageDetails` at all (see below) and falls back to the product's own name/description.
+const imageDetailSchema = z.object({
+  name: z.string().trim().optional(),
+  description: z.string().trim().optional(),
+});
+
 const productSchema = z.object({
   name: z.string().trim().min(1, 'Product name is required'),
   description: z.string().trim().optional(),
@@ -234,6 +241,9 @@ const productSchema = z.object({
   // Maps a variant color to one of `images`, so the product page can jump the gallery to that
   // color's photo the moment it's picked.
   colorImages: z.record(z.string(), z.string()).default({}),
+  // Maps an image URL to an optional name/description override - unset images (the common case)
+  // just aren't a key in here, and the frontend falls back to the product's own name/description.
+  imageDetails: z.record(z.string(), imageDetailSchema).default({}),
   // Admin opt-in for "buy together" group orders (see routes/groupOrders.ts) on this product.
   groupBuyEnabled: z.boolean().default(false),
 });
@@ -304,10 +314,10 @@ async function createProduct(data: z.infer<typeof productSchema>) {
     if (!categoryId) throw new HttpError(400, `Category "${data.category}" not found.`);
 
     const result = await client.query(
-      `INSERT INTO products (name, description, price, discount, category_id, sub_category, images, video_urls, stock, featured, color_images, group_buy_enabled)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO products (name, description, price, discount, category_id, sub_category, images, video_urls, stock, featured, color_images, image_details, group_buy_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING id`,
-      [data.name, data.description ?? null, data.price, data.discount ?? null, categoryId, data.subCategory, data.images, data.videoUrls, data.stock, data.featured, JSON.stringify(data.colorImages), data.groupBuyEnabled]
+      [data.name, data.description ?? null, data.price, data.discount ?? null, categoryId, data.subCategory, data.images, data.videoUrls, data.stock, data.featured, JSON.stringify(data.colorImages), JSON.stringify(data.imageDetails), data.groupBuyEnabled]
     );
     const id = result.rows[0].id;
     await insertVariants(client, id, data.variants);
@@ -359,6 +369,7 @@ const productUpdateSchema = z.object({
   featured: z.boolean().optional(),
   variants: z.array(variantSchema).optional(),
   colorImages: z.record(z.string(), z.string()).optional(),
+  imageDetails: z.record(z.string(), imageDetailSchema).optional(),
   groupBuyEnabled: z.boolean().optional(),
 });
 
@@ -383,12 +394,14 @@ async function updateProduct(id: string, data: z.infer<typeof productUpdateSchem
          stock = COALESCE($9, stock),
          featured = COALESCE($10, featured),
          color_images = COALESCE($11, color_images),
-         group_buy_enabled = COALESCE($12, group_buy_enabled)
-       WHERE id = $13`,
+         image_details = COALESCE($12, image_details),
+         group_buy_enabled = COALESCE($13, group_buy_enabled)
+       WHERE id = $14`,
       [
         data.name ?? null, data.description ?? null, data.price ?? null, data.discount ?? null,
         categoryId, data.subCategory ?? null, data.images ?? null, data.videoUrls ?? null,
         data.stock ?? null, data.featured ?? null, data.colorImages !== undefined ? JSON.stringify(data.colorImages) : null,
+        data.imageDetails !== undefined ? JSON.stringify(data.imageDetails) : null,
         data.groupBuyEnabled ?? null, id,
       ]
     );

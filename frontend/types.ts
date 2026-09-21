@@ -32,6 +32,10 @@ export interface Product {
    * page jumps the gallery straight to its photo. Admin-assigned; a color with no entry here
    * just leaves the gallery where it was. */
   colorImages?: Record<string, string>;
+  /** Per-image name/description override, keyed by image URL (one of `images`) - both optional,
+   * and an image with neither set just has no entry here. Falls back to this product's own
+   * name/description wherever an image is shown without an override. */
+  imageDetails?: Record<string, { name?: string; description?: string }>;
 }
 
 export interface Review {

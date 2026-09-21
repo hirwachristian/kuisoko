@@ -256,6 +256,9 @@ const ProductDetail: React.FC = () => {
 
   const displayImages = product.images || [];
   const displayVideos = product.videoUrls || [];
+  // Admin-set name/description override for whichever photo is currently on screen, if any -
+  // absent unless that specific image was deliberately customized (AdminImageDetailsManager).
+  const activeImageDetail = product.imageDetails?.[displayImages[activeImgIndex]];
   const similarProducts = products.filter(p => p.subCategory === product.subCategory && p.id !== product.id);
 
   // Images and videos stay in their own arrays for the existing thumbnail click behavior, but
@@ -338,7 +341,7 @@ const ProductDetail: React.FC = () => {
             ) : displayImages.length > 0 && (
               <img
                 src={displayImages[activeImgIndex]}
-                alt={product.name}
+                alt={activeImageDetail?.name || product.name}
                 className="w-full h-full object-contain p-4 sm:p-8 animate-fade-in"
               />
             )}
@@ -361,6 +364,15 @@ const ProductDetail: React.FC = () => {
               </>
             )}
           </div>
+          {/* Per-image name/description caption - an admin opt-in (AdminImageDetailsManager) that
+              only appears for a photo actually customized with one; everything else stays exactly
+              as it was, with no caption at all. */}
+          {activeVideoIndex === null && (activeImageDetail?.name || activeImageDetail?.description) && (
+            <div className="px-1">
+              {activeImageDetail?.name && <p className="text-sm font-bold text-slate-900 dark:text-white">{activeImageDetail.name}</p>}
+              {activeImageDetail?.description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{activeImageDetail.description}</p>}
+            </div>
+          )}
           <div className="flex gap-2 sm:gap-4 flex-wrap">
             {displayImages.map((img, i) => (
               <button
@@ -369,7 +381,7 @@ const ProductDetail: React.FC = () => {
                 className={`w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden bg-white border-2 transition-all ${activeVideoIndex === null && activeImgIndex === i ? 'border-emerald-600 shadow-lg' : 'border-slate-100 opacity-60'}`}
                 aria-label={t('detail_view_image', { n: i + 1 })}
               >
-                <img src={img} alt={`${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-1 sm:p-1.5" />
+                <img src={img} alt={product.imageDetails?.[img]?.name || `${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-1 sm:p-1.5" />
               </button>
             ))}
             {displayVideos.map((videoUrl, i) => (

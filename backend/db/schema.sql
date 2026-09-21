@@ -127,6 +127,7 @@ CREATE TABLE products (
   featured       BOOLEAN NOT NULL DEFAULT false,
   image_embedding vector(512),                                     -- CLIP embedding of images[0], for "search by photo" (cosine distance via pgvector)
   color_images   JSONB NOT NULL DEFAULT '{}'::jsonb,                -- maps a variant color to one of `images`, so picking that color can jump the gallery to its photo
+  image_details  JSONB NOT NULL DEFAULT '{}'::jsonb,                -- maps an image URL to an optional { name?, description? } override; unset images fall back to the product's own name/description
   group_buy_enabled BOOLEAN NOT NULL DEFAULT false,                 -- admin opt-in for "buy together" group orders on this product
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
