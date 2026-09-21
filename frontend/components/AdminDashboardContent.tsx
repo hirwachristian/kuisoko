@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -7,14 +7,16 @@ import {
 } from 'recharts';
 import {
   LayoutDashboard, Users, Receipt, Calendar, Plus, ArrowUpRight, Zap,
-  Box, Folder, ClipboardList, Package, Printer, Download, Wallet, RefreshCw, FileText
+  Box, Folder, ClipboardList, Package, Printer, Wallet, RefreshCw, FileText
 } from 'lucide-react';
 import { ORDER_STATUS_COLORS } from '../constants';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch } from '../api';
+import { getStockLevel } from '../utils';
 import CategoryPerformanceChart from './CategoryPerformanceChart';
 import KuISOKOLogoSVG from './KuISOKOLogoSVG';
 import AnimatedStatCard from './AnimatedStatCard';
+import AdminPagination from './AdminPagination';
 
 const SPARKLINE_DAYS = 14;
 
@@ -159,8 +161,12 @@ export const AdminDashboardContent: React.FC = () => {
   // sparkline from `registrationDate`, the same way the Orders/Revenue cards do from `orders`.
   const [userRecords, setUserRecords] = useState<{ registrationDate?: string }[] | null>(null);
   const totalUsers = userRecords?.length ?? null;
-  const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly' | 'annually'>('daily');
-  const [reportYear, setReportYear] = useState<number>(new Date().getFullYear());
+  // Inventory Overview - stock-level filter (out/low/in, mirroring getStockLevel's 4 tiers with
+  // medium+high collapsed into "In Stock" for a simpler restock-focused view), an optional
+  // category filter, and its own pagination page.
+  const [inventoryStockFilter, setInventoryStockFilter] = useState<'all' | 'out' | 'low' | 'in'>('all');
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>('all');
+  const [inventoryPage, setInventoryPage] = useState(1);
   const [timeRange, setTimeRange] = useState<'all' | 'thisMonth' | 'custom'>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -238,25 +244,29 @@ export const AdminDashboardContent: React.FC = () => {
     });
   };
 
-  const handleDownloadReport = () => {
-    // Combine overall website data for the report
-    const data = [
-      ['Metric', 'Value'],
-      ['Total Products', products.length],
-      ['Total Orders', orders.length],
-      ['Total Categories', categories.length],
-      ['Total Revenue', orders.reduce((sum, order) => sum + order.total, 0)],
-    ];
-
-    const csvContent = "data:text/csv;charset=utf-8," + data.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "overall_website_report.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Collapses getStockLevel's 4 tiers (out/low/medium/high) into the 3 an admin actually restocks
+  // against - "medium" and "high" both just mean "don't worry about this one yet".
+  const inventoryStockTier = (stock: number): 'out' | 'low' | 'in' => {
+    const level = getStockLevel(stock);
+    return level === 'out' ? 'out' : level === 'low' ? 'low' : 'in';
   };
+
+  const INVENTORY_PER_PAGE = 8;
+  const filteredInventory = useMemo(() => {
+    return products.filter((p) => {
+      if (inventoryStockFilter !== 'all' && inventoryStockTier(p.stock) !== inventoryStockFilter) return false;
+      if (inventoryCategoryFilter !== 'all' && p.category !== inventoryCategoryFilter) return false;
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, inventoryStockFilter, inventoryCategoryFilter]);
+  const inventoryTotalPages = Math.max(1, Math.ceil(filteredInventory.length / INVENTORY_PER_PAGE));
+  const paginatedInventory = filteredInventory.slice((inventoryPage - 1) * INVENTORY_PER_PAGE, inventoryPage * INVENTORY_PER_PAGE);
+  // A changed filter starts a fresh browse rather than landing on whatever page happened to be
+  // selected under the previous filter (which could now be empty or mid-list).
+  useEffect(() => {
+    setInventoryPage(1);
+  }, [inventoryStockFilter, inventoryCategoryFilter]);
 
   const chartColors = useMemo(() => {
     // Hardcoding light mode colors
@@ -815,44 +825,49 @@ export const AdminDashboardContent: React.FC = () => {
         <div className="bg-orange-50 dark:bg-slate-900 rounded-[2.5rem] border border-orange-100 dark:border-slate-800 shadow-sm overflow-hidden" id="inventory-report">
           <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 border-b border-orange-100 dark:border-slate-800 bg-orange-50 dark:bg-slate-900">
             <h2 className="text-slate-900 dark:text-emerald-50 text-lg font-bold">Inventory Overview</h2>
-            <div className="flex flex-wrap items-center gap-3">
-              <select 
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value as any)}
-                className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none text-slate-700 dark:text-emerald-100"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="annually">Annually</option>
-              </select>
-              {(reportType === 'monthly' || reportType === 'annually') && (
-                <select 
-                  value={reportYear}
-                  onChange={(e) => setReportYear(parseInt(e.target.value))}
-                  className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none text-slate-700"
-                >
-                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              )}
-              <button 
-                onClick={handleDownloadReport}
-                className="flex items-center gap-2 rounded-lg px-4 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
-              >
-                <Download size={16} />
-                <span>Download Report</span>
-              </button>
-              <button 
-                onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-lg px-4 py-1.5 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors"
-              >
-                <Printer size={16} />
-                <span>Print Report</span>
-              </button>
-            </div>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 rounded-lg px-4 py-1.5 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors"
+            >
+              <Printer size={16} />
+              <span>Print</span>
+            </button>
           </div>
+
+          {/* Stock-level filter (with live counts so a glance shows how much needs restocking)
+              plus an optional category filter - both scoped to each other so switching category
+              re-counts the pills against just that category's products. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-orange-100 dark:border-slate-800">
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: 'all', label: 'All' },
+                { key: 'in', label: 'In Stock' },
+                { key: 'low', label: 'Low Stock' },
+                { key: 'out', label: 'Out of Stock' },
+              ] as const).map(({ key, label }) => {
+                const scoped = inventoryCategoryFilter === 'all' ? products : products.filter(p => p.category === inventoryCategoryFilter);
+                const count = key === 'all' ? scoped.length : scoped.filter(p => inventoryStockTier(p.stock) === key).length;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setInventoryStockFilter(key)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${inventoryStockFilter === key ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                  >
+                    {label} <span className="opacity-75">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+            <select
+              value={inventoryCategoryFilter}
+              onChange={(e) => setInventoryCategoryFilter(e.target.value)}
+              className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-semibold outline-none text-slate-700 dark:text-emerald-100"
+            >
+              <option value="all">All categories</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -865,24 +880,48 @@ export const AdminDashboardContent: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {products.slice(0, 5).map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                    <td className="px-6 py-4 max-w-xs">
-                      <p className="font-medium text-slate-900 dark:text-emerald-50 line-clamp-2 min-h-[2.5rem]">{product.name}</p>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-slate-700 dark:text-emerald-200">{product.category}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-slate-900 dark:text-emerald-100">{getFormattedPrice(product.price)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-slate-900 dark:text-emerald-100">{product.stock}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${product.stock < 10 ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'}`}>
-                        {product.stock < 10 ? 'Low Stock' : 'In Stock'}
-                      </span>
+                {paginatedInventory.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                      No products match this filter.
                     </td>
                   </tr>
-                ))}
+                )}
+                {paginatedInventory.map((product) => {
+                  const tier = inventoryStockTier(product.stock);
+                  const tierStyle = tier === 'out'
+                    ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400'
+                    : tier === 'low'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
+                    : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300';
+                  const tierLabel = tier === 'out' ? 'Out of Stock' : tier === 'low' ? 'Low Stock' : 'In Stock';
+                  return (
+                    <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                      <td className="px-6 py-4 max-w-xs">
+                        <p className="font-medium text-slate-900 dark:text-emerald-50 line-clamp-2 min-h-[2.5rem]">{product.name}</p>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-slate-700 dark:text-emerald-200">{product.category}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-slate-900 dark:text-emerald-100">{getFormattedPrice(product.price)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-slate-900 dark:text-emerald-100">{product.stock}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${tierStyle}`}>
+                          {tierLabel}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          <AdminPagination
+            currentPage={inventoryPage}
+            totalPages={inventoryTotalPages}
+            onPageChange={setInventoryPage}
+            totalItems={filteredInventory.length}
+            itemsPerPage={INVENTORY_PER_PAGE}
+            itemLabel="products"
+          />
         </div>
       </div>
     </>

@@ -299,6 +299,7 @@ CREATE TABLE orders (
   arrival_notified_at         TIMESTAMPTZ, -- set once the rider's live position comes within range of the delivery address
   previous_rider_id           TEXT REFERENCES users(id) ON DELETE SET NULL, -- set on a genuine reassignment (not a first assignment or plain unassignment)
   rider_reassigned_at         TIMESTAMPTZ,
+  stock_restored_at           TIMESTAMPTZ, -- set the first (and only) time this order's items' stock is released back to inventory - guards restoreOrderStock() against a double-credit if the order later moves between Cancelled/Returned, or is separately touched by an approved return request
   order_date                  TIMESTAMPTZ NOT NULL DEFAULT now(),
   subtotal                    NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (subtotal >= 0), -- RWF, sum of item prices
   shipping_fee                NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (shipping_fee >= 0), -- RWF, from the matched shipping zone

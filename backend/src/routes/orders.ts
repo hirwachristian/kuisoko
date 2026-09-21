@@ -188,7 +188,17 @@ async function attachReturnRequests(rows: any[]): Promise<void> {
 // that had a color/size, that specific variant's own stock - shared by every path that releases an
 // order's inventory back (a Cancelled transition, a Returned transition, or an approved return
 // request), so the same NULL-safe variant matching isn't triplicated.
+//
+// Guarded by orders.stock_restored_at so this only ever actually happens once per order, even
+// though it can legitimately be *called* more than once for the same order - e.g. Cancelled ->
+// Returned (each transition satisfies the PATCH handler's "did the status just change into a
+// stock-releasing one" check), or a return approved via /returns/:id/approve on an order that was
+// also separately marked Cancelled through the admin status dropdown. Locks the order row first so
+// two concurrent callers can't both pass the check before either sets the flag.
 export async function restoreOrderStock(client: PoolClient, orderId: string): Promise<void> {
+  const locked = await client.query(`SELECT stock_restored_at FROM orders WHERE id = $1 FOR UPDATE`, [orderId]);
+  if (locked.rowCount === 0 || locked.rows[0].stock_restored_at) return;
+
   await client.query(
     `UPDATE products p SET stock = stock + oi.quantity
      FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,
@@ -202,6 +212,7 @@ export async function restoreOrderStock(client: PoolClient, orderId: string): Pr
        AND pv.size IS NOT DISTINCT FROM oi.selected_size`,
     [orderId]
   );
+  await client.query(`UPDATE orders SET stock_restored_at = now() WHERE id = $1`, [orderId]);
 }
 
 // Geocodes an order's delivery address exactly once (cached in `delivery_lat`/`delivery_lng`,
