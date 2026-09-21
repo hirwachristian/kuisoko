@@ -108,13 +108,12 @@ const ProductDetail: React.FC = () => {
     return () => { cancelled = true; };
   }, [id]);
 
-  // Switching to a color/size with less stock than the quantity already dialed in (e.g. picked
-  // 5 of a color with 8 left, then switched to one with only 3) needs to pull that number back
-  // down too, not just cap how much higher the + button can still go from here.
+  // Switching to a different color/size resets the quantity back to 1 rather than carrying over
+  // whatever was dialed in for the previous variant - carrying it over reads as if that quantity
+  // was already confirmed for the newly-selected variant, which it never was.
   useEffect(() => {
-    if (!selectedVariant) return;
-    setQty(q => Math.min(q, Math.max(selectedVariant.stock, 1)));
-  }, [selectedVariant]);
+    setQty(1);
+  }, [selectedVariant?.color, selectedVariant?.size]);
 
   if (!product) {
     return (
