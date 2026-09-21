@@ -27,6 +27,7 @@ import returnsRouter from './routes/returns.js';
 import groupOrdersRouter from './routes/groupOrders.js';
 import { UPLOADS_DIR } from './lib/uploads.js';
 import { initMonitoring, captureError } from './lib/monitoring.js';
+import { scheduleBackups } from './lib/backup.js';
 
 declare global {
   namespace Express {
@@ -130,3 +131,5 @@ const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);
 });
+
+scheduleBackups();
