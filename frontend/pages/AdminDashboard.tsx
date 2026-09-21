@@ -1,8 +1,6 @@
 
 
 import React, { useEffect } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 
@@ -11,7 +9,6 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redirect if not logged in or not an admin
     if (!user || user.role !== 'admin') {
       navigate('/signin');
     }

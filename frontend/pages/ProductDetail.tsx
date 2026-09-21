@@ -172,7 +172,6 @@ const ProductDetail: React.FC = () => {
   const currentImage = product.images[activeImgIndex] ?? product.images[0];
 
   const handleBuyNow = () => {
-    // If variants exist, require selection
     if (product.variants && product.variants.length > 0 && !selectedVariant) {
       alert(t('detail_select_color_size'));
       return;
@@ -612,7 +611,6 @@ const ProductDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Similar Products */}
       {similarProducts.length > 0 && (
         <div className="mt-10 sm:mt-20">
           <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-8">{t('detail_similar_items')}</h2>

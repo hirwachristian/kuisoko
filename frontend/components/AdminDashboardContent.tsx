@@ -220,7 +220,6 @@ export const AdminDashboardContent: React.FC = () => {
     const date = new Date(dateString);
     const start = startDate ? new Date(startDate) : new Date(0);
     const end = endDate ? new Date(endDate) : new Date();
-    // Normalize times for comparison
     date.setHours(0, 0, 0, 0);
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
@@ -295,7 +294,6 @@ export const AdminDashboardContent: React.FC = () => {
     };
   }, []);
 
-  // Derived Analytics for new cards
   const productsAnalytics = useMemo(() => {
     const totalProducts = products.length;
     const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
@@ -400,7 +398,6 @@ export const AdminDashboardContent: React.FC = () => {
     valueFormatted: getFormattedPrice(item.value),
   })), [revenueByCategory, chartColors, getFormattedPrice]);
 
-  // Calculate total for percentage in legend
   const totalPieValue = dynamicCategoryPieData.reduce((sum, entry) => sum + entry.value, 0);
 
   // Top 5 products by revenue, derived from actual orders (same source/shape as revenueByCategory
@@ -579,7 +576,6 @@ export const AdminDashboardContent: React.FC = () => {
         </div>
       </div>
 
-      {/* Page Heading */}
       <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-col gap-4 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-wrap justify-between items-end gap-3">
@@ -640,9 +636,7 @@ export const AdminDashboardContent: React.FC = () => {
           )}
         </div>
       </header>
-      {/* Main Content Area */}
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
-        {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
           <AnimatedStatCard
             label="Total Users"
@@ -694,10 +688,8 @@ export const AdminDashboardContent: React.FC = () => {
 
 
 
-        {/* Revenue Analytics Chart */}
         <CategoryPerformanceChart />
 
-        {/* Category Split Donut - large, full width, with hover detail and a live center total */}
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-300">
           <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50">Category Split</h3>
           <p className="text-sm text-slate-400 dark:text-slate-400 font-medium mb-8">Revenue breakdown by category - hover a slice for details</p>
@@ -764,7 +756,6 @@ export const AdminDashboardContent: React.FC = () => {
           </div>
         </div>
 
-        {/* Top-Selling Products Section */}
         <div className="bg-white dark:bg-slate-900 p-5 sm:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col transition-colors duration-300">
             <div className="flex items-start justify-between gap-2 mb-8">
               <div>
@@ -821,7 +812,6 @@ export const AdminDashboardContent: React.FC = () => {
             )}
           </div>
 
-        {/* Inventory Overview Section */}
         <div className="bg-orange-50 dark:bg-slate-900 rounded-[2.5rem] border border-orange-100 dark:border-slate-800 shadow-sm overflow-hidden" id="inventory-report">
           <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 border-b border-orange-100 dark:border-slate-800 bg-orange-50 dark:bg-slate-900">
             <h2 className="text-slate-900 dark:text-emerald-50 text-lg font-bold">Inventory Overview</h2>

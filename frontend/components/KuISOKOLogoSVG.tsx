@@ -20,24 +20,18 @@ const KuISOKOLogoSVG: React.FC<KuISOKOLogoSVGProps> = ({ className }) => {
 
   return (
     <svg className={className} viewBox="0 0 640 180" xmlns="http://www.w3.org/2000/svg">
-      {/* Shopping Bag */}
       <g transform="translate(0,20)">
-        {/* Bag body */}
         <path d="M40 40 L140 40 L160 140 L20 140 Z" fill={bagFill} />
-        {/* Handle */}
         <path d="M60 40 C60 10, 120 10, 120 40"
           stroke={handleStroke} strokeWidth="10" fill="none" />
-        {/* Check mark */}
         <path d="M55 90 L75 110 L115 70"
           stroke={checkStroke} strokeWidth="10"
           fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
-      {/* Text: KuISOKO */}
       <text x="200" y="115"
         fontFamily="Inter, Arial, sans-serif"
         fontSize="80"
         fontWeight="700">
-        {/* KuISOKO logo text */}
         <>
           <tspan fill={kuisokoDarkGreen}>Ku</tspan>
           <tspan fill={kuisokoOrange1}>I</tspan>

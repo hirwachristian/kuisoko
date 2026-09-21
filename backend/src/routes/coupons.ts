@@ -14,7 +14,6 @@ const COUPON_COLUMNS = `
   is_active AS "isActive", expires_at AS "expiresAt", created_at AS "createdAt"
 `;
 
-// GET /api/coupons - admin: every coupon
 router.get('/', authenticate, requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(`SELECT ${COUPON_COLUMNS} FROM coupons ORDER BY created_at DESC`);
@@ -33,7 +32,6 @@ const couponSchema = z.object({
   expiresAt: z.string().datetime().nullable().optional(),
 });
 
-// POST /api/coupons - admin: create a coupon
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = couponSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -70,7 +68,6 @@ const couponUpdateSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-// PATCH /api/coupons/:id - admin: update a coupon
 router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = couponUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -102,7 +99,6 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   }
 });
 
-// DELETE /api/coupons/:id - admin
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(`DELETE FROM coupons WHERE id = $1`, [req.params.id]);

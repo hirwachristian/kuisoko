@@ -1,11 +1,9 @@
 
 
 import React from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { Link } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
-import KuISOKOLogoSVG from './KuISOKOLogoSVG'; // Import the new SVG logo component
+import KuISOKOLogoSVG from './KuISOKOLogoSVG';
 import TikTokIcon from './TikTokIcon';
 import WhatsAppIcon from './WhatsAppIcon';
 import { useAppContext } from '../context/AppContext';
@@ -42,7 +40,7 @@ const Footer = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
         <div className="col-span-1 md:col-span-1">
           <Link to="/" className="flex items-center gap-2 mb-4">
-            <KuISOKOLogoSVG className="h-6 w-auto" /> {/* Integrated SVG Logo, isDarkMode prop removed */}
+            <KuISOKOLogoSVG className="h-6 w-auto" />
           </Link>
           <p className="text-sm leading-relaxed text-emerald-100/60 dark:text-slate-400 mb-5">
             {t('footer_tagline')}
@@ -142,7 +140,6 @@ const Footer = () => {
             ))}
           </ul>
         </div>
-        {/* Contact Us Section */}
         <div>
           <h4 className="text-white dark:text-emerald-50 font-semibold mb-4">{t('footer_contact_info')}</h4>
           <ul className="space-y-2 text-sm">

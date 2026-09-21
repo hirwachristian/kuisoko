@@ -14,7 +14,6 @@ router.get('/', authenticate, requireCustomer, async (req, res, next) => {
   }
 });
 
-// POST /api/wishlist/:productId - authenticated: add a product
 router.post('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(
@@ -30,7 +29,6 @@ router.post('/:productId', authenticate, requireCustomer, async (req, res, next)
   }
 });
 
-// DELETE /api/wishlist/:productId - authenticated: remove a product
 router.delete('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(`DELETE FROM wishlists WHERE user_id = $1 AND product_id = $2`, [req.authUser!.id, req.params.productId]);

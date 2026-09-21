@@ -707,7 +707,6 @@ router.post('/:id/send-invoice', authenticate, requireAdmin, async (req, res, ne
   }
 });
 
-// DELETE /api/orders/:id - admin
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(`DELETE FROM orders WHERE id = $1`, [req.params.id]);

@@ -27,7 +27,6 @@ const AdminManageOrders: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Default to newest first
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Modals state
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
@@ -40,7 +39,6 @@ const AdminManageOrders: React.FC = () => {
     // Defensive check: ensure orders is an array before spreading
     let currentOrders = [...(orders || [])];
 
-    // Filter by search query
     if (searchQuery) {
       currentOrders = currentOrders.filter(order =>
         (order.orderNumber || order.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -48,12 +46,10 @@ const AdminManageOrders: React.FC = () => {
       );
     }
 
-    // Filter by status
     if (filterStatus !== 'All') {
       currentOrders = currentOrders.filter(order => order.status === filterStatus);
     }
 
-    // Sort
     currentOrders.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'date') {
@@ -131,7 +127,6 @@ const AdminManageOrders: React.FC = () => {
 
   return (
     <>
-      {/* Page Header */}
       <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
@@ -142,7 +137,6 @@ const AdminManageOrders: React.FC = () => {
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
-        {/* Filters and Search */}
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 transition-colors duration-300">
           <div className="relative flex-1 w-full sm:max-w-xs">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
@@ -182,7 +176,6 @@ const AdminManageOrders: React.FC = () => {
           </div>
         </div>
 
-        {/* Orders Table */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
@@ -272,7 +265,6 @@ const AdminManageOrders: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
           <AdminPagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -284,11 +276,9 @@ const AdminManageOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* Order Details Modal */}
       {showOrderDetailsModal && selectedOrder && (
         <div id="print-modal" className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div id="invoice-content" className="bg-white rounded-[2.5rem] p-5 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 relative">
-            {/* PDF Invoice Structure */}
             <div id="pdf-wrapper" className="absolute top-0 left-0 w-full opacity-0 pointer-events-none">
               <div id="invoice-content-for-pdf" className="w-[800px] p-8 text-black bg-white">
               <div className="invoice" style={{ maxWidth: '760px', margin: '0 auto', background: '#ffffff', padding: '64px 56px 48px', color: '#1a1a1a', fontFamily: 'sans-serif', position: 'relative' }}>
@@ -384,7 +374,6 @@ const AdminManageOrders: React.FC = () => {
             </div>
             </div>
 
-            {/* Detailed UI for on-screen viewing */}
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6 pr-8">Order Details #{selectedOrder.orderNumber || selectedOrder.id}</h3>
             <div className="space-y-3 sm:space-y-4 text-slate-700 text-xs sm:text-sm">
               <p><strong>Date:</strong> {formatDate(selectedOrder.date)}</p>
@@ -532,7 +521,6 @@ const AdminManageOrders: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Order Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteOrderConfirm}
         onClose={() => setShowDeleteOrderConfirm(false)}

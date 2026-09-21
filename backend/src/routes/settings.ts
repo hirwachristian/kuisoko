@@ -5,10 +5,6 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
-// ---------------------------------------------------------------------------
-// Footer settings
-// ---------------------------------------------------------------------------
-
 async function getFooterSettings() {
   const settingsResult = await pool.query(
     `SELECT location_lines AS "locationLines", phone_number AS "phoneNumber", whatsapp_number AS "whatsappNumber",
@@ -88,10 +84,6 @@ router.patch('/footer', authenticate, requireAdmin, async (req, res, next) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Payment methods
-// ---------------------------------------------------------------------------
-
 router.get('/payment-methods', async (_req, res, next) => {
   try {
     const result = await pool.query(`SELECT id, name, enabled, detail FROM payment_methods ORDER BY name`);
@@ -131,10 +123,6 @@ router.put('/payment-methods', authenticate, requireAdmin, async (req, res, next
     return next(err);
   }
 });
-
-// ---------------------------------------------------------------------------
-// App settings (maintenance mode, currency, language)
-// ---------------------------------------------------------------------------
 
 router.get('/app', async (_req, res, next) => {
   try {

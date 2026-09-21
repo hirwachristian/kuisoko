@@ -84,7 +84,6 @@ const AdminLayout: React.FC = () => {
         }`}
       >
         <div className="flex flex-col gap-8 py-6 px-4">
-          {/* Logo/Brand */}
           <div className="flex items-center justify-between">
             <Link to="/admin">
               <KuISOKOAdminLogo />
@@ -116,7 +115,6 @@ const AdminLayout: React.FC = () => {
               </button>
             </div>
           </div>
-          {/* Navigation Links */}
           <nav className="flex flex-col gap-1">
             <Link 
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${isActive('/admin') && location.pathname === '/admin' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-emerald-50'}`} 
@@ -125,7 +123,6 @@ const AdminLayout: React.FC = () => {
               <LayoutDashboard size={20} className={`${isActive('/admin') && location.pathname === '/admin' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} />
               <p className="text-sm font-semibold">Dashboard Overview</p>
             </Link>
-            {/* New: Users Link */}
             <Link 
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${isActive('/admin/users') ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-emerald-50'}`} 
               to="/admin/users"
@@ -224,7 +221,6 @@ const AdminLayout: React.FC = () => {
             </button>
           </nav>
         </div>
-        {/* Profile & Logout */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div
@@ -286,7 +282,7 @@ const AdminLayout: React.FC = () => {
             </button>
           </div>
         </div>
-        <Outlet /> {/* Renders the child route component (e.g., AdminDashboardContent or AdminManageProducts) */}
+        <Outlet />
       </main>
       {/* Rendered outside <aside> deliberately - that sidebar is translated off-screen on mobile
           when closed, and CSS `transform` on an ancestor becomes the containing block for any

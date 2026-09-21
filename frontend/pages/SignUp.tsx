@@ -1,8 +1,6 @@
 
 
 import React, { useEffect, useState } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -11,7 +9,6 @@ import { apiFetch } from '../api';
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
 const SignUp: React.FC = () => {
-  // Removed translation usage
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');

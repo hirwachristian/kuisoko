@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, CreditCard, Settings, ChevronRight, Sliders } from 'lucide-react'; // Import Sliders icon for General Settings
+import { User, Shield, Bell, CreditCard, Settings, ChevronRight, Sliders } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const AdminSettingsLayout: React.FC = () => {
@@ -9,9 +9,8 @@ const AdminSettingsLayout: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAppContext();
 
-  // Redirect if not logged in or not an admin
   if (!user || user.role !== 'admin') {
-    navigate('/signin'); // Or show an unauthorized message
+    navigate('/signin');
     return null;
   }
 
@@ -42,7 +41,7 @@ const AdminSettingsLayout: React.FC = () => {
   const breadcrumbs = [
     { label: 'Settings', path: '/admin/settings/account-security' },
     { label: settingsNavItems.find(item => location.pathname.startsWith(item.path))?.label || '', path: location.pathname }
-  ].filter(crumb => crumb.label !== ''); // Filter out empty breadcrumbs if no match
+  ].filter(crumb => crumb.label !== '');
 
 
   return (
@@ -58,7 +57,6 @@ const AdminSettingsLayout: React.FC = () => {
       </header>
 
       <div className="max-w-[1200px] mx-auto w-full p-4 sm:p-6 lg:p-8 flex flex-col md:flex-row gap-8">
-        {/* Settings Sidebar */}
         <aside className="w-full md:w-72 flex-shrink-0 bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
           <h3 className="text-base font-bold text-slate-900 dark:text-emerald-50 mb-6">Manage your preferences</h3>
           <nav className="space-y-2">
@@ -81,9 +79,7 @@ const AdminSettingsLayout: React.FC = () => {
           </nav>
         </aside>
 
-        {/* Content Area for Nested Settings Routes */}
         <div className="flex-1">
-          {/* Breadcrumbs for internal settings pages */}
           <div className="flex items-center text-sm font-medium text-slate-500 dark:text-emerald-400 mb-6">
             {breadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
@@ -96,7 +92,7 @@ const AdminSettingsLayout: React.FC = () => {
               </React.Fragment>
             ))}
           </div>
-          <Outlet /> {/* Renders the specific settings component (Profile, Account Security, etc.) */}
+          <Outlet />
         </div>
       </div>
     </div>

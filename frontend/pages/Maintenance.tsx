@@ -4,7 +4,6 @@ import { Settings } from 'lucide-react';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
 
 const Maintenance: React.FC = () => {
-  // Removed translation usage
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-950 text-emerald-100 py-12 px-4 sm:px-6 lg:px-8 text-center">
       <KuISOKOLogoSVG className="h-20 w-auto mb-8" />

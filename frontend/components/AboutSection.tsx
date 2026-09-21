@@ -47,7 +47,6 @@ const AboutSection: React.FC = () => {
 
   return (
     <section id="about" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8" style={{ scrollMarginTop: 'var(--header-offset, 112px)' }}>
-      {/* Intro: image panel + copy */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16">
         <div className="aspect-[4/3] rounded-[2.5rem] bg-emerald-950 relative overflow-hidden shadow-2xl shadow-emerald-900/30">
           {ABOUT_IMAGES.map((src, idx) => (
@@ -97,7 +96,6 @@ const AboutSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Values */}
       <div className="mb-10 text-center">
         <span className="text-emerald-800 dark:text-emerald-400 font-black text-[10px] uppercase tracking-widest mb-1.5 block">{t('about_mission_title')}</span>
       </div>
@@ -113,7 +111,6 @@ const AboutSection: React.FC = () => {
         ))}
       </div>
 
-      {/* CTA */}
       <div className="bg-emerald-800 dark:bg-slate-900 rounded-[2.5rem] p-10 md:p-14 text-center relative overflow-hidden shadow-2xl shadow-emerald-900/30 dark:shadow-none">
         <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-orange-400/10 rounded-full blur-[60px]" />
         <h3 className="text-3xl md:text-4xl font-black text-white mb-3 tracking-tighter relative z-10">{t('about_cta_title')}</h3>

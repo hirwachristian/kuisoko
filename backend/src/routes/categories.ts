@@ -54,7 +54,6 @@ const createCategorySchema = z.object({
   nameKin: z.string().trim().optional(),
 });
 
-// POST /api/categories - admin: create a category
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = createCategorySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -74,7 +73,6 @@ router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   }
 });
 
-// PATCH /api/categories/:id - admin: rename a category
 router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = createCategorySchema.safeParse(req.body);
   if (!parsed.success) {
@@ -142,7 +140,6 @@ router.post('/:id/sections', authenticate, requireAdmin, async (req, res, next) 
   }
 });
 
-// PATCH /api/categories/:categoryId/sections/:sectionId - admin: update a section
 router.patch('/:categoryId/sections/:sectionId', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = sectionSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -162,7 +159,6 @@ router.patch('/:categoryId/sections/:sectionId', authenticate, requireAdmin, asy
   }
 });
 
-// DELETE /api/categories/:categoryId/sections/:sectionId - admin: delete a section
 router.delete('/:categoryId/sections/:sectionId', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(

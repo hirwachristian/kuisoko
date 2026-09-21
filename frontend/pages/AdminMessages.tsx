@@ -170,7 +170,6 @@ const AdminMessages: React.FC = () => {
             ))}
           </div>
 
-          {/* Selected conversation */}
           <div className={`${selectedUserId ? 'flex' : 'hidden sm:flex'} flex-1 flex-col min-w-0`}>
             {!selectedConversation ? (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 gap-3">

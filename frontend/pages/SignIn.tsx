@@ -1,12 +1,10 @@
 
 
 import React, { useEffect, useState } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Clock } from 'lucide-react';
-import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG'; // Import the new SVG logo component
-import { useAppContext } from '../context/AppContext'; // Import AppContext
+import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
+import { useAppContext } from '../context/AppContext';
 
 const formatLockoutTime = (totalSeconds: number) => {
   const minutes = Math.floor(totalSeconds / 60);
@@ -76,7 +74,7 @@ const SignIn: React.FC = () => {
       } else if (user.role === 'rider') {
         navigate('/rider');
       } else {
-        navigate('/'); // Redirect regular users to the homepage
+        navigate('/');
       }
     }
   }, [user, navigate]);
@@ -146,9 +144,8 @@ const SignIn: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100">
         <div>
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group justify-center">
-            <KuISOKOLogoSVG className="h-14 w-auto" /> {/* Integrated SVG Logo */}
+            <KuISOKOLogoSVG className="h-14 w-auto" />
           </Link>
           <h2 className="mt-10 text-center text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter">
             {t('auth_welcome_back')}

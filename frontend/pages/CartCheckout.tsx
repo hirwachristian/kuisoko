@@ -1,8 +1,6 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { Trash2, Plus, Minus, CreditCard, Truck, CheckCircle, ArrowRight, ShoppingBag, Smartphone, Mail, RotateCw } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -58,7 +56,6 @@ const CartCheckout: React.FC = () => {
   // Shipping fee - based on the delivery district, calculated once the address step is complete
   const [shipping, setShipping] = useState<{ fee: number; zoneName: string; isFreeShipping: boolean } | null>(null);
 
-  // Coupon code
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number } | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
@@ -68,7 +65,6 @@ const CartCheckout: React.FC = () => {
     ? [{ ...directBuy.directBuyProduct, quantity: directBuy.quantity }]
     : cart;
 
-  // All prices are in RWF
   const subtotal = checkoutItems.reduce((sum, item) => sum + (item.price * (1 - (item.discount || 0) / 100) * item.quantity), 0);
 
   const handleApplyCoupon = async () => {
@@ -483,7 +479,6 @@ const CartCheckout: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Stepper */}
           <div className="flex items-center justify-center mb-6 sm:mb-10">
             {[t('cart_step_cart'), t('cart_step_address'), t('cart_step_payment')].map((label, idx) => (
               <React.Fragment key={label}>
@@ -499,12 +494,10 @@ const CartCheckout: React.FC = () => {
             ))}
           </div>
 
-          {/* Checkout Steps */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
             <div className="lg:col-span-2 flex flex-col gap-6">
               {step === 1 && (
                 <>
-                  {/* Cart Items */}
                   <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-6 transition-colors duration-300">
                     <h2 className="flex items-center gap-2 text-lg sm:text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6">
                       <ShoppingBag size={20} className="sm:w-6 sm:h-6" /> {t('cart_your_cart')}
@@ -553,7 +546,6 @@ const CartCheckout: React.FC = () => {
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-8 shadow-sm transition-colors duration-300">
                   <h2 className="text-lg sm:text-2xl font-extrabold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6">{t('cart_payment')}</h2>
 
-                  {/* Payment Method Selection */}
                   <div className="mb-4 sm:mb-6">
                     <h3 className="text-sm sm:text-lg font-bold text-slate-800 dark:text-emerald-100 mb-3 sm:mb-4">{t('cart_select_payment_method')}</h3>
                     <div className="space-y-2.5 sm:space-y-3">
@@ -614,7 +606,6 @@ const CartCheckout: React.FC = () => {
               )}
             </div>
 
-            {/* Right: Order Summary */}
             <div>
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-8 shadow-md lg:sticky lg:top-[var(--header-offset,6rem)] transition-colors duration-300">
                 <h3 className="text-base sm:text-lg font-bold text-emerald-900 dark:text-emerald-50 mb-4 sm:mb-6 flex items-center gap-2">
@@ -633,7 +624,6 @@ const CartCheckout: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Coupon code */}
                 <div className="mb-4">
                   {appliedCoupon ? (
                     <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950 rounded-lg px-3 py-2">
@@ -706,7 +696,6 @@ const CartCheckout: React.FC = () => {
                   </button>
                 )}
               </div>
-              {/* ... security badges ... */}
             </div>
           </div>
         </>

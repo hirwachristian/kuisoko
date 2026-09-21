@@ -104,7 +104,6 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
 
   return (
     <div className="space-y-6">
-      {/* Bulk Generator */}
       <div className="p-4 border border-indigo-100 dark:border-indigo-900 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 space-y-4">
         <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-300 flex items-center gap-2"><Wand2 size={16} /> Bulk Generate Variants</h4>
         <div>
@@ -169,7 +168,6 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
                 </button>
               </div>
 
-              {/* Photo for this color */}
               {images.length > 0 ? (
                 <div>
                   <label className="text-xs text-slate-500 dark:text-slate-400 mb-1.5 block">Photo shown when a customer picks {color}</label>
@@ -199,7 +197,6 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
                 <p className="text-xs text-amber-600 dark:text-amber-400">Upload product images above to assign one to this color.</p>
               )}
 
-              {/* Sizes + stock for this color */}
               <div className="space-y-2">
                 <label className="text-xs text-slate-500 dark:text-slate-400 block">Sizes, price &amp; stock</label>
                 {colorVariants.map((variant) => (
@@ -241,7 +238,6 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
           ))}
         </div>
 
-        {/* Add a brand new color */}
         <div className="flex gap-2">
           <input
             type="text"

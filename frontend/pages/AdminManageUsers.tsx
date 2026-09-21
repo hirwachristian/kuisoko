@@ -48,7 +48,6 @@ const AdminManageUsers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Add User Modal State
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -57,7 +56,6 @@ const AdminManageUsers: React.FC = () => {
   const [showNewUserPassword, setShowNewUserPassword] = useState(false);
   const [addUserFormErrors, setAddUserFormErrors] = useState<Record<string, string>>({});
 
-  // Edit User Modal State
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingUserName, setEditingUserName] = useState('');
@@ -67,7 +65,6 @@ const AdminManageUsers: React.FC = () => {
   const [editingUserRole, setEditingUserRole] = useState<'user' | 'admin' | 'rider'>('user');
   const [editUserFormErrors, setEditUserFormErrors] = useState<Record<string, string>>({});
 
-  // Delete Confirmation Modal State
   const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
@@ -81,7 +78,6 @@ const AdminManageUsers: React.FC = () => {
         u.role.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    // Sort by name for consistency
     return currentUsers.sort((a, b) => a.name.localeCompare(b.name));
   }, [allUsers, searchQuery]);
 
@@ -117,7 +113,6 @@ const AdminManageUsers: React.FC = () => {
     );
   };
 
-  // --- Add User Functions ---
   const handleAddUserClick = () => {
     setNewUserName('');
     setNewUserEmail('');
@@ -165,7 +160,6 @@ const AdminManageUsers: React.FC = () => {
     }
   };
 
-  // --- Edit User Functions ---
   const handleEditUserClick = (user: User) => {
     setEditingUserId(user.id);
     setEditingUserName(user.name);
@@ -218,7 +212,6 @@ const AdminManageUsers: React.FC = () => {
     }
   };
 
-  // --- Delete User Functions ---
   const handleDeleteUserClick = (user: User) => {
     // Prevent admin from deleting their own account
     if (loggedInUser && loggedInUser.id === user.id) {
@@ -243,7 +236,6 @@ const AdminManageUsers: React.FC = () => {
     }
   };
 
-  // --- Active / Inactive Toggle ---
   const handleToggleActive = async (targetUser: User) => {
     if (loggedInUser && loggedInUser.id === targetUser.id) {
       showToast('You cannot deactivate your own account.', 'error');
@@ -264,7 +256,6 @@ const AdminManageUsers: React.FC = () => {
 
   return (
     <>
-      {/* Page Header */}
       <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
@@ -281,7 +272,6 @@ const AdminManageUsers: React.FC = () => {
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
-        {/* Search Input */}
         <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm mb-2 sm:mb-4 transition-colors duration-300">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
@@ -295,7 +285,6 @@ const AdminManageUsers: React.FC = () => {
             </div>
         </div>
 
-        {/* Users Table */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
@@ -413,7 +402,6 @@ const AdminManageUsers: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
           <AdminPagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -425,7 +413,6 @@ const AdminManageUsers: React.FC = () => {
         </div>
       </div>
 
-      {/* Add New User Modal */}
       {showAddUserModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -521,7 +508,6 @@ const AdminManageUsers: React.FC = () => {
         </div>
       )}
 
-      {/* Edit User Modal */}
       {showEditUserModal && editingUserId && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -618,7 +604,6 @@ const AdminManageUsers: React.FC = () => {
         </div>
       )}
 
-      {/* Delete User Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteUserConfirm}
         onClose={() => setShowDeleteUserConfirm(false)}

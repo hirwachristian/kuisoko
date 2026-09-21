@@ -56,11 +56,9 @@ const LinkForm: React.FC<{
 const AdminStoreConfiguration: React.FC = () => {
   const { showToast, token, footerSettings, updateFooterLocation, updateFooterPhoneNumber, updateFooterWhatsappNumber, updateFooterEmail, updateFooterQuickLinks, updateFooterSupportLinks, updateFooterCopyrightText, updateStoreCoordinates, isMaintenanceMode, toggleMaintenanceMode } = useAppContext();
 
-  // Shop Preferences States
   const [makeWishlistPublic, setMakeWishlistPublic] = useState(false);
   const [showBrowsingHistory, setShowBrowsingHistory] = useState(true);
 
-  // General Settings States
   const [locationInput, setLocationInput] = useState(footerSettings.locationLines.join('\n'));
   const [phoneNumberInput, setPhoneNumberInput] = useState(footerSettings.phoneNumber);
   const [whatsappNumberInput, setWhatsappNumberInput] = useState(footerSettings.whatsappNumber);
@@ -83,7 +81,6 @@ const AdminStoreConfiguration: React.FC = () => {
     showToast('Store configuration saved!', 'success');
   };
 
-  // --- Footer Links (Quick Links / Support Links) ---
   // Unlike the fields above (buffered locally, saved together via "Save Configuration"), links are
   // a list - each add/edit/delete is its own discrete action, so it saves immediately, the same
   // way the Shipping Zones list below already works.
@@ -103,7 +100,6 @@ const AdminStoreConfiguration: React.FC = () => {
     (type === 'quick' ? updateFooterQuickLinks : updateFooterSupportLinks)(current.filter((_, i) => i !== index));
   };
 
-  // --- Shipping Zones ---
   const [zones, setZones] = useState<ShippingZone[]>([]);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('');
   const [newZoneName, setNewZoneName] = useState('');
@@ -202,7 +198,6 @@ const AdminStoreConfiguration: React.FC = () => {
         <p className="text-slate-600 dark:text-emerald-300 text-sm max-w-xl">Manage localization, branding, and store-wide preferences.</p>
       </div>
 
-      {/* Localization */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Localization</h3>
         <div className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 font-semibold">
@@ -211,7 +206,6 @@ const AdminStoreConfiguration: React.FC = () => {
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">KuISOKO currently operates in Rwandan Francs only.</p>
       </div>
 
-      {/* Shipping Zones */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-2 flex items-center gap-2"><Truck size={20} /> Shipping Zones</h3>
         <p className="text-sm text-slate-500 dark:text-emerald-300 mb-6">Set a flat shipping fee per set of districts. Orders from a district not listed in any zone use the default zone's fee.</p>
@@ -278,7 +272,6 @@ const AdminStoreConfiguration: React.FC = () => {
         </div>
       </div>
 
-      {/* Storefront Customization */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Contact & Storefront</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">

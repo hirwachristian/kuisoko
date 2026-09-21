@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, PropsWithChildren, useEffect, useRef, useMemo } from 'react';
-import { Product, CartItem, User as UserType, Category, Order, FooterLink, ReviewNotification, SubscriberNotification, Enquiry, ReturnRequestNotification } from '../types'; // Import Order and FooterLink
+import { Product, CartItem, User as UserType, Category, Order, FooterLink, ReviewNotification, SubscriberNotification, Enquiry, ReturnRequestNotification } from '../types';
 import { apiFetch, ApiError } from '../api';
 import {
   CategorySection,
@@ -64,7 +64,6 @@ interface AppContextType {
   addCategorySection: (categoryName: string, sectionTitle: string, items: string[], sectionTitleKin?: string, itemsKin?: string[]) => Promise<boolean>;
   updateCategorySection: (categoryName: string, oldSectionTitle: string, newSection: CategorySection) => Promise<boolean>;
   deleteCategorySection: (categoryName: string, sectionTitle: string) => Promise<boolean>;
-  // Product Management
   products: Product[];
   popularProductIds: Set<string>; // Most-reviewed product id within each category, for the "Popular" badge
   refreshProduct: (productId: string) => Promise<void>;
@@ -72,55 +71,50 @@ interface AppContextType {
   addProduct: (newProduct: Omit<Product, 'id' | 'rating' | 'reviews'>) => Promise<boolean>;
   updateProduct: (updatedProduct: Product) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
-  // Order Management
-  orders: Order[]; // New: orders state
+  orders: Order[];
   // Subtotal/shipping/tax/total are computed server-side from items + delivery district; only pass the inputs.
   addOrder: (orderInput: { customerName: string; deliveryAddress: Order['deliveryAddress']; items: CartItem[]; currency?: string; paymentMethod?: string; couponCode?: string; verificationToken?: string }) => Promise<Order | null>;
-  updateOrder: (updatedOrder: Order) => Promise<boolean>; // New: updateOrder function
-  deleteOrder: (orderId: string) => Promise<boolean>; // New: deleteOrder function
+  updateOrder: (updatedOrder: Order) => Promise<boolean>;
+  deleteOrder: (orderId: string) => Promise<boolean>;
   confirmOrderPayment: (orderId: string) => Promise<boolean>;
   assignRider: (orderId: string, riderId: string | null) => Promise<boolean>;
-  unreadOrderCount: number; // New: count of pending orders
-  unreadUserCount: number; // New: count of unread users
+  unreadOrderCount: number; // count of pending orders
+  unreadUserCount: number; // count of unread users
   unreadReviewCount: number; // count of unread review notifications
   unreadSubscriberCount: number; // count of unread new-subscriber notifications
   unreadReturnRequestCount: number; // count of unread (pending) return requests
   chatAdminUnreadCount: number; // count of unread customer chat messages, across every conversation
   enquiryUnreadCount: number; // count of unread Contact Us submissions (admin sidebar badge)
-  unreadNotificationCount: number; // New: count of pending orders + unread users + unread reviews + unread subscribers + unread chat messages
+  unreadNotificationCount: number; // count of pending orders + unread users + unread reviews + unread subscribers + unread chat messages
   reviewNotifications: ReviewNotification[]; // recent reviews across all products, for the notification bell
   subscriberNotifications: SubscriberNotification[]; // recent newsletter signups, for the notification bell
   returnRequestNotifications: ReturnRequestNotification[]; // pending/recent return requests, for the notification bell
   markReturnRequestAsRead: (id: string) => Promise<void>;
   requestReturn: (orderId: string, reason: string) => Promise<boolean>;
   acknowledgeReturnResult: (returnRequestId: string) => Promise<void>;
-  markUserAsRead: (userId: string) => Promise<void>; // New: mark user as read
-  markOrderAsRead: (orderId: string) => Promise<void>; // New: mark order as read
+  markUserAsRead: (userId: string) => Promise<void>;
+  markOrderAsRead: (orderId: string) => Promise<void>;
   markRiderStopAlertAsRead: (orderId: string) => Promise<void>;
   markDeliveryConfirmedAsRead: (orderId: string) => Promise<void>;
   markReviewAsRead: (reviewId: string) => Promise<void>;
   markSubscriberAsRead: (subscriberId: string) => Promise<void>;
-  markAllNotificationsAsRead: () => Promise<void>; // New: mark all notifications as read
-  hiddenNotificationIds: string[]; // New: list of hidden/deleted notification IDs
-  hideNotification: (id: string) => Promise<void>; // New: hide notification
-  bulkHideNotifications: (ids: string[]) => Promise<void>; // New: bulk hide notifications
+  markAllNotificationsAsRead: () => Promise<void>;
+  hiddenNotificationIds: string[];
+  hideNotification: (id: string) => Promise<void>;
+  bulkHideNotifications: (ids: string[]) => Promise<void>;
   // Newsletter ("Join our inner circle") - requires a signed-in account
   isSubscribed: boolean;
   subscribeToNewsletter: () => Promise<boolean>;
   unsubscribeFromNewsletter: () => Promise<boolean>;
-  // Site-wide announcement banner
   siteAnnouncements: SiteAnnouncement[];
-  // User Management (All Users)
-  allUsers: UserType[]; // New: all users state for admin panel
+  allUsers: UserType[];
   addUser: (newUser: Omit<UserType, 'id' | 'username'> & { username?: string; password?: string }) => Promise<void>;
   updateUser: (updatedUser: Partial<UserType> & { id: string }) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  // Toast Notification System
   toastMessage: string | null;
   toastType: 'success' | 'error' | 'info' | null;
   showToast: (message: string, type: 'success' | 'error' | 'info') => void;
   hideToast: () => void;
-  // Footer Settings
   footerSettings: {
     locationLines: string[];
     phoneNumber: string;
@@ -143,30 +137,21 @@ interface AppContextType {
   // Admin Profile Management (for the currently logged-in admin)
   updateCurrentUser: (updatedUser: Partial<UserType>) => Promise<void>;
   deleteCurrentUser: () => void;
-  // Maintenance Mode
   isMaintenanceMode: boolean;
   toggleMaintenanceMode: (enable: boolean) => void;
-  // Pricing (RWF only)
   getFormattedPrice: (price: number) => string; // Formats a stored RWF amount for display
-  // Payment Methods
   paymentMethods: { name: string, enabled: boolean, detail: string }[];
   updatePaymentMethods: (methods: { name: string, enabled: boolean, detail: string }[]) => Promise<boolean>;
-  // Wishlist
   wishlist: string[];
   toggleWishlist: (productId: string) => void;
-  // FAQ Modal state
   isFAQOpen: boolean;
   toggleFAQ: () => void;
-  // Shipping Policy Modal state
   isShippingPolicyOpen: boolean;
   toggleShippingPolicy: () => void;
-  // Terms of Service Modal state
   isTermsOfServiceOpen: boolean;
   toggleTermsOfService: () => void;
-  // Privacy Policy Modal state
   isPrivacyPolicyOpen: boolean;
   togglePrivacyPolicy: () => void;
-  // Theme Management
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   language: Language;
@@ -554,7 +539,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { cancelled = true; };
   }, []);
 
-  // Maintenance Mode State
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
     const savedMaintenanceMode = localStorage.getItem('kuisoko-maintenance-mode');
     try {
@@ -665,23 +649,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // FAQ Modal State
   const [isFAQOpen, setIsFAQOpen] = useState(false);
   const toggleFAQ = () => setIsFAQOpen(prev => !prev);
 
-  // Shipping Policy Modal State
   const [isShippingPolicyOpen, setIsShippingPolicyOpen] = useState(false);
   const toggleShippingPolicy = () => setIsShippingPolicyOpen(prev => !prev);
 
-  // Terms of Service Modal State
   const [isTermsOfServiceOpen, setIsTermsOfServiceOpen] = useState(false);
   const toggleTermsOfService = () => setIsTermsOfServiceOpen(prev => !prev);
 
-  // Privacy Policy Modal State
   const [isPrivacyPolicyOpen, setIsPrivacyPolicyOpen] = useState(false);
   const togglePrivacyPolicy = () => setIsPrivacyPolicyOpen(prev => !prev);
 
-  // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('kuisoko-theme') as 'light' | 'dark') || 'light';
   });
@@ -695,7 +674,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
-  // Language State (storefront only - EN/KIN)
+  // Storefront only (EN/KIN) - the admin UI itself is not localized
   const [language, setLanguageState] = useState<Language>(() => {
     return (localStorage.getItem('kuisoko-language') as Language) || 'en';
   });
@@ -713,7 +692,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
-  // Toast Notification State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
@@ -956,7 +934,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [token]);
 
 
-  // Save maintenance mode to localStorage
   useEffect(() => {
     localStorage.setItem('kuisoko-maintenance-mode', JSON.stringify(isMaintenanceMode));
   }, [isMaintenanceMode]);
@@ -1159,7 +1136,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Category Management Functions
   const addCategory = async (name: string, nameKin?: string): Promise<boolean> => {
     try {
       const { category } = await apiFetch<{ category: { id: string; name: string; nameKin?: string } }>('/categories', {
@@ -1271,7 +1247,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Product Management Functions
   const refreshProduct = async (productId: string) => {
     try {
       const { product } = await apiFetch<{ product: Product }>(`/products/${productId}`);
@@ -1335,7 +1310,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Order Management Functions
   const addOrder = async (orderInput: { customerName: string; deliveryAddress: Order['deliveryAddress']; items: CartItem[]; currency?: string; paymentMethod?: string; couponCode?: string; verificationToken?: string }): Promise<Order | null> => {
     try {
       const { order } = await apiFetch<{ order: Order }>('/orders', {
@@ -1422,7 +1396,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // New: User Management Functions
   const addUser = async (newUser: Omit<UserType, 'id'> & { password?: string }) => {
     try {
       const { user: created } = await apiFetch<{ user: UserType }>('/users', {
@@ -1594,7 +1567,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Maintenance Mode Functions
   const toggleMaintenanceMode = (enable: boolean) => {
     setIsMaintenanceMode(enable);
     showToast(
@@ -1621,7 +1593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       orders, addOrder, updateOrder, deleteOrder, confirmOrderPayment, assignRider, unreadNotificationCount, unreadOrderCount, unreadUserCount, unreadReviewCount, unreadSubscriberCount, unreadReturnRequestCount, chatAdminUnreadCount, enquiryUnreadCount, reviewNotifications, subscriberNotifications, returnRequestNotifications, markUserAsRead, markOrderAsRead, markRiderStopAlertAsRead, markDeliveryConfirmedAsRead, markReviewAsRead, markSubscriberAsRead, markReturnRequestAsRead, requestReturn, acknowledgeReturnResult, markAllNotificationsAsRead,
       hiddenNotificationIds, hideNotification, bulkHideNotifications,
       isSubscribed, subscribeToNewsletter, unsubscribeFromNewsletter, siteAnnouncements,
-      allUsers, addUser, updateUser, deleteUser, // New: User management functions
+      allUsers, addUser, updateUser, deleteUser,
       toastMessage, toastType, showToast, hideToast,
       footerSettings,
       updateFooterLocation, updateFooterPhoneNumber, updateFooterWhatsappNumber, updateFooterEmail,

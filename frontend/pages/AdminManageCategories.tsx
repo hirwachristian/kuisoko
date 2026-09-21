@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, X, Wand2, Loader2 } from 'lucide-react'; // Import icons
+import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, X, Wand2, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { CategorySection } from '../constants'; // Import CategorySection interface
-import ConfirmationModal from '../components/ConfirmationModal'; // Import ConfirmationModal
+import { CategorySection } from '../constants';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { apiFetch, ApiError } from '../api';
 
 const AdminManageCategories: React.FC = () => {
@@ -19,7 +19,6 @@ const AdminManageCategories: React.FC = () => {
     deleteCategorySection,
     token,
     showToast,
-    // Removed translate
   } = useAppContext();
 
   // Fetches Kinyarwanda suggestions for a batch of English strings - a *suggestion* only, never
@@ -41,7 +40,6 @@ const AdminManageCategories: React.FC = () => {
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
-  // Modals state
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryNameKin, setNewCategoryNameKin] = useState('');
@@ -70,7 +68,6 @@ const AdminManageCategories: React.FC = () => {
   const [editingSubCategorySectionItemsKin, setEditingSubCategorySectionItemsKin] = useState('');
   const [editingSubCategoryError, setEditingSubCategoryError] = useState('');
 
-  // Delete Confirmation Modals
   const [showDeleteCategoryConfirm, setShowDeleteCategoryConfirm] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState('');
 
@@ -146,7 +143,6 @@ const AdminManageCategories: React.FC = () => {
     applyItems(itemsKinArray.join(', '));
   };
 
-  // --- Category Handlers ---
   const handleAddCategoryClick = () => {
     setNewCategoryName('');
     setNewCategoryNameKin('');
@@ -200,7 +196,6 @@ const AdminManageCategories: React.FC = () => {
     setCategoryToDelete('');
   };
 
-  // --- Sub-Category Section Handlers ---
   // Comma-separated items/itemsKin are entered as two parallel free-text lists - lines them up by
   // position so itemsKin[i] stays the translation of items[i], dropping only slots where the
   // English item itself is blank (same as the original filter(item => item) behavior).
@@ -259,7 +254,6 @@ const AdminManageCategories: React.FC = () => {
       return;
     }
 
-    // Check for duplicate title if it changed
     if (editingSubCategorySectionTitle.toLowerCase() !== editingSubCategoryOldSectionTitle.toLowerCase() &&
         categoryHierarchy[editingSubCategoryCategoryName]?.some(s => s.title.toLowerCase() === editingSubCategorySectionTitle.toLowerCase())) {
       setEditingSubCategoryError(`Section "${editingSubCategorySectionTitle}" already exists in category "${editingSubCategoryCategoryName}".`);
@@ -297,7 +291,6 @@ const AdminManageCategories: React.FC = () => {
 
   return (
     <>
-      {/* Page Header */}
       <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
@@ -314,7 +307,6 @@ const AdminManageCategories: React.FC = () => {
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
-        {/* Categories List Table */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
@@ -344,7 +336,6 @@ const AdminManageCategories: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-slate-600 dark:text-emerald-200">
-                        {/* Ensure categoryHierarchy[category] is an array */}
                         {(categoryHierarchy[category] || []).length > 0
                           ? `${(categoryHierarchy[category] || []).length} Sections`
                           : "No sections"}
@@ -383,7 +374,6 @@ const AdminManageCategories: React.FC = () => {
                             </button>
                           </div>
                           <div className="pl-6 sm:pl-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-3 sm:gap-y-4 gap-x-4 sm:gap-x-6">
-                            {/* Use (categoryHierarchy[category] || []) to ensure it's always an array */}
                             {(categoryHierarchy[category] || []).length > 0 ? (
                               (categoryHierarchy[category] || []).map(section => (
                                 <div key={section.title} className="text-sm border border-slate-100 dark:border-slate-800 rounded-lg p-4 bg-white dark:bg-slate-900 shadow-sm transition-colors duration-300">
@@ -433,7 +423,6 @@ const AdminManageCategories: React.FC = () => {
 
       </div>
 
-      {/* Add New Category Modal */}
       {showAddCategoryModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -494,7 +483,6 @@ const AdminManageCategories: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Category Modal */}
       {showEditCategoryModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-md shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -555,7 +543,6 @@ const AdminManageCategories: React.FC = () => {
         </div>
       )}
 
-      {/* Add New Sub-Category Section Modal */}
       {showAddSubCategorySectionModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -640,7 +627,6 @@ const AdminManageCategories: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Sub-Category Section Modal */}
       {showEditSubCategorySectionModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-lg shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -723,7 +709,6 @@ const AdminManageCategories: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Category Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteCategoryConfirm}
         onClose={() => setShowDeleteCategoryConfirm(false)}
@@ -733,7 +718,6 @@ const AdminManageCategories: React.FC = () => {
         confirmButtonText="Delete Category"
       />
 
-      {/* Delete Sub-Category Section Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteSectionConfirm}
         onClose={() => setShowDeleteSectionConfirm(false)}

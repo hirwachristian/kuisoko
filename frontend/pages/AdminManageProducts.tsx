@@ -22,7 +22,6 @@ const AdminManageProducts: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Bulk CSV import/export
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [csvImportResult, setCsvImportResult] = useState<{ created: number; updated: number; errors: { row: number; message: string }[] } | null>(null);
@@ -75,7 +74,6 @@ const AdminManageProducts: React.FC = () => {
     }
   };
 
-  // Add Product Modal State
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductDescription, setNewProductDescription] = useState('');
@@ -95,7 +93,6 @@ const AdminManageProducts: React.FC = () => {
   const [newProductImageDetails, setNewProductImageDetails] = useState<Record<string, { name?: string; description?: string }>>({});
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
 
-  // Edit Product Modal State
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editingProductName, setEditingProductName] = useState('');
@@ -116,7 +113,6 @@ const AdminManageProducts: React.FC = () => {
   const [editingProductImageDetails, setEditingProductImageDetails] = useState<Record<string, { name?: string; description?: string }>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
 
-  // Delete Confirmation Modal State
   const [showDeleteProductConfirm, setShowDeleteProductConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
@@ -244,7 +240,6 @@ const AdminManageProducts: React.FC = () => {
   }, []);
 
 
-  // --- Add Product Functions ---
 
   const handleAddProductClick = () => {
     setNewProductName('');
@@ -271,14 +266,11 @@ const AdminManageProducts: React.FC = () => {
     if (!newProductCategory) errors.category = 'Category is required.';
     if (!newProductSubCategory) errors.subCategory = 'Sub-category is required.';
     if (newProductImagePreviews.length === 0) errors.images = 'At least one product image is required.';
-    // Validate price as a number
     const priceNum = parseFloat(newProductPrice);
     if (isNaN(priceNum) || priceNum <= 0) errors.price = 'Valid price is required.';
-    // Validate stock as an integer
     const stockNum = parseInt(newProductStock);
     if (isNaN(stockNum) || stockNum < 0) errors.stock = 'Valid stock quantity is required.';
     
-    // Validate discount (0-100)
     const discountNum = parseFloat(newProductDiscount);
     if (isNaN(discountNum) || discountNum < 0 || discountNum > 100) errors.discount = 'Discount must be between 0 and 100.';
 
@@ -325,7 +317,6 @@ const AdminManageProducts: React.FC = () => {
   }, [newProductCategory, categoryHierarchy]);
 
 
-  // --- Edit Product Functions ---
   const handleEditProductClick = (product: Product) => {
     setEditingProductId(product.id);
     setEditingProductName(product.name);
@@ -353,14 +344,11 @@ const AdminManageProducts: React.FC = () => {
     if (!editingProductCategory) errors.category = 'Category is required.';
     if (!editingProductSubCategory) errors.subCategory = 'Sub-category is required.';
     if (editingProductImagePreviews.length === 0) errors.images = 'At least one product image is required.';
-    // Validate price as a number
     const priceNum = parseFloat(editingProductPrice);
     if (isNaN(priceNum) || priceNum <= 0) errors.price = 'Valid price is required.';
-    // Validate stock as an integer
     const stockNum = parseInt(editingProductStock);
     if (isNaN(stockNum) || stockNum < 0) errors.stock = 'Valid stock quantity is required.';
     
-    // Validate discount (0-100)
     const discountNum = parseFloat(editingProductDiscount);
     if (isNaN(discountNum) || discountNum < 0 || discountNum > 100) errors.discount = 'Discount must be between 0 and 100.';
 
@@ -415,7 +403,6 @@ const AdminManageProducts: React.FC = () => {
   }, [editingProductCategory, categoryHierarchy]);
 
 
-  // --- Delete Product Functions ---
   const handleDeleteProductClick = (product: Product) => {
     setProductToDelete(product);
     setShowDeleteProductConfirm(true);
@@ -432,7 +419,6 @@ const AdminManageProducts: React.FC = () => {
 
   return (
     <>
-      {/* Page Header */}
       <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 sticky top-0 z-10 transition-colors duration-300">
         <div className="flex flex-wrap justify-between items-end gap-3 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-1">
@@ -472,7 +458,6 @@ const AdminManageProducts: React.FC = () => {
         </div>
       </header>
 
-      {/* CSV Import Results */}
       {csvImportResult && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
@@ -503,7 +488,6 @@ const AdminManageProducts: React.FC = () => {
       )}
 
       <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 max-w-[1200px] mx-auto w-full dark:bg-slate-950 transition-colors duration-300">
-        {/* Category Filters */}
         <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             onClick={() => { setActiveCategory(null); setCurrentPage(1); }}
@@ -522,7 +506,6 @@ const AdminManageProducts: React.FC = () => {
           ))}
         </div>
 
-        {/* Products Table */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors duration-300">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
@@ -606,7 +589,6 @@ const AdminManageProducts: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
           <AdminPagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -618,7 +600,6 @@ const AdminManageProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* Add New Product Modal */}
       {showAddProductModal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -653,9 +634,9 @@ const AdminManageProducts: React.FC = () => {
                 <label htmlFor="productPrice" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Price (RWF)</label>
                 <input
                   id="productPrice"
-                  type="text" // Changed to text to avoid browser locale issues with type="number"
-                  inputMode="numeric" // Suggest numeric keyboard on mobile
-                  pattern="[0-9]*[.]?[0-9]*" // Pattern to allow decimals
+                  type="text" // avoids browser locale issues with type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*[.]?[0-9]*"
                   placeholder="0.00"
                   value={newProductPrice}
                   onChange={(e) => { setNewProductPrice(e.target.value); setAddFormErrors(prev => ({ ...prev, price: '' })); }}
@@ -863,7 +844,6 @@ const AdminManageProducts: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Product Modal */}
       {showEditProductModal && editingProductId && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 w-full max-w-2xl shadow-xl border border-slate-100 dark:border-slate-800 relative">
@@ -898,7 +878,7 @@ const AdminManageProducts: React.FC = () => {
                 <label htmlFor="editProductPrice" className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-emerald-300 mb-1.5 sm:mb-2">Price (RWF)</label>
                 <input
                   id="editProductPrice"
-                  type="text" // Changed to text
+                  type="text"
                   inputMode="numeric"
                   pattern="[0-9]*[.]?[0-9]*"
                   placeholder="0.00"
@@ -1108,7 +1088,6 @@ const AdminManageProducts: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Product Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteProductConfirm}
         onClose={() => setShowDeleteProductConfirm(false)}

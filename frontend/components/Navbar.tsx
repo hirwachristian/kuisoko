@@ -4,13 +4,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingCart, User, Search, Menu, X, LayoutDashboard, LogIn, LogOut, Heart, MoreVertical, HelpCircle, Truck, Lock, FileText, Camera, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useCartFly } from '../context/CartFlyContext';
-import KuISOKOLogoSVG from './KuISOKOLogoSVG'; // Import the new SVG logo component
+import KuISOKOLogoSVG from './KuISOKOLogoSVG';
 import LanguageSwitcher from './LanguageSwitcher';
 import Banner from './Banner';
 import { getInitials } from '../utils';
@@ -390,9 +388,8 @@ const Navbar = () => {
       <nav className="relative bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-1 sm:px-1.5 lg:px-1.5">
         <div className="flex justify-between items-center h-20 gap-1">
-          {/* Logo */}
           <Link to="/" className="flex items-center shrink-0">
-            <KuISOKOLogoSVG className="h-7 lg:h-8 w-auto" /> {/* Integrated SVG Logo, isDarkMode prop removed */}
+            <KuISOKOLogoSVG className="h-7 lg:h-8 w-auto" />
           </Link>
 
           {/* Desktop Search Input - only at lg+, where there's room; phones and tablets use the mobile menu's search instead */}
@@ -606,10 +603,8 @@ const Navbar = () => {
       </div>
 
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="lg:hidden bg-white border-t border-slate-200 fade-in absolute top-20 left-0 w-full h-[calc(100vh_-_80px)] overflow-y-auto overscroll-contain z-40">
-           {/* Mobile Search Input */}
           <div className="p-6 pb-0">
            <div className="relative">
             <button

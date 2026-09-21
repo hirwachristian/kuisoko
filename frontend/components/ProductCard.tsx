@@ -1,7 +1,5 @@
 
 import React, { useRef, useState } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCart, Star, Heart } from 'lucide-react';
 import { Product } from '../types';

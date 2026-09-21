@@ -58,7 +58,6 @@ const ContactSection: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Contact info cards */}
         <div className="space-y-4">
           {infoCards.map((card, i) => (
             <a
@@ -79,7 +78,6 @@ const ContactSection: React.FC = () => {
           ))}
         </div>
 
-        {/* Contact form */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

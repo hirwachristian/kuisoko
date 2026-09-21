@@ -8,7 +8,6 @@ import { apiFetch, ApiError } from '../api';
 const AdminAccountAndSecurity: React.FC = () => {
   const { user, token, updateCurrentUser, showToast, logout, start2FASetup, confirm2FASetup } = useAppContext();
 
-  // Profile States
   const [adminNameInput, setAdminNameInput] = useState(user?.name || '');
   const [adminEmailInput, setAdminEmailInput] = useState(user?.email || '');
   const [adminPhoneNumberInput, setAdminPhoneNumberInput] = useState('+250 788 123 456');
@@ -18,7 +17,6 @@ const AdminAccountAndSecurity: React.FC = () => {
   const [adminProfileImagePreview, setAdminProfileImagePreview] = useState<string | null>(user?.profileImage || null);
   const [adminProfileErrors, setAdminProfileErrors] = useState<{ name?: string; email?: string; phoneNumber?: string; bio?: string; country?: string; city?: string; profileImage?: string }>({});
 
-  // Password States
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -49,16 +47,13 @@ const AdminAccountAndSecurity: React.FC = () => {
     setAdminProfileImagePreview(user?.profileImage || null);
   }, [user]);
 
-  // --- Handlers ---
   const handleUpdateAdminProfile = async () => {
-    // Basic validation and update
     await updateCurrentUser({
       name: adminNameInput.trim(),
       email: adminEmailInput.trim(),
     });
   };
 
-  // --- Avatar Handlers ---
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
@@ -124,13 +119,11 @@ const AdminAccountAndSecurity: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Account & Security Header */}
       <div>
         <h2 className="text-3xl font-black text-slate-900 dark:text-emerald-50 mb-2">Account & Security</h2>
         <p className="text-slate-600 dark:text-emerald-300 text-sm max-w-xl">Manage your public profile, password, 2FA, and device sessions.</p>
       </div>
 
-      {/* Profile Section */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h3 className="text-xl font-bold text-slate-900 dark:text-emerald-50 mb-6">Profile Details</h3>
 
@@ -187,7 +180,6 @@ const AdminAccountAndSecurity: React.FC = () => {
         <button onClick={handleUpdateAdminProfile} className="mt-6 px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95">Update Profile</button>
       </div>
 
-      {/* Security Section (Change Password & 2FA) */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-2">Two-Factor Authentication</h3>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-xl">

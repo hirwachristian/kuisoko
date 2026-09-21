@@ -328,7 +328,6 @@ async function createProduct(data: z.infer<typeof productSchema>) {
   return productId;
 }
 
-// POST /api/products - admin: create a product
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -422,7 +421,6 @@ async function updateProduct(id: string, data: z.infer<typeof productUpdateSchem
   }
 }
 
-// PATCH /api/products/:id - admin: update a product
 router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = productUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -612,7 +610,6 @@ router.post('/search-by-image', imageSearchLimiter, imageSearchUpload.single('im
   }
 });
 
-// DELETE /api/products/:id - admin: delete a product
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(`DELETE FROM products WHERE id = $1`, [req.params.id]);
@@ -629,7 +626,6 @@ const reviewSchema = z.object({
   image: z.string().optional(),
 });
 
-// POST /api/products/:id/reviews - authenticated: add a review
 router.post('/:id/reviews', authenticate, async (req, res, next) => {
   const parsed = reviewSchema.safeParse(req.body);
   if (!parsed.success) {

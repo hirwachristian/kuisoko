@@ -11,7 +11,6 @@ const AdminBusinessAndNotifications: React.FC = () => {
   const [banners, setBanners] = useState(contextBanners);
   useEffect(() => { setBanners(contextBanners); }, [contextBanners]);
 
-  // Notifications State
   const [emailOrderUpdates, setEmailOrderUpdates] = useState(true);
   const [marketingEmailsEnabled, setMarketingEmailsEnabled] = useState(true);
   const [isSavingToggle, setIsSavingToggle] = useState(false);
@@ -50,7 +49,6 @@ const AdminBusinessAndNotifications: React.FC = () => {
     showToast('Business & Notification settings saved!', 'success');
   };
 
-  // Announcement composer state
   const [announcementSubject, setAnnouncementSubject] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [showAsBanner, setShowAsBanner] = useState(false);

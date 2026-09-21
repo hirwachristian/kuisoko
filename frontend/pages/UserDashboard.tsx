@@ -82,7 +82,6 @@ const UserDashboard: React.FC = () => {
 
   const wishlistProducts = products.filter(p => wishlist.includes(p.id));
 
-  // --- Profile Settings ---
   const [fullName, setFullName] = useState(user?.name || '');
   const [username, setUsername] = useState(user?.username || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
@@ -136,7 +135,7 @@ const UserDashboard: React.FC = () => {
     setIsSavingProfile(false);
   };
 
-  // --- Change Email (requires verifying the new address before it takes effect) ---
+  // Requires verifying the new address before it takes effect
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [isRequestingEmailChange, setIsRequestingEmailChange] = useState(false);
@@ -161,9 +160,8 @@ const UserDashboard: React.FC = () => {
     }
   };
 
-  // --- Change Password (PATCH /users/me only checks currentPassword against the stored hash
-  // when a new `password` is present in the body, so this reuses that same endpoint rather than
-  // needing a dedicated route) ---
+  // PATCH /users/me only checks currentPassword against the stored hash when a new `password`
+  // is present in the body, so this reuses that same endpoint rather than needing a dedicated route
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -201,7 +199,6 @@ const UserDashboard: React.FC = () => {
     }
   };
 
-  // --- Address Book ---
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressDraft, setAddressDraft] = useState(user?.address || '');
   const [isSavingAddress, setIsSavingAddress] = useState(false);
@@ -337,7 +334,6 @@ const UserDashboard: React.FC = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FBF8F2] dark:bg-slate-950 text-slate-900 dark:text-emerald-50 transition-colors duration-300">
-      {/* Mobile drawer backdrop */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
@@ -351,7 +347,6 @@ const UserDashboard: React.FC = () => {
       </aside>
 
       <main ref={mainRef} className="flex-1 min-w-0 flex flex-col overflow-y-auto overscroll-y-contain">
-        {/* Mobile-only top bar */}
         <div className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-30">
           <Link to="/" className="shrink-0">
             <KuISOKOLogoSVG className="h-6 w-auto" />

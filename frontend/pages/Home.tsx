@@ -95,7 +95,6 @@ const Home: React.FC = () => {
 
   return (
     <div className="space-y-20 pb-24">
-      {/* Hero Slider */}
       <section className="relative h-[650px] overflow-hidden bg-emerald-950">
         {/* One-time entrance on page load, separate from the ongoing slide-rotation cross-fade
             nested inside it - this only ever plays once, when the hero first mounts. */}
@@ -163,7 +162,6 @@ const Home: React.FC = () => {
             </div>
           </div>
         </motion.div>
-        {/* Indicators */}
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex gap-3">
           {HERO_SLIDES.map((_, idx) => (
             <button
@@ -175,7 +173,6 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Categories */}
       <motion.section {...REVEAL_PROPS} className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex justify-between items-end mb-10">
           <div>
@@ -210,7 +207,6 @@ const Home: React.FC = () => {
         </div>
       </motion.section>
 
-      {/* Featured Products Section */}
       {featuredProducts.length > 0 && (
         <motion.section {...REVEAL_PROPS} className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="flex flex-col mb-10">

@@ -2,8 +2,6 @@
 
 
 import React, { Suspense, lazy } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import Navbar from './Navbar';
@@ -17,7 +15,7 @@ import CartCheckout from '../pages/CartCheckout';
 import Wishlist from '../pages/Wishlist';
 import SignIn from '../pages/SignIn';
 import SignUp from '../pages/SignUp';
-import Maintenance from '../pages/Maintenance'; // New: Import Maintenance page
+import Maintenance from '../pages/Maintenance';
 
 // Everything below is only ever needed after a login, a password-reset link, or a visit to
 // /admin - splitting it into its own chunks keeps the first page a regular shopper loads (Home,
@@ -43,13 +41,13 @@ const ConfirmEmailChange = lazy(() => import('../pages/ConfirmEmailChange'));
 const Unsubscribe = lazy(() => import('../pages/Unsubscribe'));
 const RiderDashboard = lazy(() => import('../pages/RiderDashboard'));
 const GroupOrderPage = lazy(() => import('../pages/GroupOrderPage'));
-import FAQModal from './FAQModal'; // New: Import FAQModal
-import ShippingPolicyModal from './ShippingPolicyModal'; // New: Import ShippingPolicyModal
-import TermsOfServiceModal from './TermsOfServiceModal'; // New: Import TermsOfServiceModal
-import PrivacyPolicyModal from './PrivacyPolicyModal'; // New: Import PrivacyPolicyModal
-import ToastNotification from './ToastNotification'; // Import ToastNotification
+import FAQModal from './FAQModal';
+import ShippingPolicyModal from './ShippingPolicyModal';
+import TermsOfServiceModal from './TermsOfServiceModal';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
+import ToastNotification from './ToastNotification';
 import ChatWidget from './ChatWidget';
-import { useAppContext } from '../context/AppContext'; // Import useAppContext
+import { useAppContext } from '../context/AppContext';
 
 const RouteLoadingFallback: React.FC = () => (
   <div className="flex-1 flex items-center justify-center py-24">
@@ -89,7 +87,6 @@ const MainLayout: React.FC = () => {
   // then redirect to maintenance page.
   // Admins can always access all pages.
   if (isMaintenanceMode && (!user || user.role !== 'admin') && !isAdminRoute && !isSignInOrSignUp) {
-    // Render Maintenance page directly
     return (
       <>
         <Maintenance />
@@ -109,7 +106,6 @@ const MainLayout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col">
       {!isAdminRoute && !isDashboardRoute && <Navbar />}
-      {/* Admin routes use AdminLayout with nested children */}
       <AnimatePresence mode="wait">
         <motion.div
           className="flex flex-col flex-1 w-full"
@@ -122,23 +118,22 @@ const MainLayout: React.FC = () => {
           <Suspense fallback={<RouteLoadingFallback />}>
           <Routes location={location}>
             <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboardContent />} /> {/* Default child for /admin */}
-              <Route path="users" element={<AdminManageUsers />} /> {/* New Users route */}
+              <Route index element={<AdminDashboardContent />} />
+              <Route path="users" element={<AdminManageUsers />} />
               <Route path="products" element={<AdminManageProducts />} />
-              <Route path="categories" element={<AdminManageCategories />} /> {/* New Categories route */}
-              <Route path="orders" element={<AdminManageOrders />} /> {/* New: Orders route */}
+              <Route path="categories" element={<AdminManageCategories />} />
+              <Route path="orders" element={<AdminManageOrders />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="enquiries" element={<AdminEnquiries />} />
               <Route path="returns" element={<AdminManageReturns />} />
               <Route path="coupons" element={<AdminManageCoupons />} />
-              <Route path="settings" element={<AdminSettingsLayout />}> {/* Admin Settings Layout */}
-                <Route index element={<Navigate to="account-security" replace />} /> {/* Default to account-security */}
+              <Route path="settings" element={<AdminSettingsLayout />}>
+                <Route index element={<Navigate to="account-security" replace />} />
                 <Route path="account-security" element={<AdminAccountAndSecurity />} />
                 <Route path="store-configuration" element={<AdminStoreConfiguration />} />
                 <Route path="business-notifications" element={<AdminBusinessAndNotifications />} />
               </Route>
             </Route>
-            {/* Public/User routes */}
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/contact" element={<ContactUs />} />
@@ -154,7 +149,7 @@ const MainLayout: React.FC = () => {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/confirm-email-change" element={<ConfirmEmailChange />} />
-            <Route path="/maintenance" element={<Maintenance />} /> {/* Explicit route for Maintenance page */}
+            <Route path="/maintenance" element={<Maintenance />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
           </Routes>
           </Suspense>
@@ -167,7 +162,6 @@ const MainLayout: React.FC = () => {
       <TermsOfServiceModal />
       <PrivacyPolicyModal />
 
-      {/* Global Toast Notification */}
       {toastMessage && toastType && (
         <ToastNotification message={toastMessage} type={toastType} onClose={hideToast} />
       )}

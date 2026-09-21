@@ -22,7 +22,6 @@ const usernameSchema = z.string().trim().toLowerCase()
   .max(20, 'Username must be at most 20 characters')
   .regex(/^[a-z0-9_]+$/, 'Username can only contain lowercase letters, numbers, and underscores');
 
-// GET /api/users - admin: list all users
 router.get('/', authenticate, requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users ORDER BY name`);
@@ -44,7 +43,6 @@ const createUserSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
-// POST /api/users - admin: create a user directly
 router.post('/', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -289,7 +287,6 @@ const updateUserSchema = z.object({
   password: z.string().min(8).optional(),
 });
 
-// PATCH /api/users/:id - admin: update any user
 router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = updateUserSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -344,7 +341,6 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
   }
 });
 
-// DELETE /api/users/:id - admin: delete a user
 router.delete('/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(`DELETE FROM users WHERE id = $1`, [req.params.id]);

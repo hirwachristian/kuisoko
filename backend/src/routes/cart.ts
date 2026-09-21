@@ -60,7 +60,6 @@ router.put('/:productId', authenticate, requireCustomer, async (req, res, next) 
   }
 });
 
-// DELETE /api/cart/:productId - authenticated: remove one cart line
 router.delete('/:productId', authenticate, requireCustomer, async (req, res, next) => {
   try {
     await pool.query(`DELETE FROM cart_items WHERE user_id = $1 AND product_id = $2`, [req.authUser!.id, req.params.productId]);

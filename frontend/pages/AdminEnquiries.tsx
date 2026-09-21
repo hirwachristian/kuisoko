@@ -119,7 +119,6 @@ const AdminEnquiries: React.FC = () => {
             ))}
           </div>
 
-          {/* Selected enquiry */}
           <div className={`${selectedId ? 'flex' : 'hidden sm:flex'} flex-1 flex-col min-w-0`}>
             {!selected ? (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 gap-3">

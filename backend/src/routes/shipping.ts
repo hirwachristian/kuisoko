@@ -25,7 +25,6 @@ const zoneSchema = z.object({
   isDefault: z.boolean().default(false),
 });
 
-// POST /api/shipping/zones - admin: create a zone
 router.post('/zones', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = zoneSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -55,7 +54,6 @@ const zoneUpdateSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-// PATCH /api/shipping/zones/:id - admin: update a zone
 router.patch('/zones/:id', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = zoneUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -91,7 +89,6 @@ router.patch('/zones/:id', authenticate, requireAdmin, async (req, res, next) =>
   }
 });
 
-// DELETE /api/shipping/zones/:id - admin
 router.delete('/zones/:id', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const result = await pool.query(`DELETE FROM shipping_zones WHERE id = $1`, [req.params.id]);
@@ -102,7 +99,6 @@ router.delete('/zones/:id', authenticate, requireAdmin, async (req, res, next) =
   }
 });
 
-// GET /api/shipping/settings - public
 router.get('/settings', async (_req, res, next) => {
   try {
     const result = await pool.query(`SELECT free_shipping_threshold AS "freeShippingThreshold" FROM shipping_settings WHERE id = 1`);
@@ -114,7 +110,6 @@ router.get('/settings', async (_req, res, next) => {
 
 const settingsSchema = z.object({ freeShippingThreshold: z.number().nonnegative() });
 
-// PATCH /api/shipping/settings - admin
 router.patch('/settings', authenticate, requireAdmin, async (req, res, next) => {
   const parsed = settingsSchema.safeParse(req.body);
   if (!parsed.success) {

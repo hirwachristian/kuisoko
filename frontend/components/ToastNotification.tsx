@@ -18,7 +18,6 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Show animation
     setIsVisible(true);
 
     const timer = setTimeout(() => {

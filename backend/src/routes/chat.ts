@@ -88,9 +88,8 @@ router.post('/messages', async (req, res, next) => {
   }
 });
 
-// --- Admin-only: every customer shares one inbox any admin can view and reply to ---
-
-// GET /api/chat/conversations - admin: every customer who has messaged, with a preview + unread count.
+// Admin-only: every customer shares one inbox any admin can view and reply to.
+// GET /api/chat/conversations - every customer who has messaged, with a preview + unread count.
 router.get('/conversations', requireAdmin, async (_req, res, next) => {
   try {
     const result = await pool.query(`

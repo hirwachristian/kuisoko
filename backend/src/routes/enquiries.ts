@@ -104,7 +104,6 @@ router.post('/:id/reply', async (req, res, next) => {
   }
 });
 
-// DELETE /api/enquiries/:id - admin: remove an enquiry
 router.delete('/:id', async (req, res, next) => {
   try {
     const result = await pool.query(`DELETE FROM enquiries WHERE id = $1`, [req.params.id]);

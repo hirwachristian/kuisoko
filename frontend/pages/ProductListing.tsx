@@ -1,12 +1,10 @@
 
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-// Fix: Ensure correct `react-router-dom` named imports for v6+.
-// The existing import statement is correct for `react-router-dom` v6+.
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { Filter, Search, Grid3X3, List, ChevronLeft, ChevronRight, ChevronDown, Camera, X } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
-import { useAppContext } from '../context/AppContext'; // Import AppContext
+import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { getPageNumbers } from '../utils';
@@ -41,7 +39,6 @@ const ProductListing: React.FC = () => {
       return next;
     });
   };
-  // Price range filter, in RWF
   const [priceRange, setPriceRange] = useState<[number, number]>([0, MAX_PRICE_RWF]);
   const [searchQuery, setSearchQuery] = useState(queryParam || '');
   const [sortBy, setSortBy] = useState('newest');
@@ -418,7 +415,6 @@ const ProductListing: React.FC = () => {
               <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-8' : 'flex flex-col gap-4'}>
                 {paginatedProducts.map(product => (
                   <div key={product.id} className="fade-in">
-                    {/* Pass the first image from the array to ProductCard */}
                     <ProductCard product={{...product, image: product.images[0]}} variant={viewMode} />
                   </div>
                 ))}
