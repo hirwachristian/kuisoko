@@ -52,6 +52,12 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
     onChange([...variants, { id: newId(), sku: '', color, size: '', price: 0, stock: 0 }]);
   };
 
+  // A size-only variant (no color at all) - the counterpart to "Add color" below, for a product
+  // that varies by size but not color. Lands in the "Sizes without a color" list underneath.
+  const addSizeOnlyVariant = () => {
+    onChange([...variants, { id: newId(), sku: '', color: '', size: '', price: 0, stock: 0 }]);
+  };
+
   const addNewColor = () => {
     const color = newColorName.trim();
     if (!color) return;
@@ -214,21 +220,26 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
           );
         })}
 
-        {/* Variants with no color set - a plain size-only product, or a row still being filled in */}
-        {uncategorized.length > 0 && (
-          <div className="space-y-2">
+        {/* Variants with no color set - a plain size-only product, or a row still being filled in.
+            "Add size" is the counterpart to "Add color" below, for a product that varies by size
+            but not color - each row's own Color field stays blank on purpose. */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
             <h5 className="text-xs font-semibold text-slate-500 dark:text-slate-400">Sizes without a color</h5>
-            {uncategorized.map((variant) => (
-              <div key={variant.id} className="grid grid-cols-5 gap-2">
-                <input type="text" placeholder="Color" value={variant.color} onChange={(e) => updateVariant(variant.id, 'color', e.target.value)} className={rowInputClass} />
-                <input type="text" placeholder="Size" value={variant.size} onChange={(e) => updateVariant(variant.id, 'size', e.target.value)} className={rowInputClass} />
-                <input type="number" placeholder="Price" value={isNaN(variant.price) ? '' : variant.price} onChange={(e) => updateVariant(variant.id, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value))} className={rowInputClass} />
-                <input type="number" placeholder="Stock" value={isNaN(variant.stock) ? '' : variant.stock} onChange={(e) => updateVariant(variant.id, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))} className={rowInputClass} />
-                <button type="button" onClick={() => removeVariant(variant.id)} className="text-rose-500 hover:text-rose-700 p-2 justify-self-start"><Trash2 size={18} /></button>
-              </div>
-            ))}
+            <button type="button" onClick={addSizeOnlyVariant} className="text-xs text-emerald-600 font-bold flex items-center gap-1 shrink-0">
+              <Plus size={14} /> Add size
+            </button>
           </div>
-        )}
+          {uncategorized.map((variant) => (
+            <div key={variant.id} className="grid grid-cols-5 gap-2">
+              <input type="text" placeholder="Color" value={variant.color} onChange={(e) => updateVariant(variant.id, 'color', e.target.value)} className={rowInputClass} />
+              <input type="text" placeholder="Size" value={variant.size} onChange={(e) => updateVariant(variant.id, 'size', e.target.value)} className={rowInputClass} />
+              <input type="number" placeholder="Price" value={isNaN(variant.price) ? '' : variant.price} onChange={(e) => updateVariant(variant.id, 'price', e.target.value === '' ? 0 : parseFloat(e.target.value))} className={rowInputClass} />
+              <input type="number" placeholder="Stock" value={isNaN(variant.stock) ? '' : variant.stock} onChange={(e) => updateVariant(variant.id, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))} className={rowInputClass} />
+              <button type="button" onClick={() => removeVariant(variant.id)} className="text-rose-500 hover:text-rose-700 p-2 justify-self-start"><Trash2 size={18} /></button>
+            </div>
+          ))}
+        </div>
 
         {/* Add a brand new color */}
         <div className="flex gap-2">

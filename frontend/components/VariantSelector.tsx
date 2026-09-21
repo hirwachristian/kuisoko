@@ -14,8 +14,14 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ variants, onVariantSe
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
-  const colors = Array.from(new Set(variants.map(v => v.color)));
-  const sizes = Array.from(new Set(variants.map(v => v.size))).sort(compareSizes);
+  // A product's variants can vary by color only, size only, or both - only the dimensions that
+  // actually appear among this product's variants are shown/required below. Matches the mobile
+  // app's ProductDetailScreen, which already handled this correctly.
+  const hasColors = variants.some(v => v.color);
+  const hasSizes = variants.some(v => v.size);
+
+  const colors = Array.from(new Set(variants.map(v => v.color).filter((c): c is string => !!c)));
+  const sizes = Array.from(new Set(variants.map(v => v.size).filter((s): s is string => !!s))).sort(compareSizes);
 
   // A color is only pickable if it has any stock left in *some* size - still shown (with its
   // swatch/photo) so the option stays visible, just disabled, rather than quietly disappearing.
@@ -24,10 +30,14 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ variants, onVariantSe
   // Once a color is chosen, a size is only pickable if that specific color+size combination
   // exists and actually has stock - a size with no stock in this color (even if it exists for a
   // *different* color) is shown but disabled, not hidden, so the size grid doesn't reshuffle
-  // every time the color changes.
-  const sizeVariant = (size: string) => (selectedColor ? variants.find(v => v.color === selectedColor && v.size === size) : undefined);
+  // every time the color changes. For a size-only product (no color dimension at all), a size is
+  // matched against its own stock directly instead of waiting on a color that will never come.
+  const sizeVariant = (size: string) => {
+    if (hasColors && !selectedColor) return undefined;
+    return variants.find(v => (hasColors ? v.color === selectedColor : true) && v.size === size);
+  };
   const isSizeDisabled = (size: string) => {
-    if (!selectedColor) return false;
+    if (hasColors && !selectedColor) return false;
     const variant = sizeVariant(size);
     return !variant || variant.stock <= 0;
   };
@@ -36,15 +46,18 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ variants, onVariantSe
   // (different color, no stock, or doesn't come in that size), drop the now-invalid size instead
   // of silently leaving an impossible color+size pair selected.
   useEffect(() => {
-    if (selectedSize && isSizeDisabled(selectedSize)) {
+    if (hasSizes && selectedSize && isSizeDisabled(selectedSize)) {
       setSelectedSize(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColor]);
 
   useEffect(() => {
-    const variant = variants.find(v => v.color === selectedColor && v.size === selectedSize);
+    const variant = variants.find(v =>
+      (hasColors ? v.color === selectedColor : true) && (hasSizes ? v.size === selectedSize : true)
+    );
     onVariantSelect(variant || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedColor, selectedSize, variants, onVariantSelect]);
 
   useEffect(() => {
@@ -56,71 +69,76 @@ const VariantSelector: React.FC<VariantSelectorProps> = ({ variants, onVariantSe
       {/* Colors - shown as named text chips (matching the Size chips below, and the mobile app's
           own variant chips) rather than color swatches, since a swatch can't represent a color
           name accurately (e.g. "Navy" vs "Midnight Blue" render identically) and doesn't work at
-          all for multi-word/non-CSS color names from admin-entered variant data. */}
-      <div>
-        <h3 className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-2 sm:mb-3">Color</h3>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          {colors.map(color => {
-            const outOfStock = colorStock(color) <= 0;
-            return (
-              <button
-                key={color}
-                type="button"
-                disabled={outOfStock}
-                onClick={() => setSelectedColor(prev => (prev === color ? null : color))}
-                title={outOfStock ? `${color} - out of stock` : color}
-                className={`relative px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border ${
-                  selectedColor === color
-                    ? 'border-orange-500 bg-orange-100 text-orange-800'
-                    : outOfStock
-                    ? 'border-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'border-slate-300 text-slate-900 hover:border-slate-400'
-                }`}
-              >
-                {color}
-                {outOfStock && (
-                  <span className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <span className="w-full h-[1.5px] bg-slate-300" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          all for multi-word/non-CSS color names from admin-entered variant data. Only rendered
+          when this product actually has a color dimension - a size-only product has no use for it. */}
+      {hasColors && (
+        <div>
+          <h3 className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-2 sm:mb-3">Color</h3>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            {colors.map(color => {
+              const outOfStock = colorStock(color) <= 0;
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  disabled={outOfStock}
+                  onClick={() => setSelectedColor(prev => (prev === color ? null : color))}
+                  title={outOfStock ? `${color} - out of stock` : color}
+                  className={`relative px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border ${
+                    selectedColor === color
+                      ? 'border-orange-500 bg-orange-100 text-orange-800'
+                      : outOfStock
+                      ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'border-slate-300 text-slate-900 hover:border-slate-400'
+                  }`}
+                >
+                  {color}
+                  {outOfStock && (
+                    <span className="absolute inset-0 flex items-center" aria-hidden="true">
+                      <span className="w-full h-[1.5px] bg-slate-300" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Sizes */}
-      <div>
-        <h3 className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-2 sm:mb-3">Size</h3>
-        <div className="grid grid-cols-4 gap-2 sm:gap-3">
-          {sizes.map(size => {
-            const disabled = isSizeDisabled(size);
-            return (
-              <button
-                key={size}
-                type="button"
-                disabled={disabled}
-                onClick={() => setSelectedSize(prev => (prev === size ? null : size))}
-                title={disabled ? `${size} - out of stock in ${selectedColor}` : size}
-                className={`relative py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border ${
-                  selectedSize === size
-                    ? 'border-orange-500 bg-orange-100 text-orange-800'
-                    : disabled
-                    ? 'border-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'border-slate-300 text-slate-900 hover:border-slate-400'
-                }`}
-              >
-                {size}
-                {disabled && (
-                  <span className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <span className="w-full h-[1.5px] bg-slate-300" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* Sizes - only rendered when this product actually has a size dimension. */}
+      {hasSizes && (
+        <div>
+          <h3 className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-2 sm:mb-3">Size</h3>
+          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+            {sizes.map(size => {
+              const disabled = isSizeDisabled(size);
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setSelectedSize(prev => (prev === size ? null : size))}
+                  title={disabled ? (hasColors ? `${size} - out of stock in ${selectedColor}` : `${size} - out of stock`) : size}
+                  className={`relative py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md border ${
+                    selectedSize === size
+                      ? 'border-orange-500 bg-orange-100 text-orange-800'
+                      : disabled
+                      ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'border-slate-300 text-slate-900 hover:border-slate-400'
+                  }`}
+                >
+                  {size}
+                  {disabled && (
+                    <span className="absolute inset-0 flex items-center" aria-hidden="true">
+                      <span className="w-full h-[1.5px] bg-slate-300" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
