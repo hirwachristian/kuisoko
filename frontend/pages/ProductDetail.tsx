@@ -410,19 +410,20 @@ const ProductDetail: React.FC = () => {
             {displayImages.map((img, i) => {
               const imageVariant = hasImageStockVariants ? product.variants.find((v) => v.imageUrl === img) : undefined;
               return (
-                <button
-                  key={`img-${i}`}
-                  onClick={() => { setActiveImgIndex(i); setActiveVideoIndex(null); }}
-                  className={`relative w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden bg-white border-2 transition-all ${activeVideoIndex === null && activeImgIndex === i ? 'border-emerald-600 shadow-lg' : 'border-slate-100 opacity-60'}`}
-                  aria-label={t('detail_view_image', { n: i + 1 })}
-                >
-                  <img src={img} alt={product.imageDetails?.[img]?.name || `${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-1 sm:p-1.5" />
+                <div key={`img-${i}`} className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={() => { setActiveImgIndex(i); setActiveVideoIndex(null); }}
+                    className={`w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden bg-white border-2 transition-all ${activeVideoIndex === null && activeImgIndex === i ? 'border-emerald-600 shadow-lg' : 'border-slate-100 opacity-60'}`}
+                    aria-label={t('detail_view_image', { n: i + 1 })}
+                  >
+                    <img src={img} alt={product.imageDetails?.[img]?.name || `${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-1 sm:p-1.5" />
+                  </button>
                   {imageVariant && (
-                    <span className={`absolute bottom-0 inset-x-0 text-[9px] sm:text-[10px] font-bold py-0.5 text-white ${imageVariant.stock > 0 ? 'bg-emerald-600/90' : 'bg-rose-600/90'}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-bold ${imageVariant.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                       {imageVariant.stock > 0 ? `${imageVariant.stock} left` : t('product_out_of_stock')}
                     </span>
                   )}
-                </button>
+                </div>
               );
             })}
             {displayVideos.map((videoUrl, i) => (
