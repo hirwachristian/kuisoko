@@ -144,7 +144,8 @@ CREATE TABLE product_variants (
   color       TEXT,
   size        TEXT,
   price       NUMERIC(12,2) NOT NULL CHECK (price >= 0),
-  stock       INT NOT NULL DEFAULT 0 CHECK (stock >= 0)
+  stock       INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  image_url   TEXT -- set (with color/size NULL) for a per-image-stock row instead of a color/size one
 );
 CREATE INDEX idx_product_variants_product_id ON product_variants(product_id);
 

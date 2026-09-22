@@ -78,13 +78,18 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
     onColorImagesChange({ ...colorImages, [color]: url });
   };
 
+  // Image-stock rows (see AdminImageStockManager) share this same flat array but don't belong
+  // here at all - without this filter they'd fall into the "no color" bucket below and render as
+  // a bogus empty size/price/stock row.
+  const colorSizeVariants = variants.filter((v) => !v.imageUrl);
+
   // Grouped by color, in first-appearance order, so bulk-generated colors don't reshuffle as
   // their rows are edited. Variants with no color (a plain size-only product, or one mid-edit)
   // fall into their own bucket below rather than being lost.
   const colorOrder: string[] = [];
   const grouped = new Map<string, ProductVariant[]>();
   const uncategorized: ProductVariant[] = [];
-  variants.forEach((v) => {
+  colorSizeVariants.forEach((v) => {
     const color = v.color?.trim();
     if (!color) {
       uncategorized.push(v);
@@ -97,7 +102,7 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
     grouped.get(color)!.push(v);
   });
 
-  const totalVariantStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+  const totalVariantStock = colorSizeVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
   const overAllocated = totalVariantStock > productStock;
 
   const rowInputClass = 'px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white';
@@ -132,7 +137,7 @@ const AdminVariantManager: React.FC<AdminVariantManagerProps> = ({ variants, onC
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Product Variants</h4>
-          {variants.length > 0 && (
+          {colorSizeVariants.length > 0 && (
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${overAllocated ? 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
               {overAllocated && <AlertTriangle size={12} />}
               {totalVariantStock} / {productStock} stock allocated

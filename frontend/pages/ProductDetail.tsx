@@ -108,12 +108,20 @@ const ProductDetail: React.FC = () => {
     return () => { cancelled = true; };
   }, [id]);
 
-  // Switching to a different color/size resets the quantity back to 1 rather than carrying over
-  // whatever was dialed in for the previous variant - carrying it over reads as if that quantity
-  // was already confirmed for the newly-selected variant, which it never was.
+  // Switching to a different color/size (or, for a per-image-stock product, a different photo)
+  // resets the quantity back to 1 rather than carrying over whatever was dialed in for the
+  // previous variant - carrying it over reads as if that quantity was already confirmed for the
+  // newly-selected variant, which it never was. The image part of this only kicks in when the
+  // product actually has image-stock rows, so browsing photos on an ordinary multi-photo product
+  // never resets it unexpectedly - written inline (not via a named variable) since `product` may
+  // still be undefined here, before this component's early return below.
   useEffect(() => {
     setQty(1);
-  }, [selectedVariant?.color, selectedVariant?.size]);
+  }, [
+    selectedVariant?.color,
+    selectedVariant?.size,
+    product?.variants?.some((v) => v.imageUrl) ? product.images[activeImgIndex] : null,
+  ]);
 
   if (!product) {
     return (
@@ -171,9 +179,22 @@ const ProductDetail: React.FC = () => {
   // nothing else to hang that choice on), so it covers both cases with one read.
   const currentImage = product.images[activeImgIndex] ?? product.images[0];
 
+  // An alternative to color/size variants for a product that isn't meant to vary by either, but
+  // still has per-photo stock (AdminImageStockManager) - the gallery itself is the picker, so
+  // whichever photo is currently on screen (`currentImage`) IS the selection.
+  const hasColorSizeVariants = (product.variants || []).some((v) => !v.imageUrl);
+  const hasImageStockVariants = (product.variants || []).some((v) => v.imageUrl);
+  const imageStockVariant = hasImageStockVariants
+    ? (product.variants || []).find((v) => v.imageUrl === currentImage)
+    : undefined;
+
   const handleBuyNow = () => {
-    if (product.variants && product.variants.length > 0 && !selectedVariant) {
+    if (hasColorSizeVariants && !selectedVariant) {
       alert(t('detail_select_color_size'));
+      return;
+    }
+    if (hasImageStockVariants && (!imageStockVariant || imageStockVariant.stock <= 0)) {
+      alert(t('detail_photo_out_of_stock'));
       return;
     }
     const itemToBuy = selectedVariant ? {
@@ -182,6 +203,10 @@ const ProductDetail: React.FC = () => {
       price: selectedVariant.price || product.price,
       selectedColor: selectedVariant.color,
       selectedSize: selectedVariant.size,
+      selectedImage: currentImage,
+    } : imageStockVariant ? {
+      ...product,
+      price: imageStockVariant.price || product.price,
       selectedImage: currentImage,
     } : { ...product, selectedImage: currentImage };
     navigate('/cart?step=2', { state: { directBuyProduct: itemToBuy, quantity: qty } });
@@ -209,8 +234,12 @@ const ProductDetail: React.FC = () => {
   };
 
   const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (product.variants && product.variants.length > 0 && !selectedVariant) {
+    if (hasColorSizeVariants && !selectedVariant) {
       alert(t('detail_select_color_size'));
+      return;
+    }
+    if (hasImageStockVariants && (!imageStockVariant || imageStockVariant.stock <= 0)) {
+      alert(t('detail_photo_out_of_stock'));
       return;
     }
     const itemToAdd = selectedVariant ? {
@@ -219,6 +248,10 @@ const ProductDetail: React.FC = () => {
       price: selectedVariant.price || product.price,
       selectedColor: selectedVariant.color,
       selectedSize: selectedVariant.size,
+      selectedImage: currentImage,
+    } : imageStockVariant ? {
+      ...product,
+      price: imageStockVariant.price || product.price,
       selectedImage: currentImage,
     } : { ...product, selectedImage: currentImage };
     flyToCart(itemToAdd.images[0], e.currentTarget);
@@ -248,8 +281,9 @@ const ProductDetail: React.FC = () => {
   // Once a color+size is actually picked, stock is about that specific combination, not the
   // product's overall total across every variant - the quantity stepper, the "in stock"/"only X
   // left" messaging, and the out-of-stock state all need to agree on the same number, or a
-  // shopper could see "45 in stock" while the stepper silently refuses to go past 3.
-  const effectiveStock = selectedVariant ? selectedVariant.stock : product.stock;
+  // shopper could see "45 in stock" while the stepper silently refuses to go past 3. A per-image-
+  // stock product (no color/size) works the same way, just keyed by whichever photo is on screen.
+  const effectiveStock = selectedVariant ? selectedVariant.stock : imageStockVariant ? imageStockVariant.stock : product.stock;
   const isOutOfStock = effectiveStock <= 0;
   const stockLevel = getStockLevel(effectiveStock);
 
@@ -373,16 +407,24 @@ const ProductDetail: React.FC = () => {
             </div>
           )}
           <div className="flex gap-2 sm:gap-4 flex-wrap">
-            {displayImages.map((img, i) => (
-              <button
-                key={`img-${i}`}
-                onClick={() => { setActiveImgIndex(i); setActiveVideoIndex(null); }}
-                className={`w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden bg-white border-2 transition-all ${activeVideoIndex === null && activeImgIndex === i ? 'border-emerald-600 shadow-lg' : 'border-slate-100 opacity-60'}`}
-                aria-label={t('detail_view_image', { n: i + 1 })}
-              >
-                <img src={img} alt={product.imageDetails?.[img]?.name || `${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-1 sm:p-1.5" />
-              </button>
-            ))}
+            {displayImages.map((img, i) => {
+              const imageVariant = hasImageStockVariants ? product.variants.find((v) => v.imageUrl === img) : undefined;
+              return (
+                <button
+                  key={`img-${i}`}
+                  onClick={() => { setActiveImgIndex(i); setActiveVideoIndex(null); }}
+                  className={`relative w-14 h-14 sm:w-24 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden bg-white border-2 transition-all ${activeVideoIndex === null && activeImgIndex === i ? 'border-emerald-600 shadow-lg' : 'border-slate-100 opacity-60'}`}
+                  aria-label={t('detail_view_image', { n: i + 1 })}
+                >
+                  <img src={img} alt={product.imageDetails?.[img]?.name || `${product.name} thumbnail ${i + 1}`} className="w-full h-full object-contain p-1 sm:p-1.5" />
+                  {imageVariant && (
+                    <span className={`absolute bottom-0 inset-x-0 text-[9px] sm:text-[10px] font-bold py-0.5 text-white ${imageVariant.stock > 0 ? 'bg-emerald-600/90' : 'bg-rose-600/90'}`}>
+                      {imageVariant.stock > 0 ? `${imageVariant.stock} left` : t('product_out_of_stock')}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             {displayVideos.map((videoUrl, i) => (
               <button
                 key={`video-${i}`}
@@ -414,9 +456,9 @@ const ProductDetail: React.FC = () => {
             )}
           </div>
 
-          {product.variants && product.variants.length > 0 && (
+          {hasColorSizeVariants && (
             <div className="mb-4 sm:mb-6">
-              <VariantSelector variants={product.variants} onVariantSelect={setSelectedVariant} onColorChange={handleColorChange} />
+              <VariantSelector variants={product.variants.filter((v) => !v.imageUrl)} onVariantSelect={setSelectedVariant} onColorChange={handleColorChange} />
             </div>
           )}
 

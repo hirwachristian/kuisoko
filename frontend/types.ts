@@ -4,6 +4,9 @@ export interface ProductVariant {
   sku: string;
   color: string;
   size: string; // Generic enough for 'S', 'M', 'L' or '40', '41', '42'
+  // Set instead of color/size for a per-image-stock row - one of the product's own `images`,
+  // giving that specific photo its own stock rather than varying by color or size.
+  imageUrl?: string;
   price: number;
   stock: number;
 }

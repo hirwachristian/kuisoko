@@ -209,7 +209,8 @@ export async function restoreOrderStock(client: PoolClient, orderId: string): Pr
      FROM order_items oi
      WHERE oi.order_id = $1 AND oi.product_id = pv.product_id
        AND pv.color IS NOT DISTINCT FROM oi.selected_color
-       AND pv.size IS NOT DISTINCT FROM oi.selected_size`,
+       AND pv.size IS NOT DISTINCT FROM oi.selected_size
+       AND (pv.image_url IS NULL OR pv.image_url = oi.image)`,
     [orderId]
   );
   await client.query(`UPDATE orders SET stock_restored_at = now() WHERE id = $1`, [orderId]);
@@ -374,6 +375,27 @@ export async function insertOrder(
               variant.stock > 0
                 ? `Only ${variant.stock} left of "${name}" (${variantLabel}) (requested ${item.quantity}).`
                 : `"${name}" (${variantLabel}) is out of stock.`
+            );
+          }
+          variantId = variant.id;
+        }
+      } else if (item.image) {
+        // No color/size on this item - it may still be one of a per-image-stock product's rows,
+        // where the exact photo the customer picked (already resolved into `image` client-side)
+        // stands in for a variant. Every other product just has zero rows with a matching
+        // image_url, so this is a harmless no-op for them.
+        const variantResult = await client.query(
+          `SELECT id, stock FROM product_variants WHERE product_id = $1 AND image_url = $2 FOR UPDATE`,
+          [item.productId, item.image]
+        );
+        if (variantResult.rowCount! > 0) {
+          const variant = variantResult.rows[0];
+          if (variant.stock < item.quantity) {
+            throw new HttpError(
+              409,
+              variant.stock > 0
+                ? `Only ${variant.stock} left of "${name}" (this photo) (requested ${item.quantity}).`
+                : `"${name}" (this photo) is out of stock.`
             );
           }
           variantId = variant.id;

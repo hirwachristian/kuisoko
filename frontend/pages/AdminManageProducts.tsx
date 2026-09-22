@@ -8,7 +8,8 @@ import { CategorySection } from '../constants';
 import { apiFetch, ApiError, API_BASE_URL } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminPagination from '../components/AdminPagination';
-import AdminVariantManager from '../components/AdminVariantManager'; // Add this import
+import AdminVariantManager from '../components/AdminVariantManager';
+import AdminImageStockManager from '../components/AdminImageStockManager';
 import AdminImageDetailsManager from '../components/AdminImageDetailsManager';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
@@ -808,6 +809,15 @@ const AdminManageProducts: React.FC = () => {
               </div>
 
               <div className="col-span-full">
+                <AdminImageStockManager
+                  images={newProductImagePreviews}
+                  variants={newProductVariants}
+                  onChange={setNewProductVariants}
+                  productStock={parseInt(newProductStock) || 0}
+                />
+              </div>
+
+              <div className="col-span-full">
                 <AdminImageDetailsManager
                   images={newProductImagePreviews}
                   imageDetails={newProductImageDetails}
@@ -1047,6 +1057,15 @@ const AdminManageProducts: React.FC = () => {
                   images={editingProductImagePreviews}
                   colorImages={editingProductColorImages}
                   onColorImagesChange={setEditingProductColorImages}
+                  productStock={parseInt(editingProductStock) || 0}
+                />
+              </div>
+
+              <div className="col-span-full">
+                <AdminImageStockManager
+                  images={editingProductImagePreviews}
+                  variants={editingProductVariants}
+                  onChange={setEditingProductVariants}
                   productStock={parseInt(editingProductStock) || 0}
                 />
               </div>

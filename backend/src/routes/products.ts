@@ -54,7 +54,7 @@ async function attachVariants<T extends { id: string }>(products: T[]) {
   if (products.length === 0) return products.map((p) => ({ ...p, variants: [] }));
   const ids = products.map((p) => p.id);
   const result = await pool.query(
-    `SELECT id, product_id, sku, color, size, price, stock FROM product_variants WHERE product_id = ANY($1)`,
+    `SELECT id, product_id, sku, color, size, price, stock, image_url AS "imageUrl" FROM product_variants WHERE product_id = ANY($1)`,
     [ids]
   );
   return products.map((p) => ({
@@ -106,7 +106,7 @@ router.get('/:id', optionalAuthenticate, async (req, res, next) => {
     if (productResult.rowCount === 0) return res.status(404).json({ error: 'Product not found.' });
 
     const variantsResult = await pool.query(
-      `SELECT id, sku, color, size, price, stock FROM product_variants WHERE product_id = $1`,
+      `SELECT id, sku, color, size, price, stock, image_url AS "imageUrl" FROM product_variants WHERE product_id = $1`,
       [req.params.id]
     );
     const isAdmin = req.authUser?.role === 'admin';
@@ -215,6 +215,9 @@ const variantSchema = z.object({
   sku: z.string().trim().optional(),
   color: z.string().trim().optional(),
   size: z.string().trim().optional(),
+  // Set instead of color/size for a per-image-stock row - one of this product's own `images`,
+  // giving that specific photo its own stock rather than varying by color or size.
+  imageUrl: z.string().optional(),
   price: z.number().nonnegative(),
   stock: z.number().int().nonnegative().default(0),
 });
@@ -257,9 +260,9 @@ async function insertVariants(client: PoolClient, productId: string, variants: z
   for (const v of variants) {
     const sku = v.sku && v.sku.length > 0 ? v.sku : `SKU-${randomUUID().slice(0, 8)}`;
     await client.query(
-      `INSERT INTO product_variants (product_id, sku, color, size, price, stock)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [productId, sku, v.color ?? null, v.size ?? null, v.price, v.stock]
+      `INSERT INTO product_variants (product_id, sku, color, size, price, stock, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [productId, sku, v.color ?? null, v.size ?? null, v.price, v.stock, v.imageUrl ?? null]
     );
   }
 }
