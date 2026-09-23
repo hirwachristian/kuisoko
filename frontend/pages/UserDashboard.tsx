@@ -230,6 +230,7 @@ const UserDashboard: React.FC = () => {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [selectedMapAddressId, setSelectedMapAddressId] = useState<string | null>(null);
 
   const loadAddresses = useCallback(async () => {
     if (!token) return;
@@ -280,6 +281,7 @@ const UserDashboard: React.FC = () => {
     try {
       await apiFetch(`/addresses/${address.id}`, { method: 'DELETE' }, token);
       await loadAddresses();
+      setSelectedMapAddressId((prev) => (prev === address.id ? null : prev));
     } catch (e) {
       showToast(e instanceof ApiError ? e.message : t('dashboard_address_save_failed'), 'error');
     }
@@ -1158,8 +1160,17 @@ const UserDashboard: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                     {addresses.map((address) => {
                       const AddressIcon = addressIconFor(address.label);
+                      const isSelected = selectedMapAddressId === address.id;
                       return (
-                        <div key={address.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                        <div
+                          key={address.id}
+                          onClick={() => setSelectedMapAddressId((prev) => (prev === address.id ? null : address.id))}
+                          className={`bg-white dark:bg-slate-900 p-5 rounded-2xl border shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-emerald-500 dark:border-emerald-500 ring-2 ring-emerald-500/30'
+                              : 'border-slate-100 dark:border-slate-800'
+                          }`}
+                        >
                           <div>
                             <div className="flex items-start justify-between gap-2 mb-3">
                               <div className="flex items-center gap-2.5 min-w-0">
@@ -1185,7 +1196,13 @@ const UserDashboard: React.FC = () => {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 text-xs font-bold">
+                          <p className={`flex items-center gap-1.5 pt-3 mt-3 text-xs font-bold ${isSelected ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                            <MapPin size={12} /> {t('dashboard_tap_to_view_map')}
+                          </p>
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 text-xs font-bold"
+                          >
                             <button
                               onClick={() => { setEditingAddress(address); setShowAddressModal(true); }}
                               className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:underline"
@@ -1213,15 +1230,20 @@ const UserDashboard: React.FC = () => {
                   </div>
 
                   {(() => {
-                    const defaultAddress = addresses.find((a) => a.isDefault);
-                    if (!defaultAddress || defaultAddress.lat == null || defaultAddress.lng == null) return null;
+                    if (!selectedMapAddressId) return null;
+                    const selected = addresses.find((a) => a.id === selectedMapAddressId);
+                    if (!selected) return null;
                     return (
                       <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                         <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-1">{t('dashboard_delivery_location_title')}</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                          {t('dashboard_delivery_location_subtitle', { label: defaultAddress.label })}
+                          {t('dashboard_delivery_location_subtitle', { label: selected.label })}
                         </p>
-                        <AddressMapPreview key={defaultAddress.id} lat={defaultAddress.lat} lng={defaultAddress.lng} label={defaultAddress.label} />
+                        {selected.lat != null && selected.lng != null ? (
+                          <AddressMapPreview key={selected.id} lat={selected.lat} lng={selected.lng} label={selected.label} />
+                        ) : (
+                          <p className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">{t('dashboard_location_unavailable')}</p>
+                        )}
                       </div>
                     );
                   })()}
