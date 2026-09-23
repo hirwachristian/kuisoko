@@ -1,7 +1,7 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { useNavigate } from 'react-router-dom';
-import { Order } from '../types';
+import { SavedAddress } from '../types';
+import { apiFetch } from '../api';
 
 interface AddressFormProps {
   onProceed: () => void;
@@ -16,7 +16,7 @@ export interface AddressFormHandle {
 }
 
 const AddressForm = forwardRef<AddressFormHandle, AddressFormProps>(({ onProceed, setAddressData }, ref) => {
-  const { cart, user, t } = useAppContext();
+  const { user, token, t } = useAppContext();
 
   const [formData, setFormData] = useState({
     fullName: user?.name ?? '',
@@ -31,6 +31,35 @@ const AddressForm = forwardRef<AddressFormHandle, AddressFormProps>(({ onProceed
   });
 
   const [error, setError] = useState('');
+
+  // Pre-fills from the customer's default Address Book entry (if they're signed in and have one)
+  // the moment this form mounts - never overwrites a field the shopper has already typed into,
+  // since the fetch is async and a fast typist could beat it. Guests (no token) just get the
+  // blank form exactly as before; there's nothing to fetch for them.
+  const hasAutofilledRef = useRef(false);
+  useEffect(() => {
+    if (!token || hasAutofilledRef.current) return;
+    (async () => {
+      try {
+        const { addresses } = await apiFetch<{ addresses: SavedAddress[] }>('/addresses', {}, token);
+        const defaultAddress = addresses.find((a) => a.isDefault);
+        if (!defaultAddress || hasAutofilledRef.current) return;
+        hasAutofilledRef.current = true;
+        setFormData((prev) => ({
+          ...prev,
+          phoneNumber: prev.phoneNumber || defaultAddress.phoneNumber,
+          country: prev.country || defaultAddress.country,
+          cityTown: prev.cityTown || defaultAddress.cityTown,
+          district: prev.district || defaultAddress.district,
+          streetAddress: prev.streetAddress || defaultAddress.streetAddress,
+          houseBuildingNumber: prev.houseBuildingNumber || defaultAddress.houseBuildingNumber || '',
+          additionalInfo: prev.additionalInfo || defaultAddress.additionalInfo || '',
+        }));
+      } catch (e) {
+        console.error('Error fetching default address:', e);
+      }
+    })();
+  }, [token]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
