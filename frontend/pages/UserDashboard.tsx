@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2 } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
@@ -25,12 +25,35 @@ const TRACKING_ICONS: Record<string, React.ElementType> = {
 // same emerald since admins mainly care about Pending/Cancelled there).
 const CUSTOMER_STATUS_STYLES: Record<Order['status'], string> = {
   'Pending': 'bg-amber-100 text-amber-700',
-  'Processing': 'bg-orange-100 text-orange-700',
-  'Shipped': 'bg-orange-100 text-orange-700',
+  'Processing': 'bg-purple-100 text-purple-700',
+  'Shipped': 'bg-indigo-100 text-indigo-700',
   'Delivered': 'bg-emerald-100 text-emerald-700',
   'Cancelled': 'bg-rose-100 text-rose-700',
-  'Returned': 'bg-purple-100 text-purple-700',
+  'Returned': 'bg-fuchsia-100 text-fuchsia-700',
 };
+// The small solid dot inside each status badge, and the icon-square background/text a step
+// lighter than the badge - both keyed the same way so a status is recognizable at a glance
+// whether it's showing as a badge or as an order card's leading icon.
+const ORDER_STATUS_DOT: Record<Order['status'], string> = {
+  'Pending': 'bg-amber-500',
+  'Processing': 'bg-purple-600',
+  'Shipped': 'bg-indigo-600',
+  'Delivered': 'bg-emerald-600',
+  'Cancelled': 'bg-rose-500',
+  'Returned': 'bg-fuchsia-600',
+};
+const ORDER_ICON_STYLES: Record<Order['status'], string> = {
+  'Pending': 'bg-amber-50 text-amber-600 border-amber-100',
+  'Processing': 'bg-purple-50 text-purple-600 border-purple-100',
+  'Shipped': 'bg-indigo-50 text-indigo-600 border-indigo-100',
+  'Delivered': 'bg-emerald-50 text-emerald-600 border-emerald-100',
+  'Cancelled': 'bg-rose-50 text-rose-600 border-rose-100',
+  'Returned': 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100',
+};
+// A short "Sep 21, 2026" form for order cards - formatDate() in utils.ts includes a time, which
+// is more than a compact card row needs.
+const formatOrderCardDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('en-RW', { timeZone: 'Africa/Kigali', month: 'short', day: 'numeric', year: 'numeric' });
 
 const UserDashboard: React.FC = () => {
   const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, theme, toggleTheme, updateCurrentUser, token, showToast, addToCart, requestReturn, acknowledgeReturnResult, t } = useAppContext();
@@ -40,6 +63,7 @@ const UserDashboard: React.FC = () => {
     initialTab && ['orders', 'wishlist', 'profile', 'address'].includes(initialTab) ? initialTab : 'orders'
   );
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'All' | Order['status']>('All');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnReason, setReturnReason] = useState('');
@@ -388,7 +412,7 @@ const UserDashboard: React.FC = () => {
                   <div>
                     <h1 className="text-2xl sm:text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_order_details')}</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
-                      {t('dashboard_order_id')}: {selectedOrder.orderNumber || selectedOrder.id} • {t('dashboard_order_date')}: {selectedOrder.date}
+                      {t('dashboard_order_id')}: {selectedOrder.orderNumber || selectedOrder.id} • {t('dashboard_order_date')}: {formatOrderCardDate(selectedOrder.date)}
                     </p>
                   </div>
 
@@ -567,35 +591,135 @@ const UserDashboard: React.FC = () => {
                     <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t(NAV_ITEMS[0].labelKey)}</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.orders}</p>
                   </div>
-                  {userOrders.length > 0 ? (
-                    <div className="space-y-3">
-                      {userOrders.map((order) => (
-                        <button
-                          key={order.id}
-                          onClick={() => setSelectedOrder(order)}
-                          className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-left hover:shadow-md transition-shadow"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-900 dark:text-emerald-50 truncate flex items-center gap-1.5">
-                              Order #{order.orderNumber || order.id}
-                              {order.returnRequest?.customerUnread && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />}
-                            </p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                              {order.items.length} {order.items.length === 1 ? t('dashboard_item') : t('dashboard_items')} · {getFormattedPrice(order.total)}
-                            </p>
+
+                  {(() => {
+                    const orderCounts = {
+                      Pending: userOrders.filter((o) => o.status === 'Pending').length,
+                      Processing: userOrders.filter((o) => o.status === 'Processing').length,
+                      Shipped: userOrders.filter((o) => o.status === 'Shipped').length,
+                      Delivered: userOrders.filter((o) => o.status === 'Delivered').length,
+                    };
+                    const statCards: { key: keyof typeof orderCounts | 'Total'; labelKey: string; value: number; icon: React.ElementType; iconClass: string }[] = [
+                      { key: 'Total', labelKey: 'dashboard_orders_total', value: userOrders.length, icon: Receipt, iconClass: 'bg-blue-50 text-blue-600' },
+                      { key: 'Pending', labelKey: 'status_pending', value: orderCounts.Pending, icon: Clock, iconClass: 'bg-amber-50 text-amber-600' },
+                      { key: 'Shipped', labelKey: 'status_shipped', value: orderCounts.Shipped, icon: Truck, iconClass: 'bg-indigo-50 text-indigo-600' },
+                      { key: 'Delivered', labelKey: 'status_delivered', value: orderCounts.Delivered, icon: CheckCircle2, iconClass: 'bg-emerald-50 text-emerald-600' },
+                    ];
+                    const allFilterTabs: { key: 'All' | Order['status']; labelKey: string; count: number }[] = [
+                      { key: 'All', labelKey: 'dashboard_orders_all', count: userOrders.length },
+                      { key: 'Pending', labelKey: 'status_pending', count: orderCounts.Pending },
+                      { key: 'Shipped', labelKey: 'status_shipped', count: orderCounts.Shipped },
+                      { key: 'Delivered', labelKey: 'status_delivered', count: orderCounts.Delivered },
+                      { key: 'Processing', labelKey: 'status_processing', count: orderCounts.Processing },
+                    ];
+                    const filterTabs = allFilterTabs.filter((tab) => tab.key === 'All' || tab.count > 0);
+                    const filteredOrders = orderStatusFilter === 'All' ? userOrders : userOrders.filter((o) => o.status === orderStatusFilter);
+
+                    return (
+                      <>
+                        {userOrders.length > 0 && (
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-6">
+                            {statCards.map(({ key, labelKey, value, icon: Icon, iconClass }) => (
+                              <div key={key} className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                                <div>
+                                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">{t(labelKey)}</p>
+                                  <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-emerald-50">{value}</h3>
+                                </div>
+                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0 ${iconClass}`}>
+                                  <Icon size={20} />
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <span className={`inline-flex items-center self-start sm:self-auto px-3 py-1.5 text-xs font-bold rounded-full shrink-0 ${CUSTOMER_STATUS_STYLES[order.status]}`}>
-                            {t(`status_${order.status.toLowerCase()}`)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center py-14">
-                      <Package size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-4" />
-                      <p className="text-slate-500 dark:text-slate-400">{t('dashboard_no_orders')}</p>
-                    </div>
-                  )}
+                        )}
+
+                        {userOrders.length > 0 && (
+                          <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-2 border-b border-slate-200 dark:border-slate-800 -mx-2 px-2 sm:mx-0 sm:px-0">
+                            {filterTabs.map(({ key, labelKey, count }) => (
+                              <button
+                                key={key}
+                                onClick={() => setOrderStatusFilter(key)}
+                                className={`px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all shrink-0 ${
+                                  orderStatusFilter === key
+                                    ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                }`}
+                              >
+                                {t(labelKey)} ({count})
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {filteredOrders.length > 0 ? (
+                          <div className="space-y-3">
+                            {filteredOrders.map((order) => {
+                              const StatusIcon = TRACKING_ICONS[order.status] || Package;
+                              const isDelivered = order.status === 'Delivered';
+                              const canTrack = order.status === 'Pending' || order.status === 'Processing' || order.status === 'Shipped';
+                              const dateLabel = isDelivered && order.deliveryConfirmedAt
+                                ? t('dashboard_delivered_on', { date: formatOrderCardDate(order.deliveryConfirmedAt) })
+                                : t('dashboard_placed_on', { date: formatOrderCardDate(order.date) });
+                              return (
+                                <div
+                                  key={order.id}
+                                  className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                                >
+                                  <div className="flex items-center gap-4 min-w-0">
+                                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border flex items-center justify-center shrink-0 ${ORDER_ICON_STYLES[order.status]}`}>
+                                      <StatusIcon size={22} />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                        <h4 className="font-bold text-slate-900 dark:text-emerald-50 text-sm sm:text-base truncate">Order #{order.orderNumber || order.id}</h4>
+                                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shrink-0 ${CUSTOMER_STATUS_STYLES[order.status]}`}>
+                                          <span className={`w-1.5 h-1.5 rounded-full ${ORDER_STATUS_DOT[order.status]}`} />
+                                          {t(`status_${order.status.toLowerCase()}`)}
+                                        </span>
+                                        {order.returnRequest?.customerUnread && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />}
+                                      </div>
+                                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
+                                        {order.items.length} {order.items.length === 1 ? t('dashboard_item') : t('dashboard_items')} • <span className="text-slate-700 dark:text-slate-300 font-semibold">{getFormattedPrice(order.total)}</span> • {dateLabel}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end shrink-0">
+                                    {isDelivered && (
+                                      <button
+                                        onClick={() => handleReorder(order)}
+                                        className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all shadow-sm"
+                                      >
+                                        {t('dashboard_buy_again')}
+                                      </button>
+                                    )}
+                                    {canTrack && (
+                                      <button
+                                        onClick={() => setSelectedOrder(order)}
+                                        className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all shadow-sm"
+                                      >
+                                        {t('dashboard_track_order')}
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => setSelectedOrder(order)}
+                                      className="px-3 sm:px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-semibold text-xs transition-all shadow-sm"
+                                    >
+                                      {t('dashboard_view_details')}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center py-14">
+                            <Package size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+                            <p className="text-slate-500 dark:text-slate-400">{t('dashboard_no_orders')}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </>
