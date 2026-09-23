@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, Trash2, Building2, Home, Phone } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard } from 'lucide-react';
 import AddressFormModal from '../components/AddressFormModal';
 import AddressMapPreview from '../components/AddressMapPreview';
 import { useAppContext } from '../context/AppContext';
@@ -58,7 +58,7 @@ const formatOrderCardDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString('en-RW', { timeZone: 'Africa/Kigali', month: 'short', day: 'numeric', year: 'numeric' });
 
 const UserDashboard: React.FC = () => {
-  const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, theme, toggleTheme, updateCurrentUser, token, showToast, addToCart, requestReturn, acknowledgeReturnResult, t } = useAppContext();
+  const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, theme, toggleTheme, updateCurrentUser, token, showToast, addToCart, requestReturn, acknowledgeReturnResult, start2FASetup, confirm2FASetup, disable2FA, t } = useAppContext();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(
@@ -223,6 +223,94 @@ const UserDashboard: React.FC = () => {
     } finally {
       setIsSavingPassword(false);
     }
+  };
+
+  // Profile photo upload - mirrors AdminAccountAndSecurity.tsx's pattern exactly: POST /uploads
+  // (generic authenticated upload, already used for product/category images) for the new file,
+  // PATCH /users/me via updateCurrentUser for the profileImage URL, then best-effort delete the
+  // old file so orphaned uploads don't pile up.
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(user?.profileImage || null);
+
+  useEffect(() => {
+    setProfileImagePreview(user?.profileImage || null);
+  }, [user?.profileImage]);
+
+  const handleAvatarClick = () => avatarFileInputRef.current?.click();
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const previousImage = user?.profileImage;
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { url } = await apiFetch<{ url: string }>('/uploads', { method: 'POST', body: formData }, token);
+      setProfileImagePreview(url);
+      await updateCurrentUser({ profileImage: url });
+      if (previousImage) {
+        apiFetch('/uploads', { method: 'DELETE', body: JSON.stringify({ url: previousImage }) }, token).catch(() => {});
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t('dashboard_photo_upload_failed'), 'error');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    const previousImage = user?.profileImage;
+    setProfileImagePreview(null);
+    setIsUploadingAvatar(true);
+    await updateCurrentUser({ profileImage: null });
+    setIsUploadingAvatar(false);
+    if (previousImage) {
+      apiFetch('/uploads', { method: 'DELETE', body: JSON.stringify({ url: previousImage }) }, token).catch(() => {});
+    }
+  };
+
+  // Real email-based 2FA (backend /auth/2fa/*, see AppContext) - unlike the admin account page,
+  // customers opted in rather than being required, so this also supports disabling (which needs
+  // the current password re-entered, per the backend route's contract).
+  const [twoFAStep, setTwoFAStep] = useState<'idle' | 'awaiting-code' | 'awaiting-disable-password'>('idle');
+  const [twoFACodeInput, setTwoFACodeInput] = useState('');
+  const [disablePasswordInput, setDisablePasswordInput] = useState('');
+  const [is2FABusy, setIs2FABusy] = useState(false);
+
+  const handleStartEnable2FA = async () => {
+    setIs2FABusy(true);
+    const ok = await start2FASetup();
+    setIs2FABusy(false);
+    if (ok) setTwoFAStep('awaiting-code');
+  };
+
+  const handleConfirmEnable2FA = async () => {
+    setIs2FABusy(true);
+    const ok = await confirm2FASetup(twoFACodeInput.trim());
+    setIs2FABusy(false);
+    if (ok) {
+      setTwoFAStep('idle');
+      setTwoFACodeInput('');
+    }
+  };
+
+  const handleConfirmDisable2FA = async () => {
+    setIs2FABusy(true);
+    const ok = await disable2FA(disablePasswordInput);
+    setIs2FABusy(false);
+    if (ok) {
+      setTwoFAStep('idle');
+      setDisablePasswordInput('');
+    }
+  };
+
+  const handleCancel2FAStep = () => {
+    setTwoFAStep('idle');
+    setTwoFACodeInput('');
+    setDisablePasswordInput('');
   };
 
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -899,210 +987,396 @@ const UserDashboard: React.FC = () => {
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_profile_settings')}</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.profile}</p>
               </div>
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-8 max-w-lg space-y-5">
-                <div>
-                  <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('auth_full_name')}
-                  </label>
-                  <input
-                    id="fullName"
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
-                    placeholder={t('dashboard_enter_full_name')}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="username" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('auth_username')}
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="username"
-                      type="text"
-                      autoComplete="username"
-                      minLength={3}
-                      maxLength={20}
-                      pattern="[a-zA-Z0-9_]+"
-                      title={t('auth_username_hint')}
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className={`w-full px-5 py-3 pr-10 rounded-xl bg-slate-50 dark:bg-slate-800 border outline-none focus:ring-2 focus:border-transparent text-slate-900 dark:text-emerald-100 ${
-                        usernameStatus === 'taken' || usernameStatus === 'invalid'
-                          ? 'border-rose-300 focus:ring-rose-600'
-                          : usernameStatus === 'available'
-                          ? 'border-emerald-300 focus:ring-emerald-500'
-                          : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
-                      }`}
-                    />
-                    <span className="absolute inset-y-0 right-3 flex items-center">
-                      {usernameStatus === 'checking' && <Loader2 size={16} className="animate-spin text-slate-400" />}
-                      {usernameStatus === 'available' && <Check size={16} className="text-emerald-600" />}
-                      {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X size={16} className="text-rose-500" />}
-                    </span>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left column: avatar + security */}
+                <div className="flex flex-col gap-6">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex flex-col items-center text-center transition-colors duration-300">
+                    <div className="relative group mb-4">
+                      <button
+                        type="button"
+                        onClick={handleAvatarClick}
+                        disabled={isUploadingAvatar}
+                        className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-2xl shadow-md disabled:opacity-60"
+                        title={t('dashboard_upload_photo_hint')}
+                      >
+                        {profileImagePreview ? (
+                          <img src={profileImagePreview} alt={fullName || 'Profile'} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{getInitials(fullName || 'U')}</span>
+                        )}
+                        <span className="absolute inset-0 rounded-full bg-slate-900/0 group-hover:bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                          <Camera size={22} className="text-white" />
+                        </span>
+                      </button>
+                      {profileImagePreview && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          disabled={isUploadingAvatar}
+                          className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow hover:bg-rose-600 transition-colors disabled:opacity-60"
+                          title={t('dashboard_remove_photo')}
+                          aria-label={t('dashboard_remove_photo')}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                      <input
+                        ref={avatarFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarFileChange}
+                        className="hidden"
+                      />
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-900 dark:text-emerald-50">{fullName || t('dashboard_customer')}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                      <IdCard size={12} /> {t('dashboard_customer_id')}: #{user?.id}
+                    </p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-2 h-4">
+                      {isUploadingAvatar ? t('dashboard_uploading') : ''}
+                    </p>
+                    {user?.isActive !== false && (
+                      <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-semibold text-xs border border-emerald-100 dark:border-emerald-900">
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 mr-2"></span> {t('dashboard_active_account')}
+                      </div>
+                    )}
                   </div>
-                  {usernameStatus === 'taken' ? (
-                    <div className="mt-1.5">
-                      <p className="text-xs font-semibold text-rose-600">{t('auth_username_taken')}</p>
-                      {usernameSuggestions.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {usernameSuggestions.map((suggestion) => (
-                            <button
-                              type="button"
-                              key={suggestion}
-                              onClick={() => setUsername(suggestion)}
-                              className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 font-semibold transition-colors"
-                            >
-                              {suggestion}
-                            </button>
-                          ))}
+
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 shadow-sm transition-colors duration-300">
+                    <h4 className="font-bold text-slate-900 dark:text-emerald-50 text-base mb-4 flex items-center">
+                      <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400 mr-2" /> {t('dashboard_security_status')}
+                    </h4>
+                    <div className="space-y-3.5 text-sm mb-1">
+                      {user?.registrationDate && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">{t('dashboard_member_since')}</span>
+                          <span className="font-semibold text-slate-900 dark:text-emerald-50">{formatOrderCardDate(user.registrationDate)}</span>
                         </div>
                       )}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-slate-500 dark:text-slate-400 shrink-0">{t('dashboard_two_factor_auth')}</span>
+                        {twoFAStep === 'idle' && (
+                          user?.twoFactorEnabled ? (
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">{t('dashboard_2fa_enabled')}</span>
+                              <button
+                                onClick={() => setTwoFAStep('awaiting-disable-password')}
+                                className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                              >
+                                {t('dashboard_2fa_disable')}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={handleStartEnable2FA}
+                              disabled={is2FABusy}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                            >
+                              {is2FABusy ? t('dashboard_sending') : t('dashboard_2fa_enable')}
+                            </button>
+                          )
+                        )}
+                      </div>
                     </div>
-                  ) : usernameStatus === 'invalid' ? (
-                    <p className="mt-1.5 text-xs font-semibold text-rose-600">{t('auth_username_hint')}</p>
-                  ) : usernameStatus === 'available' ? (
-                    <p className="mt-1.5 text-xs font-semibold text-emerald-600">{t('auth_username_available')}</p>
-                  ) : null}
-                </div>
-                <div>
-                  <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('auth_phone_number')}
-                  </label>
-                  <input
-                    id="phoneNumber"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
-                    placeholder={t('dashboard_enter_phone_number')}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('auth_email')}
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={user?.email || ''}
-                    readOnly
-                    disabled
-                    className="w-full px-5 py-3 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 outline-none text-slate-500 dark:text-slate-500 cursor-not-allowed"
-                  />
 
-                  {pendingEmailChange && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2">
-                      {t('dashboard_email_change_pending', { email: pendingEmailChange })}
-                    </p>
-                  )}
+                    {twoFAStep === 'idle' && (
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">{t('dashboard_2fa_description')}</p>
+                    )}
 
-                  {isChangingEmail ? (
-                    <div className="mt-3 space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                      <div>
-                        <label htmlFor="newEmail" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                          {t('dashboard_new_email')}
+                    {twoFAStep === 'awaiting-code' && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 flex items-center gap-1.5 mb-2">
+                          <Mail size={13} /> {t('dashboard_2fa_enter_code')}
                         </label>
                         <input
-                          id="newEmail"
-                          type="email"
-                          value={newEmail}
-                          onChange={(e) => setNewEmail(e.target.value)}
-                          placeholder={t('dashboard_enter_new_email')}
-                          className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          autoFocus
+                          value={twoFACodeInput}
+                          onChange={(e) => setTwoFACodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="000000"
+                          className="w-full text-center tracking-[0.4em] text-lg font-bold px-5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-500 mb-3"
                         />
+                        <div className="flex gap-2">
+                          <button onClick={handleCancel2FAStep} className="flex-1 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            {t('dashboard_cancel')}
+                          </button>
+                          <button
+                            onClick={handleConfirmEnable2FA}
+                            disabled={is2FABusy || twoFACodeInput.length !== 6}
+                            className="flex-1 px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                          >
+                            {is2FABusy ? t('dashboard_2fa_confirming') : t('dashboard_2fa_confirm')}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleRequestEmailChange}
-                          disabled={isRequestingEmailChange || !newEmail.trim()}
-                          className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors text-sm active:scale-95 disabled:opacity-60"
-                        >
-                          {isRequestingEmailChange ? t('dashboard_sending') : t('dashboard_send_verification')}
-                        </button>
-                        <button
-                          onClick={() => { setIsChangingEmail(false); setNewEmail(''); }}
-                          className="px-4 py-2 rounded-lg font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
-                        >
-                          {t('dashboard_cancel')}
-                        </button>
+                    )}
+
+                    {twoFAStep === 'awaiting-disable-password' && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <label className="text-xs font-semibold text-slate-600 dark:text-emerald-300 mb-2 block">
+                          {t('dashboard_2fa_enter_password_to_disable')}
+                        </label>
+                        <input
+                          type="password"
+                          autoFocus
+                          value={disablePasswordInput}
+                          onChange={(e) => setDisablePasswordInput(e.target.value)}
+                          className="w-full px-5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-emerald-100 outline-none focus:ring-2 focus:ring-emerald-500 mb-3"
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={handleCancel2FAStep} className="flex-1 px-4 py-2 rounded-lg text-sm font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            {t('dashboard_cancel')}
+                          </button>
+                          <button
+                            onClick={handleConfirmDisable2FA}
+                            disabled={is2FABusy || !disablePasswordInput}
+                            className="flex-1 px-4 py-2 rounded-lg text-sm font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors disabled:opacity-60"
+                          >
+                            {is2FABusy ? t('dashboard_2fa_disabling') : t('dashboard_2fa_disable')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right column: forms */}
+                <div className="lg:col-span-2 flex flex-col gap-6">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-emerald-50">{t('dashboard_personal_information')}</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('dashboard_personal_information_subtitle')}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <User size={18} />
                       </div>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => setIsChangingEmail(true)}
-                      className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline mt-2"
-                    >
-                      {t('dashboard_change_email')}
-                    </button>
-                  )}
-                </div>
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={handleUpdateProfile}
-                    disabled={isSavingProfile || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
-                    className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
-                  >
-                    {isSavingProfile ? t('dashboard_saving') : t('dashboard_update_profile')}
-                  </button>
-                </div>
-              </div>
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <label htmlFor="fullName" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                            {t('auth_full_name')}
+                          </label>
+                          <input
+                            id="fullName"
+                            type="text"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                            placeholder={t('dashboard_enter_full_name')}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="username" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                            {t('auth_username')}
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="username"
+                              type="text"
+                              autoComplete="username"
+                              minLength={3}
+                              maxLength={20}
+                              pattern="[a-zA-Z0-9_]+"
+                              title={t('auth_username_hint')}
+                              value={username}
+                              onChange={(e) => setUsername(e.target.value)}
+                              className={`w-full px-4 py-2.5 pr-9 rounded-xl bg-slate-50 dark:bg-slate-800 border outline-none focus:ring-2 focus:border-transparent text-sm text-slate-900 dark:text-emerald-100 ${
+                                usernameStatus === 'taken' || usernameStatus === 'invalid'
+                                  ? 'border-rose-300 focus:ring-rose-600'
+                                  : usernameStatus === 'available'
+                                  ? 'border-emerald-300 focus:ring-emerald-500'
+                                  : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
+                              }`}
+                            />
+                            <span className="absolute inset-y-0 right-3 flex items-center">
+                              {usernameStatus === 'checking' && <Loader2 size={16} className="animate-spin text-slate-400" />}
+                              {usernameStatus === 'available' && <Check size={16} className="text-emerald-600" />}
+                              {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X size={16} className="text-rose-500" />}
+                            </span>
+                          </div>
+                          {usernameStatus === 'taken' ? (
+                            <div className="mt-1.5">
+                              <p className="text-xs font-semibold text-rose-600">{t('auth_username_taken')}</p>
+                              {usernameSuggestions.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {usernameSuggestions.map((suggestion) => (
+                                    <button
+                                      type="button"
+                                      key={suggestion}
+                                      onClick={() => setUsername(suggestion)}
+                                      className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 font-semibold transition-colors"
+                                    >
+                                      {suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : usernameStatus === 'invalid' ? (
+                            <p className="mt-1.5 text-xs font-semibold text-rose-600">{t('auth_username_hint')}</p>
+                          ) : usernameStatus === 'available' ? (
+                            <p className="mt-1.5 text-xs font-semibold text-emerald-600">{t('auth_username_available')}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <label htmlFor="phoneNumber" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                            {t('auth_phone_number')}
+                          </label>
+                          <input
+                            id="phoneNumber"
+                            type="tel"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                            placeholder={t('dashboard_enter_phone_number')}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                            {t('auth_email')}
+                          </label>
+                          <input
+                            id="email"
+                            type="email"
+                            value={user?.email || ''}
+                            readOnly
+                            disabled
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 outline-none text-sm text-slate-500 dark:text-slate-500 cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-8 max-w-lg space-y-5 mt-6">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-emerald-50 flex items-center gap-2">
-                  <KeyRound size={18} className="text-emerald-600 dark:text-emerald-400" /> {t('dashboard_change_password')}
-                </h2>
-                <div>
-                  <label htmlFor="currentPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('dashboard_current_password')}
-                  </label>
-                  <input
-                    id="currentPassword"
-                    type="password"
-                    autoComplete="current-password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="newPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('dashboard_new_password')}
-                  </label>
-                  <input
-                    id="newPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="confirmNewPassword" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    {t('dashboard_confirm_new_password')}
-                  </label>
-                  <input
-                    id="confirmNewPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100"
-                  />
-                </div>
-                {passwordError && (
-                  <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">{passwordError}</p>
-                )}
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={handleChangePassword}
-                    disabled={isSavingPassword || !currentPassword || !newPassword || !confirmNewPassword}
-                    className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
-                  >
-                    {isSavingPassword ? t('dashboard_saving') : t('dashboard_change_password')}
-                  </button>
+                      <div>
+                        {pendingEmailChange && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
+                            {t('dashboard_email_change_pending', { email: pendingEmailChange })}
+                          </p>
+                        )}
+                        {isChangingEmail ? (
+                          <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                            <div>
+                              <label htmlFor="newEmail" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                {t('dashboard_new_email')}
+                              </label>
+                              <input
+                                id="newEmail"
+                                type="email"
+                                value={newEmail}
+                                onChange={(e) => setNewEmail(e.target.value)}
+                                placeholder={t('dashboard_enter_new_email')}
+                                className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleRequestEmailChange}
+                                disabled={isRequestingEmailChange || !newEmail.trim()}
+                                className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors text-sm active:scale-95 disabled:opacity-60"
+                              >
+                                {isRequestingEmailChange ? t('dashboard_sending') : t('dashboard_send_verification')}
+                              </button>
+                              <button
+                                onClick={() => { setIsChangingEmail(false); setNewEmail(''); }}
+                                className="px-4 py-2 rounded-lg font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
+                              >
+                                {t('dashboard_cancel')}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setIsChangingEmail(true)}
+                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                          >
+                            {t('dashboard_change_email')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-6 mt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        onClick={handleUpdateProfile}
+                        disabled={isSavingProfile || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
+                        className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
+                      >
+                        {isSavingProfile ? t('dashboard_saving') : t('dashboard_update_profile')}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                      <div>
+                        <h3 className="font-bold text-lg text-slate-900 dark:text-emerald-50">{t('dashboard_change_password')}</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t('dashboard_change_password_subtitle')}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <KeyRound size={18} />
+                      </div>
+                    </div>
+                    <div className="space-y-5">
+                      <div>
+                        <label htmlFor="currentPassword" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                          {t('dashboard_current_password')}
+                        </label>
+                        <input
+                          id="currentPassword"
+                          type="password"
+                          autoComplete="current-password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <label htmlFor="newPassword" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                            {t('dashboard_new_password')}
+                          </label>
+                          <input
+                            id="newPassword"
+                            type="password"
+                            autoComplete="new-password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="confirmNewPassword" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                            {t('dashboard_confirm_new_password')}
+                          </label>
+                          <input
+                            id="confirmNewPassword"
+                            type="password"
+                            autoComplete="new-password"
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                          />
+                        </div>
+                      </div>
+                      {passwordError && (
+                        <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">{passwordError}</p>
+                      )}
+                    </div>
+                    <div className="flex justify-end pt-6 mt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={isSavingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+                        className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
+                      >
+                        {isSavingPassword ? t('dashboard_saving') : t('dashboard_change_password')}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </>
