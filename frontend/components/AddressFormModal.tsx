@@ -128,7 +128,7 @@ const AddressFormModal: React.FC<AddressFormModalProps> = ({ initialValues, onSu
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 px-5 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
+              className="flex-1 px-5 py-2.5 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
             >
               {isSaving ? t('dashboard_saving') : t('dashboard_save_address')}
             </button>

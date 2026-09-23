@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard, Eye, EyeOff } from 'lucide-react';
 import AddressFormModal from '../components/AddressFormModal';
 import AddressMapPreview from '../components/AddressMapPreview';
 import { useAppContext } from '../context/AppContext';
@@ -193,6 +193,9 @@ const UserDashboard: React.FC = () => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   const handleChangePassword = async () => {
     setPasswordError(null);
@@ -573,7 +576,7 @@ const UserDashboard: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleReorder(selectedOrder)}
-                      className="flex items-center gap-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-full transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white px-3.5 py-1.5 rounded-full transition-colors"
                     >
                       <RefreshCw size={13} /> {t('dashboard_buy_again')}
                     </button>
@@ -876,7 +879,7 @@ const UserDashboard: React.FC = () => {
                                 onClick={() => setOrderStatusFilter(key)}
                                 className={`px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all shrink-0 ${
                                   orderStatusFilter === key
-                                    ? 'bg-slate-900 dark:bg-emerald-700 text-white shadow-sm'
+                                    ? 'bg-orange-500 text-white shadow-sm'
                                     : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                                 }`}
                               >
@@ -922,7 +925,7 @@ const UserDashboard: React.FC = () => {
                                     {isDelivered && (
                                       <button
                                         onClick={() => handleReorder(order)}
-                                        className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all shadow-sm"
+                                        className="px-3 sm:px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs transition-all shadow-sm"
                                       >
                                         {t('dashboard_buy_again')}
                                       </button>
@@ -1278,7 +1281,7 @@ const UserDashboard: React.FC = () => {
                               <button
                                 onClick={handleRequestEmailChange}
                                 disabled={isRequestingEmailChange || !newEmail.trim()}
-                                className="px-4 py-2 rounded-lg font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors text-sm active:scale-95 disabled:opacity-60"
+                                className="px-4 py-2 rounded-lg font-bold text-white bg-orange-500 hover:bg-orange-600 transition-colors text-sm active:scale-95 disabled:opacity-60"
                               >
                                 {isRequestingEmailChange ? t('dashboard_sending') : t('dashboard_send_verification')}
                               </button>
@@ -1304,7 +1307,7 @@ const UserDashboard: React.FC = () => {
                       <button
                         onClick={handleUpdateProfile}
                         disabled={isSavingProfile || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
-                        className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
+                        className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
                       >
                         {isSavingProfile ? t('dashboard_saving') : t('dashboard_update_profile')}
                       </button>
@@ -1326,41 +1329,73 @@ const UserDashboard: React.FC = () => {
                         <label htmlFor="currentPassword" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                           {t('dashboard_current_password')}
                         </label>
-                        <input
-                          id="currentPassword"
-                          type="password"
-                          autoComplete="current-password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
-                        />
+                        <div className="relative">
+                          <input
+                            id="currentPassword"
+                            type={showCurrentPassword ? 'text' : 'password'}
+                            autoComplete="off"
+                            readOnly
+                            onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="w-full px-4 py-2.5 pr-11 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword((v) => !v)}
+                            className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                            aria-label={showCurrentPassword ? t('dashboard_hide_password') : t('dashboard_show_password')}
+                          >
+                            {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                           <label htmlFor="newPassword" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                             {t('dashboard_new_password')}
                           </label>
-                          <input
-                            id="newPassword"
-                            type="password"
-                            autoComplete="new-password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
-                          />
+                          <div className="relative">
+                            <input
+                              id="newPassword"
+                              type={showNewPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              className="w-full px-4 py-2.5 pr-11 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword((v) => !v)}
+                              className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                              aria-label={showNewPassword ? t('dashboard_hide_password') : t('dashboard_show_password')}
+                            >
+                              {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
                         </div>
                         <div>
                           <label htmlFor="confirmNewPassword" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                             {t('dashboard_confirm_new_password')}
                           </label>
-                          <input
-                            id="confirmNewPassword"
-                            type="password"
-                            autoComplete="new-password"
-                            value={confirmNewPassword}
-                            onChange={(e) => setConfirmNewPassword(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
-                          />
+                          <div className="relative">
+                            <input
+                              id="confirmNewPassword"
+                              type={showConfirmNewPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              value={confirmNewPassword}
+                              onChange={(e) => setConfirmNewPassword(e.target.value)}
+                              className="w-full px-4 py-2.5 pr-11 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmNewPassword((v) => !v)}
+                              className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                              aria-label={showConfirmNewPassword ? t('dashboard_hide_password') : t('dashboard_show_password')}
+                            >
+                              {showConfirmNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {passwordError && (
@@ -1371,7 +1406,7 @@ const UserDashboard: React.FC = () => {
                       <button
                         onClick={handleChangePassword}
                         disabled={isSavingPassword || !currentPassword || !newPassword || !confirmNewPassword}
-                        className="px-6 py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
+                        className="px-6 py-3 rounded-xl font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
                       >
                         {isSavingPassword ? t('dashboard_saving') : t('dashboard_change_password')}
                       </button>
@@ -1391,7 +1426,7 @@ const UserDashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={() => { setEditingAddress(null); setShowAddressModal(true); }}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors shrink-0"
+                  className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors shrink-0"
                 >
                   <Plus size={16} /> {t('dashboard_add_new_address')}
                 </button>
