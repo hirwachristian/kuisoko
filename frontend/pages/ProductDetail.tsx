@@ -183,7 +183,11 @@ const ProductDetail: React.FC = () => {
   // still has per-photo stock (AdminImageStockManager) - the gallery itself is the picker, so
   // whichever photo is currently on screen (`currentImage`) IS the selection.
   const hasColorSizeVariants = (product.variants || []).some((v) => !v.imageUrl);
-  const hasImageStockVariants = (product.variants || []).some((v) => v.imageUrl);
+  // Per-image stock is "instead of" color/size (AdminImageStockManager's own framing) - a product
+  // is meant to use exactly one of the two systems. If real color/size variants exist, any
+  // stray/leftover image-stock rows (e.g. an admin who touched both sections) must never affect
+  // display or purchase, so this only ever turns on when there are none.
+  const hasImageStockVariants = !hasColorSizeVariants && (product.variants || []).some((v) => v.imageUrl);
   const imageStockVariant = hasImageStockVariants
     ? (product.variants || []).find((v) => v.imageUrl === currentImage)
     : undefined;
