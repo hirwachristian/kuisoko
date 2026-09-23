@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
@@ -390,45 +390,125 @@ const UserDashboard: React.FC = () => {
         <div className="max-w-4xl w-full mx-auto px-2 sm:px-6 lg:px-10 py-6 sm:py-10">
           {activeTab === 'orders' && (
             <>
-              {selectedOrder ? (
-                <div className="space-y-8">
+              {selectedOrder ? (() => {
+                const StatusIcon = TRACKING_ICONS[selectedOrder.status] || Package;
+                const statusBanner = (() => {
+                  switch (selectedOrder.status) {
+                    case 'Pending':
+                      return { title: t('order_status_banner_pending_title'), subtitle: t('order_status_banner_pending_subtitle') };
+                    case 'Processing':
+                      return { title: t('order_status_banner_processing_title'), subtitle: t('order_status_banner_processing_subtitle') };
+                    case 'Shipped':
+                      return {
+                        title: t('order_status_banner_shipped_title'),
+                        subtitle: selectedOrder.riderName ? t('order_status_banner_shipped_subtitle_rider', { rider: selectedOrder.riderName }) : t('order_status_banner_shipped_subtitle'),
+                      };
+                    case 'Delivered':
+                      return {
+                        title: t('order_status_banner_delivered_title'),
+                        subtitle: selectedOrder.deliveryConfirmedAt ? t('order_status_banner_delivered_subtitle', { date: formatOrderCardDate(selectedOrder.deliveryConfirmedAt) }) : '',
+                      };
+                    case 'Cancelled':
+                      return { title: t('order_status_banner_cancelled_title'), subtitle: t('order_status_banner_cancelled_subtitle') };
+                    case 'Returned':
+                    default:
+                      return { title: t('order_status_banner_returned_title'), subtitle: t('order_status_banner_returned_subtitle') };
+                  }
+                })();
+                const STEP_ORDER: Order['status'][] = ['Pending', 'Processing', 'Shipped', 'Delivered'];
+                const stepIndex = STEP_ORDER.indexOf(selectedOrder.status);
+
+                return (
+                <div className="space-y-6 sm:space-y-8">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <button onClick={() => setSelectedOrder(null)} className="text-emerald-600 dark:text-emerald-400 text-sm font-bold hover:underline">
                       ← {t('dashboard_back_to_orders')}
                     </button>
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-full ${CUSTOMER_STATUS_STYLES[selectedOrder.status]}`}>
-                        {t(`status_${selectedOrder.status.toLowerCase()}`)}
-                      </span>
-                      <button
-                        onClick={() => handleReorder(selectedOrder)}
-                        className="flex items-center gap-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-full transition-colors"
-                      >
-                        <RefreshCw size={13} /> {t('dashboard_buy_again')}
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleReorder(selectedOrder)}
+                      className="flex items-center gap-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-full transition-colors"
+                    >
+                      <RefreshCw size={13} /> {t('dashboard_buy_again')}
+                    </button>
                   </div>
 
                   <div>
-                    <h1 className="text-2xl sm:text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_order_details')}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_order_details')}</h1>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
                       {t('dashboard_order_id')}: {selectedOrder.orderNumber || selectedOrder.id} • {t('dashboard_order_date')}: {formatOrderCardDate(selectedOrder.date)}
                     </p>
                   </div>
 
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
-                    {selectedOrder.items.map((item, idx) => (
-                      <div key={idx} className="p-4 flex items-center gap-4">
-                        <img src={item.images?.[0]} alt={item.name} className="w-16 h-16 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-900 dark:text-emerald-50 truncate">{item.name}</p>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">
-                            {item.quantity} × {getFormattedPrice(item.price)}
-                          </p>
-                        </div>
-                        <span className="font-bold text-slate-900 dark:text-emerald-50 shrink-0">{getFormattedPrice(item.price * item.quantity)}</span>
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-6 flex items-center gap-4">
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border flex items-center justify-center shrink-0 ${ORDER_ICON_STYLES[selectedOrder.status]}`}>
+                      <StatusIcon size={24} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-black text-slate-900 dark:text-emerald-50">{statusBanner.title}</p>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-bold rounded-full shrink-0 ${CUSTOMER_STATUS_STYLES[selectedOrder.status]}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${ORDER_STATUS_DOT[selectedOrder.status]}`} />
+                          {t(`status_${selectedOrder.status.toLowerCase()}`)}
+                        </span>
                       </div>
-                    ))}
+                      {statusBanner.subtitle && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{statusBanner.subtitle}</p>}
+                    </div>
+                  </div>
+
+                  {stepIndex !== -1 && (
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-6">
+                      <div className="flex items-center">
+                        {STEP_ORDER.map((step, i) => {
+                          const StepIcon = TRACKING_ICONS[step] || Package;
+                          const reached = i <= stepIndex;
+                          return (
+                            <React.Fragment key={step}>
+                              <div className="flex flex-col items-center gap-2 shrink-0">
+                                <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors ${
+                                  reached ? `${ORDER_STATUS_DOT[step]} text-white` : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600'
+                                }`}>
+                                  <StepIcon size={16} />
+                                </div>
+                                <span className={`text-[10px] sm:text-xs font-bold text-center whitespace-nowrap ${reached ? 'text-slate-900 dark:text-emerald-50' : 'text-slate-400 dark:text-slate-600'}`}>
+                                  {t(`status_${step.toLowerCase()}`)}
+                                </span>
+                              </div>
+                              {i < STEP_ORDER.length - 1 && (
+                                <div className={`flex-1 h-1 mx-1 sm:mx-2 rounded-full -mt-5 ${i < stepIndex ? 'bg-emerald-500' : 'bg-slate-100 dark:bg-slate-800'}`} />
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                    <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                      <ShoppingBag size={16} className="text-slate-400 dark:text-slate-500" />
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-emerald-50">
+                        {t('dashboard_items')} ({selectedOrder.items.length})
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {selectedOrder.items.map((item, idx) => (
+                        <div key={idx} className="p-4 flex items-center gap-4">
+                          <img src={item.images?.[0]} alt={item.name} className="w-16 h-16 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-900 dark:text-emerald-50 truncate">{item.name}</p>
+                            {(item.selectedColor || item.selectedSize) && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                {[item.selectedColor, item.selectedSize].filter(Boolean).join(' / ')}
+                              </p>
+                            )}
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                              {item.quantity} × {getFormattedPrice(item.price)}
+                            </p>
+                          </div>
+                          <span className="font-bold text-slate-900 dark:text-emerald-50 shrink-0">{getFormattedPrice(item.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 space-y-2 text-sm">
@@ -454,7 +534,9 @@ const UserDashboard: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                      <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-2 text-sm">{t('dashboard_delivery_address')}</h3>
+                      <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-3 text-sm flex items-center gap-2">
+                        <MapPin size={15} className="text-slate-400 dark:text-slate-500" /> {t('dashboard_delivery_address')}
+                      </h3>
                       <p className="text-sm text-slate-600 dark:text-slate-400">{selectedOrder.deliveryAddress.fullName}</p>
                       <p className="text-sm text-slate-600 dark:text-slate-400">{selectedOrder.deliveryAddress.streetAddress}, {selectedOrder.deliveryAddress.cityTown}</p>
                       <p className="text-sm text-slate-600 dark:text-slate-400">{selectedOrder.deliveryAddress.district}, {selectedOrder.deliveryAddress.country}</p>
@@ -462,7 +544,9 @@ const UserDashboard: React.FC = () => {
                     </div>
 
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                      <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-2 text-sm">{t('dashboard_payment_status')}</h3>
+                      <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-3 text-sm flex items-center gap-2">
+                        <CreditCard size={15} className="text-slate-400 dark:text-slate-500" /> {t('dashboard_payment_status')}
+                      </h3>
                       <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-full ${
                         selectedOrder.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-700' : selectedOrder.paymentStatus === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
                       }`}>
@@ -560,22 +644,25 @@ const UserDashboard: React.FC = () => {
 
                   {selectedOrder.trackingHistory && selectedOrder.trackingHistory.length > 0 && (
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                      <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-4 text-sm">{t('dashboard_tracking_history')}</h3>
+                      <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-4 text-sm flex items-center gap-2">
+                        <Clock size={15} className="text-slate-400 dark:text-slate-500" /> {t('dashboard_tracking_history')}
+                      </h3>
                       <div className="space-y-5">
                         {selectedOrder.trackingHistory.map((event, idx) => {
                           const Icon = TRACKING_ICONS[event.status] || CheckCircle2;
+                          const iconStyle = ORDER_ICON_STYLES[event.status as Order['status']] || 'bg-emerald-50 text-emerald-600 border-emerald-100';
                           const isLast = idx === selectedOrder.trackingHistory!.length - 1;
                           return (
                             <div key={idx} className="flex gap-4">
                               <div className="flex flex-col items-center">
-                                <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <div className={`w-9 h-9 rounded-full border flex items-center justify-center shrink-0 ${iconStyle}`}>
                                   <Icon size={16} />
                                 </div>
                                 {!isLast && <div className="w-px flex-1 bg-slate-200 dark:bg-slate-700 mt-1" />}
                               </div>
                               <div className="pb-5">
                                 <p className="font-bold text-slate-900 dark:text-emerald-50 text-sm">{event.status}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">{event.date}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{formatOrderCardDate(event.date)}</p>
                                 {event.description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{event.description}</p>}
                               </div>
                             </div>
@@ -585,7 +672,8 @@ const UserDashboard: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ) : (
+                );
+              })() : (
                 <>
                   <div className="mb-6 sm:mb-8">
                     <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t(NAV_ITEMS[0].labelKey)}</h1>
