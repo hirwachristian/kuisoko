@@ -100,6 +100,27 @@ export interface User {
   registrationDate?: string; // New: Date of registration
 }
 
+/** A saved entry in a customer's address book - independent of `User.address` (the old single
+ * free-text field, still present but no longer surfaced anywhere). Field names mirror the
+ * checkout delivery-address shape exactly, plus `label` and `isDefault`. `lat`/`lng` are set by
+ * the backend's best-effort geocoding and may be absent (an address that failed to geocode, or
+ * one just created before the request resolves). */
+export interface SavedAddress {
+  id: string;
+  label: string;
+  fullName: string;
+  phoneNumber: string;
+  country: string;
+  cityTown: string;
+  district: string;
+  streetAddress: string;
+  houseBuildingNumber?: string;
+  additionalInfo?: string;
+  isDefault: boolean;
+  lat?: number | null;
+  lng?: number | null;
+}
+
 export interface Order {
   id: string; // Internal UUID - used for API calls, links, React keys
   orderNumber?: string; // Human-readable display id, e.g. "KS-178790"

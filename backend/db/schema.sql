@@ -82,6 +82,33 @@ CREATE TABLE two_factor_codes (
 );
 CREATE INDEX idx_two_factor_codes_user_id ON two_factor_codes(user_id);
 
+-- A real, multi-entry address book per customer - field names mirror deliveryAddressSchema in
+-- routes/orders.ts exactly, plus label and is_default. Only one is_default flag (not separate
+-- shipping/billing) since this app has no billing/invoicing concept anywhere. Independent of
+-- users.address (a single free-text column, still present, no longer surfaced in the UI).
+CREATE TABLE user_addresses (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label               TEXT NOT NULL,
+  full_name           TEXT NOT NULL,
+  phone_number        TEXT NOT NULL,
+  country             TEXT NOT NULL,
+  city_town           TEXT NOT NULL,
+  district            TEXT NOT NULL,
+  street_address      TEXT NOT NULL,
+  house_building_no   TEXT,
+  additional_info     TEXT,
+  is_default          BOOLEAN NOT NULL DEFAULT false,
+  lat                 DOUBLE PRECISION,
+  lng                 DOUBLE PRECISION,
+  geocoded_at         TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_user_addresses_user_id ON user_addresses(user_id);
+CREATE TRIGGER trg_user_addresses_updated_at BEFORE UPDATE ON user_addresses
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ---------------------------------------------------------------------------
 -- Categories & mega-menu sections
 -- ---------------------------------------------------------------------------

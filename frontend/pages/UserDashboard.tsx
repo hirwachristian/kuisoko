@@ -1,13 +1,15 @@
 
 
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, Trash2, Building2, Home, Phone } from 'lucide-react';
+import AddressFormModal from '../components/AddressFormModal';
+import AddressMapPreview from '../components/AddressMapPreview';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
 import RiderLocationMap from '../components/RiderLocationMap';
-import { Order } from '../types';
+import { Order, SavedAddress } from '../types';
 import { getInitials } from '../utils';
 import { apiFetch, ApiError } from '../api';
 
@@ -223,19 +225,74 @@ const UserDashboard: React.FC = () => {
     }
   };
 
-  const [isEditingAddress, setIsEditingAddress] = useState(false);
-  const [addressDraft, setAddressDraft] = useState(user?.address || '');
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
-  useEffect(() => {
-    setAddressDraft(user?.address || '');
-  }, [user?.address]);
+  const loadAddresses = useCallback(async () => {
+    if (!token) return;
+    try {
+      const { addresses: fetched } = await apiFetch<{ addresses: SavedAddress[] }>('/addresses', {}, token);
+      setAddresses(fetched);
+    } catch (e) {
+      console.error('Error fetching addresses:', e);
+    } finally {
+      setIsLoadingAddresses(false);
+    }
+  }, [token]);
 
-  const handleSaveAddress = async () => {
+  useEffect(() => { loadAddresses(); }, [loadAddresses]);
+
+  const handleSaveAddressEntry = async (data: Omit<SavedAddress, 'id' | 'lat' | 'lng'>) => {
+    if (!token) return;
     setIsSavingAddress(true);
-    await updateCurrentUser({ address: addressDraft.trim() });
-    setIsSavingAddress(false);
-    setIsEditingAddress(false);
+    try {
+      if (editingAddress) {
+        await apiFetch(`/addresses/${editingAddress.id}`, { method: 'PATCH', body: JSON.stringify(data) }, token);
+      } else {
+        await apiFetch('/addresses', { method: 'POST', body: JSON.stringify(data) }, token);
+      }
+      await loadAddresses();
+      setShowAddressModal(false);
+      setEditingAddress(null);
+      showToast(t('dashboard_address_saved'), 'success');
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : t('dashboard_address_save_failed'), 'error');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  const handleSetDefaultAddress = async (address: SavedAddress) => {
+    if (!token || address.isDefault) return;
+    try {
+      await apiFetch(`/addresses/${address.id}/default`, { method: 'POST' }, token);
+      await loadAddresses();
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : t('dashboard_address_save_failed'), 'error');
+    }
+  };
+
+  const handleDeleteAddress = async (address: SavedAddress) => {
+    if (!token || !window.confirm(t('dashboard_confirm_delete_address'))) return;
+    try {
+      await apiFetch(`/addresses/${address.id}`, { method: 'DELETE' }, token);
+      await loadAddresses();
+    } catch (e) {
+      showToast(e instanceof ApiError ? e.message : t('dashboard_address_save_failed'), 'error');
+    }
+  };
+
+  // A small, honest touch - pick an icon by what the admin-free-text label actually says, rather
+  // than a generic pin for every card. Falls back to the generic pin for anything else.
+  const addressIconFor = (label: string) => {
+    const lower = label.toLowerCase();
+    if (lower.includes('home')) return Home;
+    if (lower.includes('office') || lower.includes('work')) return Building2;
+    if (lower.includes('warehouse') || lower.includes('shop') || lower.includes('store')) return Package;
+    return MapPin;
   };
 
   // Re-adds a past order's items to the cart using each product's *current* data (price, stock,
@@ -1051,63 +1108,134 @@ const UserDashboard: React.FC = () => {
 
           {activeTab === 'address' && (
             <>
-              <div className="mb-6 sm:mb-8">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_address_book')}</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.address}</p>
+              <div className="mb-6 sm:mb-8 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_address_book')}</h1>
+                  <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.address}</p>
+                </div>
+                <button
+                  onClick={() => { setEditingAddress(null); setShowAddressModal(true); }}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors shrink-0"
+                >
+                  <Plus size={16} /> {t('dashboard_add_new_address')}
+                </button>
               </div>
-              <div className="max-w-lg">
-                {isEditingAddress ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-6 space-y-4">
-                    <textarea
-                      rows={4}
-                      value={addressDraft}
-                      onChange={(e) => setAddressDraft(e.target.value)}
-                      placeholder={t('dashboard_enter_address')}
-                      className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-emerald-100 resize-none"
-                    />
-                    <div className="flex gap-3">
-                      <button
-                        onClick={handleSaveAddress}
-                        disabled={isSavingAddress}
-                        className="px-5 py-2.5 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-60"
-                      >
-                        {isSavingAddress ? t('dashboard_saving') : t('dashboard_save_address')}
-                      </button>
-                      <button
-                        onClick={() => { setIsEditingAddress(false); setAddressDraft(user?.address || ''); }}
-                        className="px-5 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                      >
-                        {t('dashboard_cancel')}
-                      </button>
+
+              {isLoadingAddresses ? (
+                <div className="flex justify-center py-14">
+                  <Loader2 size={28} className="animate-spin text-emerald-600" />
+                </div>
+              ) : addresses.length === 0 ? (
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center py-14">
+                  <MapPin size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+                  <p className="text-slate-500 dark:text-slate-400">{t('dashboard_no_addresses')}</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-5">
+                    <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <MapPin size={20} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t('dashboard_total_addresses')}</p>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-emerald-50">{addresses.length}</h3>
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <Home size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t('dashboard_default_address')}</p>
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-emerald-50 truncate">
+                          {addresses.find((a) => a.isDefault)?.label ?? t('dashboard_no_default_address')}
+                        </h3>
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 sm:p-6">
-                    <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-2">{t('dashboard_default_shipping_address')}</h3>
-                    {user?.address ? (
-                      <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-line">{user.address}</p>
-                    ) : (
-                      <p className="text-sm text-slate-400 dark:text-slate-500 italic">{t('dashboard_no_address')}</p>
-                    )}
-                    <div className="flex gap-3 mt-4">
-                      <button
-                        onClick={() => setIsEditingAddress(true)}
-                        className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-emerald-50 dark:hover:bg-slate-800"
-                      >
-                        {user?.address ? (
-                          <>
-                            <Pencil size={16} /> {t('dashboard_edit')}
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={16} /> {t('dashboard_add_new_address')}
-                          </>
-                        )}
-                      </button>
-                    </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                    {addresses.map((address) => {
+                      const AddressIcon = addressIconFor(address.label);
+                      return (
+                        <div key={address.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                  <AddressIcon size={16} />
+                                </div>
+                                <h3 className="font-bold text-slate-900 dark:text-emerald-50 truncate">{address.label}</h3>
+                              </div>
+                              {address.isDefault && (
+                                <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shrink-0">
+                                  {t('dashboard_default_badge')}
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+                              <p className="font-bold text-slate-900 dark:text-emerald-50">{address.fullName}</p>
+                              <p>{address.streetAddress}{address.houseBuildingNumber ? `, ${address.houseBuildingNumber}` : ''}</p>
+                              {address.additionalInfo && <p>{address.additionalInfo}</p>}
+                              <p>{address.district}, {address.cityTown}</p>
+                              <p>{address.country}</p>
+                              <p className="flex items-center gap-1.5 pt-1 text-slate-700 dark:text-slate-300 font-semibold">
+                                <Phone size={12} className="text-emerald-600" /> {address.phoneNumber}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 text-xs font-bold">
+                            <button
+                              onClick={() => { setEditingAddress(address); setShowAddressModal(true); }}
+                              className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:underline"
+                            >
+                              <Pencil size={13} /> {t('dashboard_edit')}
+                            </button>
+                            {!address.isDefault && (
+                              <button
+                                onClick={() => handleSetDefaultAddress(address)}
+                                className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                              >
+                                {t('dashboard_set_as_default')}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteAddress(address)}
+                              className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 hover:underline"
+                            >
+                              <Trash2 size={13} /> {t('dashboard_delete')}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+
+                  {(() => {
+                    const defaultAddress = addresses.find((a) => a.isDefault);
+                    if (!defaultAddress || defaultAddress.lat == null || defaultAddress.lng == null) return null;
+                    return (
+                      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <h3 className="font-bold text-slate-900 dark:text-emerald-50 mb-1">{t('dashboard_delivery_location_title')}</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                          {t('dashboard_delivery_location_subtitle', { label: defaultAddress.label })}
+                        </p>
+                        <AddressMapPreview key={defaultAddress.id} lat={defaultAddress.lat} lng={defaultAddress.lng} label={defaultAddress.label} />
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {showAddressModal && (
+                <AddressFormModal
+                  initialValues={editingAddress}
+                  isSaving={isSavingAddress}
+                  onClose={() => { setShowAddressModal(false); setEditingAddress(null); }}
+                  onSubmit={handleSaveAddressEntry}
+                />
+              )}
             </>
           )}
         </div>
