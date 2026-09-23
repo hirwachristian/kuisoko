@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard, Eye, EyeOff } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, ShoppingCart, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard, Eye, EyeOff, Search } from 'lucide-react';
 import AddressFormModal from '../components/AddressFormModal';
 import AddressMapPreview from '../components/AddressMapPreview';
+import DashboardPagination from '../components/DashboardPagination';
 import { useAppContext } from '../context/AppContext';
-import ProductCard from '../components/ProductCard';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
 import RiderLocationMap from '../components/RiderLocationMap';
-import { Order, SavedAddress } from '../types';
-import { getInitials } from '../utils';
+import { Order, SavedAddress, Product } from '../types';
+import { getInitials, getStockLevel } from '../utils';
 import { apiFetch, ApiError } from '../api';
 
 const TRACKING_ICONS: Record<string, React.ElementType> = {
@@ -27,27 +27,29 @@ const TRACKING_ICONS: Record<string, React.ElementType> = {
 // same emerald since admins mainly care about Pending/Cancelled there).
 const CUSTOMER_STATUS_STYLES: Record<Order['status'], string> = {
   'Pending': 'bg-amber-100 text-amber-700',
-  'Processing': 'bg-purple-100 text-purple-700',
-  'Shipped': 'bg-indigo-100 text-indigo-700',
+  'Processing': 'bg-orange-100 text-orange-700',
+  'Shipped': 'bg-lime-100 text-lime-700',
   'Delivered': 'bg-emerald-100 text-emerald-700',
   'Cancelled': 'bg-rose-100 text-rose-700',
   'Returned': 'bg-fuchsia-100 text-fuchsia-700',
 };
 // The small solid dot inside each status badge, and the icon-square background/text a step
 // lighter than the badge - both keyed the same way so a status is recognizable at a glance
-// whether it's showing as a badge or as an order card's leading icon.
+// whether it's showing as a badge or as an order card's leading icon. Processing/Shipped use the
+// site's own orange accent and a warm lime rather than purple/indigo, which don't appear anywhere
+// else in the app's palette.
 const ORDER_STATUS_DOT: Record<Order['status'], string> = {
   'Pending': 'bg-amber-500',
-  'Processing': 'bg-purple-600',
-  'Shipped': 'bg-indigo-600',
+  'Processing': 'bg-orange-500',
+  'Shipped': 'bg-lime-500',
   'Delivered': 'bg-emerald-600',
   'Cancelled': 'bg-rose-500',
   'Returned': 'bg-fuchsia-600',
 };
 const ORDER_ICON_STYLES: Record<Order['status'], string> = {
   'Pending': 'bg-amber-50 text-amber-600 border-amber-100',
-  'Processing': 'bg-purple-50 text-purple-600 border-purple-100',
-  'Shipped': 'bg-indigo-50 text-indigo-600 border-indigo-100',
+  'Processing': 'bg-orange-50 text-orange-600 border-orange-100',
+  'Shipped': 'bg-lime-50 text-lime-600 border-lime-100',
   'Delivered': 'bg-emerald-50 text-emerald-600 border-emerald-100',
   'Cancelled': 'bg-rose-50 text-rose-600 border-rose-100',
   'Returned': 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100',
@@ -58,7 +60,7 @@ const formatOrderCardDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString('en-RW', { timeZone: 'Africa/Kigali', month: 'short', day: 'numeric', year: 'numeric' });
 
 const UserDashboard: React.FC = () => {
-  const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, theme, toggleTheme, updateCurrentUser, token, showToast, addToCart, requestReturn, acknowledgeReturnResult, start2FASetup, confirm2FASetup, disable2FA, t } = useAppContext();
+  const { user, products, getFormattedPrice, logout, orders: userOrders, wishlist, toggleWishlist, theme, toggleTheme, updateCurrentUser, token, showToast, addToCart, requestReturn, acknowledgeReturnResult, start2FASetup, confirm2FASetup, disable2FA, t } = useAppContext();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(
@@ -66,6 +68,8 @@ const UserDashboard: React.FC = () => {
   );
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderStatusFilter, setOrderStatusFilter] = useState<'All' | Order['status']>('All');
+  const [ordersPage, setOrdersPage] = useState(1);
+  const ORDERS_PER_PAGE = 4;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnReason, setReturnReason] = useState('');
@@ -107,6 +111,30 @@ const UserDashboard: React.FC = () => {
   }, [activeTab, selectedOrder]);
 
   const wishlistProducts = products.filter(p => wishlist.includes(p.id));
+
+  const [wishlistSearch, setWishlistSearch] = useState('');
+  const [wishlistCategory, setWishlistCategory] = useState('All');
+  type WishlistSort = 'default' | 'priceLowHigh' | 'priceHighLow' | 'stockStatus';
+  const [wishlistSort, setWishlistSort] = useState<WishlistSort>('default');
+  const [wishlistPage, setWishlistPage] = useState(1);
+  const WISHLIST_PER_PAGE = 4;
+
+  useEffect(() => { setWishlistPage(1); }, [wishlistSearch, wishlistCategory, wishlistSort]);
+
+  // "Move to cart" is add-then-remove client-side - the backend only has independent
+  // cart-add/wishlist-remove endpoints, there's no combined one, and that's fine since both are
+  // real, already-used mutations (same as ProductCard's plain addToCart call).
+  const handleMoveToCart = (product: Product) => {
+    addToCart(product);
+    toggleWishlist(product.id);
+  };
+
+  const handleMoveAllToCart = (productsToMove: Product[]) => {
+    if (productsToMove.length === 0) return;
+    productsToMove.forEach((p) => addToCart(p));
+    productsToMove.forEach((p) => toggleWishlist(p.id));
+    showToast(t('dashboard_wishlist_moved_all', { count: productsToMove.length }), 'success');
+  };
 
   const [fullName, setFullName] = useState(user?.name || '');
   const [username, setUsername] = useState(user?.username || '');
@@ -840,7 +868,7 @@ const UserDashboard: React.FC = () => {
                     const statCards: { key: keyof typeof orderCounts | 'Total'; labelKey: string; value: number; icon: React.ElementType; iconClass: string }[] = [
                       { key: 'Total', labelKey: 'dashboard_orders_total', value: userOrders.length, icon: Receipt, iconClass: 'bg-blue-50 text-blue-600' },
                       { key: 'Pending', labelKey: 'status_pending', value: orderCounts.Pending, icon: Clock, iconClass: 'bg-amber-50 text-amber-600' },
-                      { key: 'Shipped', labelKey: 'status_shipped', value: orderCounts.Shipped, icon: Truck, iconClass: 'bg-indigo-50 text-indigo-600' },
+                      { key: 'Shipped', labelKey: 'status_shipped', value: orderCounts.Shipped, icon: Truck, iconClass: 'bg-lime-50 text-lime-600' },
                       { key: 'Delivered', labelKey: 'status_delivered', value: orderCounts.Delivered, icon: CheckCircle2, iconClass: 'bg-emerald-50 text-emerald-600' },
                     ];
                     const allFilterTabs: { key: 'All' | Order['status']; labelKey: string; count: number }[] = [
@@ -852,6 +880,8 @@ const UserDashboard: React.FC = () => {
                     ];
                     const filterTabs = allFilterTabs.filter((tab) => tab.key === 'All' || tab.count > 0);
                     const filteredOrders = orderStatusFilter === 'All' ? userOrders : userOrders.filter((o) => o.status === orderStatusFilter);
+                    const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+                    const paginatedOrders = filteredOrders.slice((ordersPage - 1) * ORDERS_PER_PAGE, ordersPage * ORDERS_PER_PAGE);
 
                     return (
                       <>
@@ -876,7 +906,7 @@ const UserDashboard: React.FC = () => {
                             {filterTabs.map(({ key, labelKey, count }) => (
                               <button
                                 key={key}
-                                onClick={() => setOrderStatusFilter(key)}
+                                onClick={() => { setOrderStatusFilter(key); setOrdersPage(1); }}
                                 className={`px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all shrink-0 ${
                                   orderStatusFilter === key
                                     ? 'bg-orange-500 text-white shadow-sm'
@@ -890,65 +920,62 @@ const UserDashboard: React.FC = () => {
                         )}
 
                         {filteredOrders.length > 0 ? (
-                          <div className="space-y-3">
-                            {filteredOrders.map((order) => {
-                              const StatusIcon = TRACKING_ICONS[order.status] || Package;
-                              const isDelivered = order.status === 'Delivered';
-                              const canTrack = order.status === 'Pending' || order.status === 'Processing' || order.status === 'Shipped';
-                              const dateLabel = isDelivered && order.deliveryConfirmedAt
-                                ? t('dashboard_delivered_on', { date: formatOrderCardDate(order.deliveryConfirmedAt) })
-                                : t('dashboard_placed_on', { date: formatOrderCardDate(order.date) });
-                              return (
-                                <div
-                                  key={order.id}
-                                  className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                                >
-                                  <div className="flex items-center gap-4 min-w-0">
-                                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border flex items-center justify-center shrink-0 ${ORDER_ICON_STYLES[order.status]}`}>
-                                      <StatusIcon size={22} />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                        <h4 className="font-bold text-slate-900 dark:text-emerald-50 text-sm sm:text-base truncate">Order #{order.orderNumber || order.id}</h4>
-                                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shrink-0 ${CUSTOMER_STATUS_STYLES[order.status]}`}>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${ORDER_STATUS_DOT[order.status]}`} />
-                                          {t(`status_${order.status.toLowerCase()}`)}
-                                        </span>
-                                        {order.returnRequest?.customerUnread && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />}
+                          <>
+                            <div className="space-y-3">
+                              {paginatedOrders.map((order) => {
+                                const StatusIcon = TRACKING_ICONS[order.status] || Package;
+                                const isDelivered = order.status === 'Delivered';
+                                const dateLabel = isDelivered && order.deliveryConfirmedAt
+                                  ? t('dashboard_delivered_on', { date: formatOrderCardDate(order.deliveryConfirmedAt) })
+                                  : t('dashboard_placed_on', { date: formatOrderCardDate(order.date) });
+                                return (
+                                  <div
+                                    key={order.id}
+                                    onClick={() => setSelectedOrder(order)}
+                                    className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-4 min-w-0">
+                                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border flex items-center justify-center shrink-0 ${ORDER_ICON_STYLES[order.status]}`}>
+                                        <StatusIcon size={22} />
                                       </div>
-                                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
-                                        {order.items.length} {order.items.length === 1 ? t('dashboard_item') : t('dashboard_items')} • <span className="text-slate-700 dark:text-slate-300 font-semibold">{getFormattedPrice(order.total)}</span> • {dateLabel}
-                                      </p>
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                          <h4 className="font-bold text-slate-900 dark:text-emerald-50 text-sm sm:text-base truncate">Order #{order.orderNumber || order.id}</h4>
+                                          <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shrink-0 ${CUSTOMER_STATUS_STYLES[order.status]}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${ORDER_STATUS_DOT[order.status]}`} />
+                                            {t(`status_${order.status.toLowerCase()}`)}
+                                          </span>
+                                          {order.returnRequest?.customerUnread && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />}
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
+                                          {order.items.length} {order.items.length === 1 ? t('dashboard_item') : t('dashboard_items')} • <span className="text-slate-700 dark:text-slate-300 font-semibold">{getFormattedPrice(order.total)}</span> • {dateLabel}
+                                        </p>
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end shrink-0">
                                     {isDelivered && (
-                                      <button
-                                        onClick={() => handleReorder(order)}
-                                        className="px-3 sm:px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs transition-all shadow-sm"
-                                      >
-                                        {t('dashboard_buy_again')}
-                                      </button>
+                                      <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0">
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleReorder(order); }}
+                                          className="px-3 sm:px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-xs transition-all shadow-sm"
+                                        >
+                                          {t('dashboard_buy_again')}
+                                        </button>
+                                      </div>
                                     )}
-                                    {canTrack && (
-                                      <button
-                                        onClick={() => setSelectedOrder(order)}
-                                        className="px-3 sm:px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all shadow-sm"
-                                      >
-                                        {t('dashboard_track_order')}
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => setSelectedOrder(order)}
-                                      className="px-3 sm:px-4 py-2 rounded-xl bg-slate-900 dark:bg-emerald-700 hover:bg-slate-800 dark:hover:bg-emerald-600 text-white font-semibold text-xs transition-all shadow-sm"
-                                    >
-                                      {t('dashboard_view_details')}
-                                    </button>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                                );
+                              })}
+                            </div>
+                            <DashboardPagination
+                              currentPage={ordersPage}
+                              totalPages={totalOrderPages}
+                              onPageChange={setOrdersPage}
+                              totalItems={filteredOrders.length}
+                              itemsPerPage={ORDERS_PER_PAGE}
+                              itemLabel={t('dashboard_orders_count_label')}
+                              showingLabel={(start, end, total, label) => t('dashboard_showing_range', { start, end, total, label })}
+                            />
+                          </>
                         ) : (
                           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center py-14">
                             <Package size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-4" />
@@ -965,22 +992,145 @@ const UserDashboard: React.FC = () => {
 
           {activeTab === 'wishlist' && (
             <>
-              <div className="mb-6 sm:mb-8">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_wishlist')}</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.wishlist}</p>
-              </div>
-              {wishlistProducts.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                  {wishlistProducts.map(product => (
-                    <ProductCard key={product.id} product={{ ...product, image: product.images[0] }} />
-                  ))}
+              <div className="mb-6 sm:mb-8 flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_wishlist')}</h1>
+                  <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.wishlist}</p>
                 </div>
-              ) : (
+                {wishlistProducts.length > 0 && (
+                  <button
+                    onClick={() => handleMoveAllToCart(wishlistProducts)}
+                    className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors shrink-0"
+                  >
+                    <ShoppingCart size={16} /> {t('dashboard_move_all_to_cart')}
+                  </button>
+                )}
+              </div>
+
+              {wishlistProducts.length === 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center py-14">
                   <Heart size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-4" />
                   <p className="text-slate-500 dark:text-slate-400">{t('dashboard_no_wishlist_items')}</p>
                 </div>
-              )}
+              ) : (() => {
+                const categories = Array.from(new Set(wishlistProducts.map((p) => p.category))).sort();
+                const search = wishlistSearch.trim().toLowerCase();
+                let visible = wishlistProducts
+                  .filter((p) => wishlistCategory === 'All' || p.category === wishlistCategory)
+                  .filter((p) => !search || p.name.toLowerCase().includes(search));
+                if (wishlistSort === 'priceLowHigh') {
+                  visible = [...visible].sort((a, b) => a.price * (1 - (a.discount || 0) / 100) - b.price * (1 - (b.discount || 0) / 100));
+                } else if (wishlistSort === 'priceHighLow') {
+                  visible = [...visible].sort((a, b) => b.price * (1 - (b.discount || 0) / 100) - a.price * (1 - (a.discount || 0) / 100));
+                } else if (wishlistSort === 'stockStatus') {
+                  visible = [...visible].sort((a, b) => a.stock - b.stock);
+                }
+                const totalWishlistPages = Math.max(1, Math.ceil(visible.length / WISHLIST_PER_PAGE));
+                const paginatedWishlist = visible.slice((wishlistPage - 1) * WISHLIST_PER_PAGE, wishlistPage * WISHLIST_PER_PAGE);
+
+                return (
+                  <>
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 sm:p-4 rounded-xl mb-6">
+                      <div className="relative flex-1 max-w-md">
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={wishlistSearch}
+                          onChange={(e) => setWishlistSearch(e.target.value)}
+                          placeholder={t('dashboard_search_wishlist_placeholder')}
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={wishlistCategory}
+                          onChange={(e) => setWishlistCategory(e.target.value)}
+                          className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                        >
+                          <option value="All">{t('dashboard_all_categories')}</option>
+                          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <select
+                          value={wishlistSort}
+                          onChange={(e) => setWishlistSort(e.target.value as WishlistSort)}
+                          className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 text-sm text-slate-900 dark:text-emerald-100"
+                        >
+                          <option value="default">{t('dashboard_sort_default')}</option>
+                          <option value="priceLowHigh">{t('dashboard_sort_price_low_high')}</option>
+                          <option value="priceHighLow">{t('dashboard_sort_price_high_low')}</option>
+                          <option value="stockStatus">{t('dashboard_sort_stock_status')}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {visible.length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 text-center py-14">
+                        <Search size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-4" />
+                        <p className="text-slate-500 dark:text-slate-400">{t('dashboard_wishlist_no_matches')}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                          {paginatedWishlist.map((product) => {
+                            const stockLevel = getStockLevel(product.stock);
+                            const stockPill = stockLevel === 'out'
+                              ? { label: t('dashboard_stock_pill_out'), className: 'bg-slate-800 text-white' }
+                              : stockLevel === 'low'
+                              ? { label: t('dashboard_stock_pill_low'), className: 'bg-orange-500 text-white' }
+                              : { label: t('dashboard_stock_pill_in'), className: 'bg-emerald-600 text-white' };
+                            const hasDiscount = (product.discount || 0) > 0;
+                            const returnTo = '/dashboard?tab=wishlist';
+                            return (
+                              <div key={product.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all p-4 flex flex-col relative">
+                                <button
+                                  onClick={() => toggleWishlist(product.id)}
+                                  className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm flex items-center justify-center text-rose-500 hover:bg-rose-500 hover:text-white transition-all z-10 shadow-sm"
+                                  aria-label={t('product_remove_from_wishlist')}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                                <Link to={`/product/${product.id}`} state={{ from: returnTo }} className="relative w-full aspect-square rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 mb-4">
+                                  <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-2" />
+                                  <span className={`absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wide shadow-sm ${stockPill.className}`}>
+                                    {stockPill.label}
+                                  </span>
+                                </Link>
+                                <div className="mb-4 flex-1">
+                                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">{product.category}</span>
+                                  <Link to={`/product/${product.id}`} state={{ from: returnTo }} className="block font-bold text-slate-900 dark:text-emerald-50 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors line-clamp-1 mt-0.5">
+                                    {product.name}
+                                  </Link>
+                                  <div className="flex items-center gap-2 pt-1.5">
+                                    <span className="font-black text-slate-900 dark:text-emerald-100">{getFormattedPrice(product.price * (1 - (product.discount || 0) / 100))}</span>
+                                    {hasDiscount && <span className="text-xs text-slate-400 dark:text-slate-500 line-through">{getFormattedPrice(product.price)}</span>}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleMoveToCart(product)}
+                                  disabled={stockLevel === 'out'}
+                                  className="w-full py-2.5 px-4 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-orange-500 dark:hover:bg-orange-500 text-slate-700 dark:text-slate-200 hover:text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-slate-100 disabled:dark:hover:bg-slate-800 disabled:cursor-not-allowed"
+                                >
+                                  <ShoppingBag size={15} />
+                                  {stockLevel === 'out' ? t('product_out_of_stock') : t('dashboard_move_to_cart')}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <DashboardPagination
+                          currentPage={wishlistPage}
+                          totalPages={totalWishlistPages}
+                          onPageChange={setWishlistPage}
+                          totalItems={visible.length}
+                          itemsPerPage={WISHLIST_PER_PAGE}
+                          itemLabel={t('dashboard_wishlist_count_label')}
+                          showingLabel={(start, end, total, label) => t('dashboard_showing_range', { start, end, total, label })}
+                        />
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
 
