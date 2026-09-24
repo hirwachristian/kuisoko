@@ -4,8 +4,11 @@ import { useInView } from 'motion/react';
 import { ShieldCheck, Truck, Lock, Headphones, ArrowRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useCountUp } from '../hooks/useCountUp';
+import { apiFetch } from '../api';
 
-const ABOUT_IMAGES = ['/about/about-1.jpg', '/about/about-2.jpg', '/about/about-3.jpg'];
+// Used whenever the admin hasn't configured any About Us images yet (GET /site-images/public
+// comes back empty) - this section should never render blank just because nothing's configured.
+const DEFAULT_ABOUT_IMAGES = ['/about/about-1.jpg', '/about/about-2.jpg', '/about/about-3.jpg'];
 
 /** One stat in the About page's counter row - a plain string (e.g. "24/7") renders as-is, while a
  * number counts up from 0 the first time the row scrolls into view, matching the same effect used
@@ -19,6 +22,7 @@ const StatValue: React.FC<{ value: number | string; isInView: boolean; suffix?: 
 const AboutSection: React.FC = () => {
   const { t, products, categories } = useAppContext();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [aboutImages, setAboutImages] = useState<string[]>([]);
   const statsRef = useRef<HTMLDivElement>(null);
   // Not `once: true` - deliberately re-counts from 0 every time this row scrolls into view again
   // (leaving the section and scrolling back, or navigating away and back), not just the first time
@@ -26,11 +30,19 @@ const AboutSection: React.FC = () => {
   const statsInView = useInView(statsRef, { once: false, amount: 0.5 });
 
   useEffect(() => {
+    apiFetch<{ aboutImages: string[] }>('/site-images/public')
+      .then(({ aboutImages: fetched }) => setAboutImages(fetched))
+      .catch(() => {});
+  }, []);
+
+  const images = aboutImages.length > 0 ? aboutImages : DEFAULT_ABOUT_IMAGES;
+
+  useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % ABOUT_IMAGES.length);
+      setCurrentSlide((prev) => (prev + 1) % images.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, []);
+  }, [images.length]);
 
   const values = [
     { icon: ShieldCheck, titleKey: 'about_value_1_title', bodyKey: 'about_value_1_body' },
@@ -49,7 +61,7 @@ const AboutSection: React.FC = () => {
     <section id="about" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8" style={{ scrollMarginTop: 'var(--header-offset, 112px)' }}>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16">
         <div className="aspect-[4/3] rounded-[2.5rem] bg-emerald-950 relative overflow-hidden shadow-2xl shadow-emerald-900/30">
-          {ABOUT_IMAGES.map((src, idx) => (
+          {images.map((src, idx) => (
             <div
               key={src}
               className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
@@ -63,7 +75,7 @@ const AboutSection: React.FC = () => {
           <div className="absolute -top-10 -right-10 w-56 h-56 bg-orange-400/10 rounded-full blur-[60px]" />
           <div className="absolute -bottom-10 -left-10 w-56 h-56 bg-emerald-500/10 rounded-full blur-[60px]" />
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 flex gap-2">
-            {ABOUT_IMAGES.map((_, idx) => (
+            {images.map((_, idx) => (
               <button
                 key={idx}
                 type="button"

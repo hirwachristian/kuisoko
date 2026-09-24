@@ -26,6 +26,7 @@ import enquiriesRouter from './routes/enquiries.js';
 import ridersRouter from './routes/riders.js';
 import returnsRouter from './routes/returns.js';
 import groupOrdersRouter from './routes/groupOrders.js';
+import siteImagesRouter from './routes/siteImages.js';
 import { UPLOADS_DIR } from './lib/uploads.js';
 import { initMonitoring, captureError } from './lib/monitoring.js';
 import { scheduleBackups } from './lib/backup.js';
@@ -115,6 +116,7 @@ app.use('/api/enquiries', enquiriesRouter);
 app.use('/api/riders', ridersRouter);
 app.use('/api/returns', returnsRouter);
 app.use('/api/group-orders', groupOrdersRouter);
+app.use('/api/site-images', siteImagesRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err && typeof err === 'object' && 'type' in err && err.type === 'entity.too.large') {

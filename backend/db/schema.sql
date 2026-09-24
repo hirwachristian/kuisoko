@@ -494,10 +494,20 @@ CREATE TABLE app_settings (
   default_currency            TEXT NOT NULL REFERENCES currencies(code),
   default_language            TEXT NOT NULL REFERENCES languages(code),
   marketing_emails_enabled    BOOLEAN NOT NULL DEFAULT true, -- "Push Alerts": admin-sent discount/special emails to newsletter subscribers
+  hero_image_ids              UUID[] NOT NULL DEFAULT '{}', -- ordered site_images.id list shown on the homepage hero
+  about_image_ids             UUID[] NOT NULL DEFAULT '{}', -- ordered site_images.id list shown on the About Us section
   updated_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TRIGGER trg_app_settings_updated_at BEFORE UPDATE ON app_settings
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- A shared pool of admin-uploaded images, independently assignable to the hero/About Us sections
+-- via app_settings.hero_image_ids/about_image_ids above.
+CREATE TABLE site_images (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  url         TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- Site-wide announcement banners (shown above the navbar) - multiple can be live at once.
 CREATE TABLE site_announcements (

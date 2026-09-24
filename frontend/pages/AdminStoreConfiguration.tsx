@@ -6,6 +6,7 @@ import { FooterLink, ShippingZone } from '../types';
 import { apiFetch, ApiError } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import WhatsAppIcon from '../components/WhatsAppIcon';
+import AdminHomepageImages from '../components/AdminHomepageImages';
 
 // LinkForm component for footer links management
 const LinkForm: React.FC<{
@@ -205,6 +206,8 @@ const AdminStoreConfiguration: React.FC = () => {
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">KuISOKO currently operates in Rwandan Francs only.</p>
       </div>
+
+      <AdminHomepageImages />
 
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-5 sm:p-8 border border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
         <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-emerald-50 mb-2 flex items-center gap-2"><Truck size={20} /> Shipping Zones</h3>

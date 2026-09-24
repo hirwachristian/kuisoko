@@ -7,10 +7,12 @@ import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
 import AboutSection from '../components/AboutSection';
 import ContactSection from '../components/ContactSection';
 import { useAppContext } from '../context/AppContext';
+import { apiFetch } from '../api';
 import type { Product } from '../types';
 
-// ✅ Removed local image imports - using placeholder images instead
-const HERO_SLIDES = [
+// Used whenever the admin hasn't configured any hero images yet (GET /site-images/public comes
+// back empty) - the homepage should never render a blank hero just because nothing's been set up.
+const DEFAULT_HERO_SLIDES = [
   {
     image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&q=80', // Modern electronics/shopping
   },
@@ -43,13 +45,22 @@ const REVEAL_PROPS = {
 const Home: React.FC = () => {
   const { categories, products, t, tCategory } = useAppContext();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiFetch<{ heroImages: string[] }>('/site-images/public')
+      .then(({ heroImages: fetched }) => setHeroImages(fetched))
+      .catch(() => {});
+  }, []);
+
+  const heroSlides = heroImages.length > 0 ? heroImages.map((image) => ({ image })) : DEFAULT_HERO_SLIDES;
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [heroSlides.length]);
 
   // Only products explicitly marked as featured by the admin
   const featuredProducts = useMemo(() => {
@@ -104,7 +115,7 @@ const Home: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
         >
-        {HERO_SLIDES.map((slide, idx) => (
+        {heroSlides.map((slide, idx) => (
           <div
             key={idx}
             className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
@@ -163,7 +174,7 @@ const Home: React.FC = () => {
           </div>
         </motion.div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex gap-3">
-          {HERO_SLIDES.map((_, idx) => (
+          {heroSlides.map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentSlide(idx)}
