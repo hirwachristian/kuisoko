@@ -1,6 +1,14 @@
+import type { Product } from './types';
+
 // Standard clothing-size progression - letter sizes don't sort correctly alphabetically
 // ('L' < 'M' < 'S' < 'XL' < 'XS'), so they need an explicit small-to-large ordering instead.
 const LETTER_SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL', '5XL'];
+
+/** The image to show for this product on cards/listings: the admin's first chosen thumbnail if
+ * any are set, otherwise the first gallery image - every card/listing call site should resolve
+ * through this instead of reaching for images[0] directly. */
+export const getProductThumbnail = (product: Product): string | undefined =>
+  (product.thumbnailImages && product.thumbnailImages.length > 0 ? product.thumbnailImages[0] : product.images[0]);
 
 /** Compares two product variant sizes so they can always be shown smallest-to-largest, whether
  * they're numeric (shoe/measurement sizes like "39", "40.5") or letter sizes (S/M/L/XL). Numeric

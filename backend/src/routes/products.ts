@@ -46,7 +46,7 @@ function updateProductImageEmbedding(productId: string, imageUrl: string | undef
 
 const PRODUCT_COLUMNS = `
   p.id, p.name, p.description, p.price, p.discount, c.name AS category,
-  p.sub_category AS "subCategory", p.images, p.video_urls AS "videoUrls", p.rating, p.reviews_count AS reviews,
+  p.sub_category AS "subCategory", p.images, p.thumbnail_images AS "thumbnailImages", p.video_urls AS "videoUrls", p.rating, p.reviews_count AS reviews,
   p.stock, p.featured, p.color_images AS "colorImages", p.image_details AS "imageDetails", p.group_buy_enabled AS "groupBuyEnabled"
 `;
 
@@ -237,6 +237,10 @@ const productSchema = z.object({
   category: z.string().trim().min(1, 'Category is required'),
   subCategory: z.string().trim().min(1, 'Sub-category is required'),
   images: z.array(z.string()).default([]),
+  // Subset of `images` the admin picked to represent this product on cards/listings - deliberately
+  // independent of `variants`/per-image-stock, so a product with no color/size/image-stock variants
+  // at all can still have one or more thumbnails set. Falls back to images[0] when empty.
+  thumbnailImages: z.array(z.string()).default([]),
   videoUrls: z.array(z.string()).default([]),
   stock: z.number().int().nonnegative().default(0),
   featured: z.boolean().default(false),
@@ -317,10 +321,10 @@ async function createProduct(data: z.infer<typeof productSchema>) {
     if (!categoryId) throw new HttpError(400, `Category "${data.category}" not found.`);
 
     const result = await client.query(
-      `INSERT INTO products (name, description, price, discount, category_id, sub_category, images, video_urls, stock, featured, color_images, image_details, group_buy_enabled)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO products (name, description, price, discount, category_id, sub_category, images, thumbnail_images, video_urls, stock, featured, color_images, image_details, group_buy_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id`,
-      [data.name, data.description ?? null, data.price, data.discount ?? null, categoryId, data.subCategory, data.images, data.videoUrls, data.stock, data.featured, JSON.stringify(data.colorImages), JSON.stringify(data.imageDetails), data.groupBuyEnabled]
+      [data.name, data.description ?? null, data.price, data.discount ?? null, categoryId, data.subCategory, data.images, data.thumbnailImages, data.videoUrls, data.stock, data.featured, JSON.stringify(data.colorImages), JSON.stringify(data.imageDetails), data.groupBuyEnabled]
     );
     const id = result.rows[0].id;
     await insertVariants(client, id, data.variants);
@@ -366,6 +370,7 @@ const productUpdateSchema = z.object({
   category: z.string().trim().min(1, 'Category is required').optional(),
   subCategory: z.string().trim().min(1, 'Sub-category is required').optional(),
   images: z.array(z.string()).optional(),
+  thumbnailImages: z.array(z.string()).optional(),
   videoUrls: z.array(z.string()).optional(),
   stock: z.number().int().nonnegative().optional(),
   featured: z.boolean().optional(),
@@ -392,16 +397,17 @@ async function updateProduct(id: string, data: z.infer<typeof productUpdateSchem
          category_id = COALESCE($5, category_id),
          sub_category = COALESCE($6, sub_category),
          images = COALESCE($7, images),
-         video_urls = COALESCE($8, video_urls),
-         stock = COALESCE($9, stock),
-         featured = COALESCE($10, featured),
-         color_images = COALESCE($11, color_images),
-         image_details = COALESCE($12, image_details),
-         group_buy_enabled = COALESCE($13, group_buy_enabled)
-       WHERE id = $14`,
+         thumbnail_images = COALESCE($8, thumbnail_images),
+         video_urls = COALESCE($9, video_urls),
+         stock = COALESCE($10, stock),
+         featured = COALESCE($11, featured),
+         color_images = COALESCE($12, color_images),
+         image_details = COALESCE($13, image_details),
+         group_buy_enabled = COALESCE($14, group_buy_enabled)
+       WHERE id = $15`,
       [
         data.name ?? null, data.description ?? null, data.price ?? null, data.discount ?? null,
-        categoryId, data.subCategory ?? null, data.images ?? null, data.videoUrls ?? null,
+        categoryId, data.subCategory ?? null, data.images ?? null, data.thumbnailImages ?? null, data.videoUrls ?? null,
         data.stock ?? null, data.featured ?? null, data.colorImages !== undefined ? JSON.stringify(data.colorImages) : null,
         data.imageDetails !== undefined ? JSON.stringify(data.imageDetails) : null,
         data.groupBuyEnabled ?? null, id,

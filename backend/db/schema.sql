@@ -147,6 +147,7 @@ CREATE TABLE products (
   category_id    UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
   sub_category   TEXT NOT NULL,
   images         TEXT[] NOT NULL DEFAULT '{}',
+  thumbnail_images TEXT[] NOT NULL DEFAULT '{}',                    -- subset of `images` chosen as the card/listing thumbnail(s); no variant required, falls back to images[0] when empty
   video_urls     TEXT[] NOT NULL DEFAULT '{}',                     -- optional showcase/demo videos
   rating         NUMERIC(2,1) NOT NULL DEFAULT 0 CHECK (rating BETWEEN 0 AND 5),
   reviews_count  INT NOT NULL DEFAULT 0,                          -- denormalized, kept in sync by trigger below

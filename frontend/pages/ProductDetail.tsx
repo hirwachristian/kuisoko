@@ -11,7 +11,7 @@ import AddressForm, { AddressFormHandle } from '../components/AddressForm';
 import { motion } from 'motion/react';
 import { Product, ProductVariant, Review } from '../types';
 import { apiFetch, ApiError } from '../api';
-import { formatDate, getInitials, getStockLevel } from '../utils';
+import { formatDate, getInitials, getStockLevel, getProductThumbnail } from '../utils';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -651,7 +651,7 @@ const ProductDetail: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               {alsoBought.map(p => (
-                <ProductCard key={p.id} product={{ ...p, image: p.images[0] }} />
+                <ProductCard key={p.id} product={{ ...p, image: getProductThumbnail(p) ?? p.images[0] }} />
               ))}
             </div>
           )}
@@ -666,7 +666,7 @@ const ProductDetail: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               {similarProducts.map(p => (
-                <ProductCard key={p.id} product={{ ...p, image: p.images[0] }} />
+                <ProductCard key={p.id} product={{ ...p, image: getProductThumbnail(p) ?? p.images[0] }} />
               ))}
             </div>
           )}

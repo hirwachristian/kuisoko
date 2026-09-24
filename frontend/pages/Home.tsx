@@ -8,6 +8,7 @@ import AboutSection from '../components/AboutSection';
 import ContactSection from '../components/ContactSection';
 import { useAppContext } from '../context/AppContext';
 import { apiFetch } from '../api';
+import { getProductThumbnail } from '../utils';
 import type { Product } from '../types';
 
 // Used whenever the admin hasn't configured any hero images yet (GET /site-images/public comes
@@ -100,7 +101,7 @@ const Home: React.FC = () => {
       const productsInCategory = products.filter(p => p.category === cat);
       if (productsInCategory.length === 0) return null;
       const topProduct = productsInCategory.reduce((prev, current) => (prev.price > current.price) ? prev : current);
-      return { name: cat, image: topProduct.images[0] };
+      return { name: cat, image: getProductThumbnail(topProduct) ?? topProduct.images[0] };
     }).filter((c): c is { name: string; image: string } => c !== null);
   }, [categories, products]);
 
@@ -239,7 +240,7 @@ const Home: React.FC = () => {
                   <div key={pageIndex} className="w-full shrink-0 grid grid-cols-2 md:grid-cols-5 gap-4 sm:gap-6">
                     {pageProducts.map((product) => (
                       <div key={product.id} className="fade-in">
-                        <ProductCard product={{...product, image: product.images[0]}} />
+                        <ProductCard product={{...product, image: getProductThumbnail(product) ?? product.images[0]}} />
                       </div>
                     ))}
                   </div>

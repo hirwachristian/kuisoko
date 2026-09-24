@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ProductCard from './ProductCard';
 import { Product } from '../types';
+import { getProductThumbnail } from '../utils';
 
 interface ProductCarouselProps {
   products: Product[];
@@ -38,7 +39,7 @@ const ProductCarousel: React.FC<ProductCarouselProps> = ({ products }) => {
           <div key={index} className="min-w-full flex gap-6">
             {chunk.map(p => (
               <div key={p.id} className="w-1/4">
-                <ProductCard product={{ ...p, image: p.images[0] }} />
+                <ProductCard product={{ ...p, image: getProductThumbnail(p) ?? p.images[0] }} />
               </div>
             ))}
           </div>

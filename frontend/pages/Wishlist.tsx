@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppContext } from '../context/AppContext';
 import ProductCard from '../components/ProductCard';
 import { Heart } from 'lucide-react';
+import { getProductThumbnail } from '../utils';
 
 const Wishlist: React.FC = () => {
   const { products, wishlist, t } = useAppContext();
@@ -14,7 +15,7 @@ const Wishlist: React.FC = () => {
         {wishlistProducts.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {wishlistProducts.map(product => (
-              <ProductCard key={product.id} product={{ ...product, image: product.images[0] }} isWishlist={true} />
+              <ProductCard key={product.id} product={{ ...product, image: getProductThumbnail(product) ?? product.images[0] }} isWishlist={true} />
             ))}
           </div>
         ) : (

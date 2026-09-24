@@ -1,11 +1,12 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, Image as ImageIcon, Download, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Image as ImageIcon, Download, Upload, Star } from 'lucide-react';
 import { Product, ProductVariant } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { CategorySection } from '../constants';
 import { apiFetch, ApiError, API_BASE_URL } from '../api';
+import { getProductThumbnail } from '../utils';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AdminPagination from '../components/AdminPagination';
 import AdminVariantManager from '../components/AdminVariantManager';
@@ -90,6 +91,9 @@ const AdminManageProducts: React.FC = () => {
   const [newProductFeatured, setNewProductFeatured] = useState(false);
   const [newProductGroupBuyEnabled, setNewProductGroupBuyEnabled] = useState(false);
   const [newProductVariants, setNewProductVariants] = useState<ProductVariant[]>([]);
+  // Subset of newProductImagePreviews chosen as the card/listing thumbnail(s) - independent of
+  // variants, so it works even for a product with no color/size/image-stock variants at all.
+  const [newProductThumbnailImages, setNewProductThumbnailImages] = useState<string[]>([]);
   const [newProductColorImages, setNewProductColorImages] = useState<Record<string, string>>({});
   const [newProductImageDetails, setNewProductImageDetails] = useState<Record<string, { name?: string; description?: string }>>({});
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
@@ -110,6 +114,7 @@ const AdminManageProducts: React.FC = () => {
   const [editingProductFeatured, setEditingProductFeatured] = useState(false);
   const [editingProductGroupBuyEnabled, setEditingProductGroupBuyEnabled] = useState(false);
   const [editingProductVariants, setEditingProductVariants] = useState<ProductVariant[]>([]);
+  const [editingProductThumbnailImages, setEditingProductThumbnailImages] = useState<string[]>([]);
   const [editingProductColorImages, setEditingProductColorImages] = useState<Record<string, string>>({});
   const [editingProductImageDetails, setEditingProductImageDetails] = useState<Record<string, { name?: string; description?: string }>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
@@ -217,19 +222,35 @@ const AdminManageProducts: React.FC = () => {
     }
   }, [token, showToast]);
 
-  // Generic image removal handler for both add/edit
+  // Generic image removal handler for both add/edit. Also strips the removed image out of its
+  // thumbnail selection, if one is tracked here - otherwise a removed image could stay "selected"
+  // as a thumbnail while no longer being one of the product's own images.
   const handleRemoveImage = useCallback((
     indexToRemove: number,
     setPreviews: React.Dispatch<React.SetStateAction<string[]>>,
-    setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
+    setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+    setThumbnails?: React.Dispatch<React.SetStateAction<string[]>>
   ) => {
     setPreviews(prev => {
+      const removedUrl = prev[indexToRemove];
       const updated = prev.filter((_, index) => index !== indexToRemove);
       if (updated.length === 0) {
         setErrors(errPrev => ({ ...errPrev, images: 'At least one product image is required.' }));
       }
+      if (setThumbnails && removedUrl) {
+        setThumbnails(prevThumbs => prevThumbs.filter((url) => url !== removedUrl));
+      }
       return updated;
     });
+  }, []);
+
+  // Toggles one image in/out of a thumbnailImages list - shared by the add and edit forms' image
+  // preview grids.
+  const toggleThumbnailImage = useCallback((
+    url: string,
+    setThumbnails: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    setThumbnails(prev => (prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]));
   }, []);
 
   // Video removal (no validation needed - videos are always optional)
@@ -249,6 +270,7 @@ const AdminManageProducts: React.FC = () => {
     setNewProductCategory('');
     setNewProductSubCategory('');
     setNewProductImagePreviews([]);
+    setNewProductThumbnailImages([]);
     setNewProductVideoUrls([]);
     setNewProductStock('');
     setNewProductDiscount('0');
@@ -299,6 +321,7 @@ const AdminManageProducts: React.FC = () => {
       category: newProductCategory,
       subCategory: newProductSubCategory,
       images: newProductImagePreviews, // Uploaded image URLs
+      thumbnailImages: newProductThumbnailImages,
       videoUrls: newProductVideoUrls,
       stock: parseInt(newProductStock),
       featured: newProductFeatured,
@@ -327,6 +350,7 @@ const AdminManageProducts: React.FC = () => {
     setEditingProductCategory(product.category);
     setEditingProductSubCategory(product.subCategory);
     setEditingProductImagePreviews(product.images); // Pre-fill with existing images
+    setEditingProductThumbnailImages(product.thumbnailImages ?? []);
     setEditingProductVideoUrls(product.videoUrls ?? []);
     setEditingProductStock(product.stock.toString());
     setEditingProductFeatured(!!product.featured); // Ensure boolean
@@ -383,6 +407,7 @@ const AdminManageProducts: React.FC = () => {
       category: editingProductCategory,
       subCategory: editingProductSubCategory,
       images: editingProductImagePreviews, // This array already contains existing + new images
+      thumbnailImages: editingProductThumbnailImages,
       videoUrls: editingProductVideoUrls,
       stock: parseInt(editingProductStock),
       featured: editingProductFeatured,
@@ -532,7 +557,7 @@ const AdminManageProducts: React.FC = () => {
                     <td className="px-3 sm:px-6 py-3 sm:py-4">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-white border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-colors">
                         {product.images && product.images.length > 0 ? (
-                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-contain p-1" />
+                          <img src={getProductThumbnail(product) ?? product.images[0]} alt={product.name} className="w-full h-full object-contain p-1" />
                         ) : (
                           <ImageIcon size={20} className="sm:w-6 sm:h-6 text-slate-400 dark:text-slate-600" />
                         )}
@@ -725,21 +750,35 @@ const AdminManageProducts: React.FC = () => {
                 {addFormErrors.images && <p className="text-red-500 text-xs mt-1">{addFormErrors.images}</p>}
 
                 {newProductImagePreviews.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {newProductImagePreviews.map((preview, index) => (
-                      <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm group">
-                        <img src={preview} alt={`Product Preview ${index + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(index, setNewProductImagePreviews, setAddFormErrors)}
-                          className="absolute top-1 right-1 bg-white/70 backdrop-blur-sm rounded-full p-0.5 text-slate-500 hover:text-rose-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
-                          title="Remove image"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">Click the star on one or more images to use them as this product's card/listing thumbnail. No thumbnail selected uses the first image.</p>
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      {newProductImagePreviews.map((preview, index) => {
+                        const isThumbnail = newProductThumbnailImages.includes(preview);
+                        return (
+                          <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm group">
+                            <img src={preview} alt={`Product Preview ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => toggleThumbnailImage(preview, setNewProductThumbnailImages)}
+                              className={`absolute bottom-1 left-1 rounded-full p-0.5 backdrop-blur-sm transition-all ${isThumbnail ? 'bg-amber-400 text-white opacity-100' : 'bg-white/70 text-slate-500 hover:text-amber-500 hover:bg-white opacity-0 group-hover:opacity-100'}`}
+                              title={isThumbnail ? 'Used as thumbnail' : 'Set as thumbnail'}
+                            >
+                              <Star size={14} fill={isThumbnail ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index, setNewProductImagePreviews, setAddFormErrors, setNewProductThumbnailImages)}
+                              className="absolute top-1 right-1 bg-white/70 backdrop-blur-sm rounded-full p-0.5 text-slate-500 hover:text-rose-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
+                              title="Remove image"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -978,21 +1017,35 @@ const AdminManageProducts: React.FC = () => {
                 {editFormErrors.images && <p className="text-red-500 text-xs mt-1">{editFormErrors.images}</p>}
 
                 {editingProductImagePreviews.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {editingProductImagePreviews.map((preview, index) => (
-                      <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm group">
-                        <img src={preview} alt={`Product Preview ${index + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(index, setEditingProductImagePreviews, setEditFormErrors)}
-                          className="absolute top-1 right-1 bg-white/70 backdrop-blur-sm rounded-full p-0.5 text-slate-500 hover:text-rose-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
-                          title="Remove image"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">Click the star on one or more images to use them as this product's card/listing thumbnail. No thumbnail selected uses the first image.</p>
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      {editingProductImagePreviews.map((preview, index) => {
+                        const isThumbnail = editingProductThumbnailImages.includes(preview);
+                        return (
+                          <div key={index} className="relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 shadow-sm group">
+                            <img src={preview} alt={`Product Preview ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => toggleThumbnailImage(preview, setEditingProductThumbnailImages)}
+                              className={`absolute bottom-1 left-1 rounded-full p-0.5 backdrop-blur-sm transition-all ${isThumbnail ? 'bg-amber-400 text-white opacity-100' : 'bg-white/70 text-slate-500 hover:text-amber-500 hover:bg-white opacity-0 group-hover:opacity-100'}`}
+                              title={isThumbnail ? 'Used as thumbnail' : 'Set as thumbnail'}
+                            >
+                              <Star size={14} fill={isThumbnail ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index, setEditingProductImagePreviews, setEditFormErrors, setEditingProductThumbnailImages)}
+                              className="absolute top-1 right-1 bg-white/70 backdrop-blur-sm rounded-full p-0.5 text-slate-500 hover:text-rose-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
+                              title="Remove image"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 )}
               </div>
 

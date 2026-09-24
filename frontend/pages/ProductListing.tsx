@@ -7,7 +7,7 @@ import ProductCard from '../components/ProductCard';
 import { useAppContext } from '../context/AppContext';
 import { Product } from '../types';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
-import { getPageNumbers } from '../utils';
+import { getPageNumbers, getProductThumbnail } from '../utils';
 
 const ITEMS_PER_PAGE = 6; // 2 rows of 3 products (grid view, desktop width)
 const MAX_PRICE_RWF = 1000000; // Upper bound for the price filter, in RWF
@@ -415,7 +415,7 @@ const ProductListing: React.FC = () => {
               <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-8' : 'flex flex-col gap-4'}>
                 {paginatedProducts.map(product => (
                   <div key={product.id} className="fade-in">
-                    <ProductCard product={{...product, image: product.images[0]}} variant={viewMode} />
+                    <ProductCard product={{...product, image: getProductThumbnail(product) ?? product.images[0]}} variant={viewMode} />
                   </div>
                 ))}
               </div>
