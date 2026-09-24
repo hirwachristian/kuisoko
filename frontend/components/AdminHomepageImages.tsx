@@ -48,6 +48,10 @@ const AdminHomepageImages: React.FC = () => {
       for (const file of files) {
         const formData = new FormData();
         formData.append('file', file);
+        // 'background' skips the generic upload's usual white-padded square canvas (meant for
+        // product/avatar photos) - these are shown full-bleed via object-cover, so padding them
+        // would bake white bars into the file that cover then crops unpredictably around.
+        formData.append('variant', 'background');
         const { url } = await apiFetch<{ url: string }>('/uploads', { method: 'POST', body: formData }, token);
         await apiFetch('/site-images', { method: 'POST', body: JSON.stringify({ url }) }, token);
       }

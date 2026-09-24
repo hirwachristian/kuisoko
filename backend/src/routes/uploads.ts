@@ -68,8 +68,19 @@ const IMAGE_CANVAS_BACKGROUND = { r: 255, g: 255, b: 255, alpha: 1 };
  * tall or wide product photo still shows the whole product rather than losing its edges. Animated
  * GIFs pass through untouched so they don't get flattened to a single frame. Videos are never
  * re-encoded (no video-processing dependency in this stack) - they're saved as-is under their own
- * extension. */
-async function processUpload(buffer: Buffer, mimetype: string): Promise<{ buffer: Buffer; extension: string }> {
+ * extension.
+ *
+ * `variant: 'background'` skips that square canvas entirely - a hero/About Us image is displayed
+ * full-bleed via CSS/RN `object-cover`/`resizeMode="cover"`, which already crops-to-fill whatever
+ * frame it lands in regardless of source aspect ratio. Padding it onto a white square here first
+ * would bake permanent white bars into the file that `cover` then crops unpredictably around,
+ * which is exactly the "doesn't fit the frame" look this variant avoids - so this just caps the
+ * longest edge and compresses, preserving the original aspect ratio untouched. */
+async function processUpload(
+  buffer: Buffer,
+  mimetype: string,
+  variant: 'standard' | 'background' = 'standard'
+): Promise<{ buffer: Buffer; extension: string }> {
   if (mimetype === 'image/gif') {
     return { buffer, extension: '.gif' };
   }
@@ -78,6 +89,14 @@ async function processUpload(buffer: Buffer, mimetype: string): Promise<{ buffer
   }
   if (ALLOWED_DOCUMENT_MIME_TYPES.has(mimetype)) {
     return { buffer, extension: DOCUMENT_EXTENSIONS[mimetype] };
+  }
+  if (variant === 'background') {
+    const compressed = await sharp(buffer)
+      .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: IMAGE_CANVAS_BACKGROUND })
+      .webp({ quality: 82 })
+      .toBuffer();
+    return { buffer: compressed, extension: '.webp' };
   }
   const compressed = await sharp(buffer)
     .resize({
@@ -108,7 +127,8 @@ router.post('/', authenticate, (req, res, next) => {
     }
 
     try {
-      const { buffer, extension } = await processUpload(req.file.buffer, req.file.mimetype);
+      const variant = req.body.variant === 'background' ? 'background' : 'standard';
+      const { buffer, extension } = await processUpload(req.file.buffer, req.file.mimetype, variant);
       // Uploader's id is embedded in the filename (not secret - it's already visible to anyone
       // via /api/orders etc. - just used so DELETE below can tell who's allowed to remove it)
       // so a regular customer can only ever delete their own uploads (e.g. a review image they
