@@ -1,9 +1,51 @@
 import { Router } from 'express';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
 import { z } from 'zod';
 import { pool, withTransaction } from '../db.js';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
+import { UPLOADS_DIR } from '../lib/uploads.js';
 
 const router = Router();
+
+// TEMPORARY one-time remediation - REMOVE after running once in production. Images uploaded
+// before the 'background' upload variant existed (see routes/uploads.ts) are still padded onto a
+// white 1200x1200 canvas; this re-crops each already-uploaded local file in place (same filename/
+// URL, no DB changes needed) using sharp's trim() to strip that uniform white border back out,
+// recovering the original photo's real aspect ratio. External URLs (not under our own /uploads
+// path) are left untouched since there's no local file to reprocess.
+router.post('/reprocess-existing', authenticate, requireAdmin, async (_req, res, next) => {
+  try {
+    const result = await pool.query(`SELECT id, url FROM site_images`);
+    const fixed: string[] = [];
+    const skipped: string[] = [];
+    for (const row of result.rows) {
+      const marker = '/uploads/';
+      const idx = (row.url as string).indexOf(marker);
+      if (idx === -1) {
+        skipped.push(row.id);
+        continue;
+      }
+      const filename = (row.url as string).slice(idx + marker.length);
+      const filePath = path.join(UPLOADS_DIR, filename);
+      try {
+        const original = await fs.readFile(filePath);
+        const trimmed = await sharp(original)
+          .trim({ background: { r: 255, g: 255, b: 255 }, threshold: 10 })
+          .webp({ quality: 82 })
+          .toBuffer();
+        await fs.writeFile(filePath, trimmed);
+        fixed.push(row.id);
+      } catch {
+        skipped.push(row.id);
+      }
+    }
+    return res.json({ fixed, skipped });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 // GET /api/site-images - admin: the whole pool plus which ones are currently assigned to each
 // section (and in what order), in one call so the admin page can hydrate its full state at once.
