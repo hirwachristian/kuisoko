@@ -87,6 +87,18 @@ const ProductDetail: React.FC = () => {
     fetchReviews();
   }, [id, fetchReviews]);
 
+  // Whichever photo is starred as this product's thumbnail is also where the gallery opens, so
+  // what a shopper saw on the card matches what they see right after opening the product, instead
+  // of always defaulting to the first uploaded image regardless of what's starred. Keyed on
+  // product?.id (not on the wider `products` array) so an unrelated catalog refresh mid-browse
+  // never resets whichever photo the shopper is actually looking at back to the thumbnail.
+  useEffect(() => {
+    if (!product) return;
+    const thumb = getProductThumbnail(product);
+    const idx = thumb ? product.images.indexOf(thumb) : -1;
+    setActiveImgIndex(idx >= 0 ? idx : 0);
+  }, [product?.id]);
+
   // A signup is scoped to whichever product/variant was out of stock at the time - switching color
   // or size (or navigating to a different product) means it no longer applies, so the confirmation
   // shouldn't linger and imply a signup that was never made for the newly-selected combination.
