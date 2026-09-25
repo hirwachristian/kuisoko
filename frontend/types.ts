@@ -102,6 +102,8 @@ export interface User {
   unread?: boolean; // New: Track if the registration is unread by admin
   twoFactorEnabled?: boolean; // Email-based 2FA challenge required at login
   registrationDate?: string; // New: Date of registration
+  /** Wallet balance, RWF - only ever changed server-side via lib/wallet.ts's adjustBalance(). */
+  balance?: number;
 }
 
 /** A saved entry in a customer's address book - independent of `User.address` (the old single

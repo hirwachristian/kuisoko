@@ -16,7 +16,7 @@ const AdminPaymentMethods: React.FC = () => {
 
   const handleAddPayment = () => {
     setError(null);
-    const schema = selectedType === 'Momo Pay' ? codeSchema : selectedType === 'Cash on Delivery' ? noteSchema : phoneSchema;
+    const schema = selectedType === 'Momo Pay' ? codeSchema : selectedType === 'Cash on Delivery' || selectedType === 'Wallet' ? noteSchema : phoneSchema;
     const result = schema.safeParse(methodDetail);
 
     if (!result.success) {
@@ -51,13 +51,14 @@ const AdminPaymentMethods: React.FC = () => {
              <option value="Momo Pay">Momo Pay</option>
              <option value="Paypack">Paypack</option>
              <option value="Cash on Delivery">Cash on Delivery</option>
+             <option value="Wallet">Wallet</option>
           </select>
           <div className="flex-1">
             <input
               value={methodDetail}
               onChange={(e) => { setMethodDetail(e.target.value); setError(null); }}
               className="w-full px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none focus:ring-2 focus:ring-emerald-800 dark:focus:ring-emerald-600 text-slate-900 dark:text-emerald-100"
-              placeholder={selectedType === 'Momo Pay' ? 'Enter Code' : selectedType === 'Cash on Delivery' ? 'e.g. Pay when it arrives' : 'Enter Number'}
+              placeholder={selectedType === 'Momo Pay' ? 'Enter Code' : selectedType === 'Cash on Delivery' ? 'e.g. Pay when it arrives' : selectedType === 'Wallet' ? 'e.g. Pay from wallet balance' : 'Enter Number'}
             />
             {error && <p className="text-rose-600 dark:text-rose-400 text-sm mt-1">{error}</p>}
           </div>

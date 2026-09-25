@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, ShoppingCart, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard, Eye, EyeOff, Search } from 'lucide-react';
+import { Package, User, Heart, LogOut, Clock, MapPin, Plus, Pencil, Sun, Moon, CheckCircle2, Truck, PackageCheck, X, Menu, KeyRound, RefreshCw, Check, Loader2, Receipt, CreditCard, ShoppingBag, ShoppingCart, Trash2, Building2, Home, Phone, Camera, ShieldCheck, Mail, IdCard, Eye, EyeOff, Search, Wallet } from 'lucide-react';
 import AddressFormModal from '../components/AddressFormModal';
 import AddressMapPreview from '../components/AddressMapPreview';
 import DashboardPagination from '../components/DashboardPagination';
+import WalletPanel from '../components/customer/WalletPanel';
 import { useAppContext } from '../context/AppContext';
 import KuISOKOLogoSVG from '../components/KuISOKOLogoSVG';
 import RiderLocationMap from '../components/RiderLocationMap';
@@ -64,7 +65,7 @@ const UserDashboard: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(
-    initialTab && ['orders', 'wishlist', 'profile', 'address'].includes(initialTab) ? initialTab : 'orders'
+    initialTab && ['orders', 'wallet', 'wishlist', 'profile', 'address'].includes(initialTab) ? initialTab : 'orders'
   );
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderStatusFilter, setOrderStatusFilter] = useState<'All' | Order['status']>('All');
@@ -461,6 +462,7 @@ const UserDashboard: React.FC = () => {
 
   const NAV_ITEMS: { key: string; labelKey: string; icon: React.ElementType }[] = [
     { key: 'orders', labelKey: 'dashboard_my_orders', icon: Package },
+    { key: 'wallet', labelKey: 'dashboard_my_wallet', icon: Wallet },
     { key: 'wishlist', labelKey: 'dashboard_wishlist', icon: Heart },
     { key: 'profile', labelKey: 'dashboard_profile_settings', icon: User },
     { key: 'address', labelKey: 'dashboard_address_book', icon: MapPin },
@@ -468,6 +470,7 @@ const UserDashboard: React.FC = () => {
 
   const TAB_SUBTITLES: Record<string, string> = {
     orders: t('dashboard_orders_subtitle'),
+    wallet: t('dashboard_wallet_subtitle'),
     wishlist: t('dashboard_wishlist_subtitle'),
     profile: t('dashboard_profile_subtitle'),
     address: t('dashboard_address_subtitle'),
@@ -987,6 +990,16 @@ const UserDashboard: React.FC = () => {
                   })()}
                 </>
               )}
+            </>
+          )}
+
+          {activeTab === 'wallet' && (
+            <>
+              <div className="mb-6 sm:mb-8">
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-emerald-50 tracking-tight">{t('dashboard_my_wallet')}</h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-1">{TAB_SUBTITLES.wallet}</p>
+              </div>
+              <WalletPanel />
             </>
           )}
 

@@ -174,6 +174,17 @@ export const paypackRequestLimiter = rateLimit({
   message: { error: 'Too many payment requests. Please try again in a few minutes.' },
 });
 
+/** Wallet top-up requests: authenticated, but same reasoning as momoRequestLimiter/
+ * paypackRequestLimiter above - each call pushes a real payment prompt to whatever phone number
+ * is given, which need not even be the account's own saved number. */
+export const walletTopupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many top-up requests. Please try again in a few minutes.' },
+});
+
 /** Coupon validation: public and unauthenticated - the only thing standing between this and
  * brute-forcing short/guessable discount codes. */
 export const couponValidateLimiter = rateLimit({

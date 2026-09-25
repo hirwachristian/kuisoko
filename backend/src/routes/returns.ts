@@ -5,6 +5,7 @@ import { authenticate, requireAdmin } from '../middleware/auth.js';
 import { HttpError } from '../lib/httpError.js';
 import { checkAndNotifyRestock } from './products.js';
 import { restoreOrderStock } from './orders.js';
+import { refundWalletIfNeeded } from '../lib/wallet.js';
 
 const router = Router();
 
@@ -132,6 +133,7 @@ router.post('/:id/approve', async (req, res, next) => {
         [orderId]
       );
       await restoreOrderStock(client, orderId);
+      await refundWalletIfNeeded(client, orderId);
       return orderId;
     });
 

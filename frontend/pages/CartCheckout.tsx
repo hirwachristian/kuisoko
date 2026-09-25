@@ -16,6 +16,10 @@ const isMomoMethodName = (name: string) => /momo|mobile money|mtn/i.test(name);
 // Likewise for Paypack - also matches "Airtel", since Airtel Money isn't reachable through MTN's
 // own API above; Paypack is the only integration here that can push a prompt to an Airtel number.
 const isPaypackMethodName = (name: string) => /paypack|airtel/i.test(name);
+// Wallet payment is settled synchronously inside order creation (see backend/src/lib/wallet.ts) -
+// no request/poll step, so it's handled by the same manual/pay-on-delivery path as Cash on
+// Delivery below, just with this name check used for the balance display/guard.
+const isWalletMethodName = (name: string) => /wallet/i.test(name);
 
 // Not one of the admin-configurable payment_methods rows - a fixed virtual option that's always
 // offered when the store has a WhatsApp number configured (Admin > Store Configuration).
@@ -25,7 +29,7 @@ const WHATSAPP_METHOD_NAME = 'WhatsApp';
 const WHATSAPP_CHECKOUT_ENABLED = false;
 
 const CartCheckout: React.FC = () => {
-  const { cart, removeFromCart, updateQuantity, clearCart, user, addOrder, getFormattedPrice, paymentMethods, footerSettings, t, tCategory } = useAppContext();
+  const { cart, removeFromCart, updateQuantity, clearCart, user, token, addOrder, getFormattedPrice, paymentMethods, footerSettings, t, tCategory } = useAppContext();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const directBuy = location.state as { directBuyProduct: any; quantity: number } | null;
@@ -152,7 +156,18 @@ const CartCheckout: React.FC = () => {
   const isPaypackSelected = isPaypackMethodName(selectedPayment);
   const isMobileMoneySelected = isMomoSelected || isPaypackSelected;
   const isWhatsAppSelected = selectedPayment === WHATSAPP_METHOD_NAME;
+  const isWalletSelected = isWalletMethodName(selectedPayment);
   const whatsappNumber = (footerSettings.whatsappNumber || footerSettings.phoneNumber || '').trim();
+
+  // Only fetched when there's actually a Wallet option to show a balance next to - guests never
+  // see it at all (signing in is required to have a wallet), matching the backend's own rejection
+  // of a wallet payment with no account.
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user || !token) return;
+    apiFetch<{ balance: number }>('/wallet', {}, token).then((r) => setWalletBalance(r.balance)).catch(() => {});
+  }, [user, token]);
+  const insufficientWalletBalance = isWalletSelected && walletBalance !== null && walletBalance < total;
 
   // Proves the customer controls the email on the order before it's placed at all - there's no
   // live payment gateway yet to gate this on instead. Triggered from the confirm-order modal
@@ -549,14 +564,16 @@ const CartCheckout: React.FC = () => {
                   <div className="mb-4 sm:mb-6">
                     <h3 className="text-sm sm:text-lg font-bold text-slate-800 dark:text-emerald-100 mb-3 sm:mb-4">{t('cart_select_payment_method')}</h3>
                     <div className="space-y-2.5 sm:space-y-3">
-                      {(paymentMethods || []).filter(m => m.enabled).map((method) => (
+                      {(paymentMethods || []).filter(m => m.enabled && (!isWalletMethodName(m.name) || !!user)).map((method) => (
                         <button
                           key={method.name + method.detail}
                           onClick={() => setSelectedPayment(method.name)}
                           className={`w-full flex items-center gap-2.5 sm:gap-3 text-left p-3 sm:p-4 rounded-xl border-2 transition ${selectedPayment === method.name ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950 dark:border-emerald-500' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-slate-600'}`}
                         >
                           {/mtn/i.test(method.name) && <MtnBadge />}
-                          <span className="text-sm sm:text-base text-slate-900 dark:text-emerald-100">{method.name} ({method.detail})</span>
+                          <span className="text-sm sm:text-base text-slate-900 dark:text-emerald-100">
+                            {method.name} ({isWalletMethodName(method.name) ? (walletBalance !== null ? `${getFormattedPrice(walletBalance)} ${t('cart_wallet_available')}` : method.detail) : method.detail})
+                          </span>
                         </button>
                       ))}
                       {WHATSAPP_CHECKOUT_ENABLED && !!whatsappNumber && (
@@ -574,6 +591,12 @@ const CartCheckout: React.FC = () => {
                   {isWhatsAppSelected && (
                     <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 mb-4 sm:mb-6 -mt-2 sm:-mt-4">
                       {t('cart_whatsapp_option_hint')}
+                    </p>
+                  )}
+
+                  {insufficientWalletBalance && (
+                    <p className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 mb-4 sm:mb-6 -mt-2 sm:-mt-4">
+                      {t('cart_wallet_insufficient', { balance: getFormattedPrice(walletBalance ?? 0), total: getFormattedPrice(total) })}
                     </p>
                   )}
 
@@ -598,7 +621,7 @@ const CartCheckout: React.FC = () => {
 
                   <div className="flex gap-3 sm:gap-4">
                     <button onClick={() => setStep(2)} className="flex-1 py-3 sm:py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-sm sm:text-base font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">{t('cart_back')}</button>
-                    <button onClick={handleCheckout} disabled={isPlacingOrder || mobileMoneyFlow !== 'idle'} className="flex-1 py-3 sm:py-4 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95 disabled:opacity-60">
+                    <button onClick={handleCheckout} disabled={isPlacingOrder || mobileMoneyFlow !== 'idle' || insufficientWalletBalance} className="flex-1 py-3 sm:py-4 rounded-xl bg-orange-500 text-white text-sm sm:text-base font-bold hover:bg-orange-600 transition-all shadow-lg active:scale-95 disabled:opacity-60">
                       {isPlacingOrder ? t('cart_placing_order') : isWhatsAppSelected ? t('cart_whatsapp_continue') : t('cart_place_order')}
                     </button>
                   </div>

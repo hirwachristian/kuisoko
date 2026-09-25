@@ -12,6 +12,7 @@ import {
   isPaypackConfigured,
   type PaypackStatus,
 } from '../lib/paypack.js';
+import { settleTopup } from './wallet.js';
 
 const router = Router();
 
@@ -104,16 +105,29 @@ router.post('/webhook', async (req, res, next) => {
     const rawStatus = event.data?.status;
     if (!ref || !rawStatus) return res.status(200).json({ ok: true }); // nothing actionable, ack anyway
 
+    const status: PaypackStatus = normalizePaypackStatus(rawStatus);
+
     const txResult = await pool.query(
       `SELECT id, order_id AS "orderId", status FROM paypack_transactions WHERE ref = $1`,
       [ref]
     );
     const tx = txResult.rows[0];
-    if (!tx || tx.status !== 'PENDING') return res.status(200).json({ ok: true });
+    if (tx) {
+      if (tx.status === 'PENDING' && (status === 'SUCCESSFUL' || status === 'FAILED')) {
+        await settleTransaction(tx.id, tx.orderId, status);
+      }
+      return res.status(200).json({ ok: true });
+    }
 
-    const status: PaypackStatus = normalizePaypackStatus(rawStatus);
-    if (status === 'SUCCESSFUL' || status === 'FAILED') {
-      await settleTransaction(tx.id, tx.orderId, status);
+    // Not an order payment - check whether it's a wallet top-up instead (same ref space, resolved
+    // by Paypack's cashin call, but wallet_topups is keyed by user_id rather than order_id).
+    const topupResult = await pool.query(
+      `SELECT id, user_id AS "userId", amount, status FROM wallet_topups WHERE reference = $1`,
+      [ref]
+    );
+    const topup = topupResult.rows[0];
+    if (topup && topup.status === 'PENDING' && (status === 'SUCCESSFUL' || status === 'FAILED')) {
+      await settleTopup(topup.id, topup.userId, Number(topup.amount), status);
     }
     return res.status(200).json({ ok: true });
   } catch (err) {

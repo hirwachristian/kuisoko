@@ -36,6 +36,7 @@ CREATE TABLE users (
   is_unread         BOOLEAN NOT NULL DEFAULT true, -- new-registration flag for admin notifications
   two_factor_enabled BOOLEAN NOT NULL DEFAULT false, -- email-based 2FA at login, see two_factor_codes
   last_active_at    TIMESTAMPTZ, -- last authenticated request; used for the customer-facing "admin is online" indicator
+  balance           NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (balance >= 0), -- wallet balance, RWF; only ever changed via lib/wallet.ts's adjustBalance()
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -329,6 +330,7 @@ CREATE TABLE orders (
   previous_rider_id           TEXT REFERENCES users(id) ON DELETE SET NULL, -- set on a genuine reassignment (not a first assignment or plain unassignment)
   rider_reassigned_at         TIMESTAMPTZ,
   stock_restored_at           TIMESTAMPTZ, -- set the first (and only) time this order's items' stock is released back to inventory - guards restoreOrderStock() against a double-credit if the order later moves between Cancelled/Returned, or is separately touched by an approved return request
+  wallet_refunded_at          TIMESTAMPTZ, -- set the first (and only) time a Wallet-paid order's total is refunded back to the customer's balance - same double-credit guard as stock_restored_at, see refundWalletIfNeeded()
   order_date                  TIMESTAMPTZ NOT NULL DEFAULT now(),
   subtotal                    NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (subtotal >= 0), -- RWF, sum of item prices
   shipping_fee                NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (shipping_fee >= 0), -- RWF, from the matched shipping zone
@@ -421,6 +423,41 @@ CREATE TABLE paypack_transactions (
 CREATE INDEX idx_paypack_transactions_order_id ON paypack_transactions(order_id);
 CREATE TRIGGER trg_paypack_transactions_updated_at BEFORE UPDATE ON paypack_transactions
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Customer wallet - top-ups via the same MTN MoMo/Paypack integrations above, but crediting
+-- users.balance instead of settling an order. See lib/wallet.ts.
+-- ---------------------------------------------------------------------------
+CREATE TABLE wallet_topups (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider      TEXT NOT NULL CHECK (provider IN ('momo', 'paypack')),
+  reference     TEXT NOT NULL UNIQUE, -- MTN referenceId or Paypack ref
+  phone_number  TEXT NOT NULL,
+  amount        NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+  status        TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SUCCESSFUL', 'FAILED')),
+  reason        TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_wallet_topups_user ON wallet_topups(user_id);
+CREATE TRIGGER trg_wallet_topups_updated_at BEFORE UPDATE ON wallet_topups
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- One row per balance change (topup/purchase/refund) - the ledger the wallet page's "Transaction
+-- History" renders. `reference` is a wallet_topups.id for a topup, or an orders.id for a
+-- purchase/refund - never a foreign key, since it points at different tables depending on `type`.
+CREATE TABLE wallet_transactions (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type          TEXT NOT NULL CHECK (type IN ('topup', 'purchase', 'refund')),
+  amount        NUMERIC(12,2) NOT NULL CHECK (amount >= 0), -- always positive; sign is implied by type
+  balance_after NUMERIC(12,2) NOT NULL,
+  reference     TEXT,
+  description   TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_wallet_transactions_user ON wallet_transactions(user_id, created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- Newsletter ("Join our inner circle") subscriptions

@@ -14,7 +14,7 @@ import { sendWelcomeEmail, sendPasswordResetEmail, sendTwoFactorCodeEmail } from
 
 const router = Router();
 
-const USER_COLUMNS = `id, name, username, email, phone_number AS "phoneNumber", address, role, profile_image AS "profileImage", is_active AS "isActive", two_factor_enabled AS "twoFactorEnabled", created_at AS "registrationDate"`;
+const USER_COLUMNS = `id, name, username, email, phone_number AS "phoneNumber", address, role, profile_image AS "profileImage", is_active AS "isActive", two_factor_enabled AS "twoFactorEnabled", created_at AS "registrationDate", balance`;
 
 // Public-facing handle - shown on reviews, but also doubles as the unique login/password-reset
 // identifier now that one email can back multiple accounts (see accountLimits.ts).

@@ -13,6 +13,7 @@ import { sendPushToUser } from '../lib/pushNotifications.js';
 import { signCheckoutVerificationToken, verifyCheckoutVerificationToken } from '../lib/auth.js';
 import { checkAndNotifyRestock } from './products.js';
 import { geocodeAddress } from '../lib/geocode.js';
+import { adjustBalance, isWalletMethodName, refundWalletIfNeeded } from '../lib/wallet.js';
 
 const router = Router();
 
@@ -446,7 +447,7 @@ export async function insertOrder(
        delivery_additional_info, subtotal, shipping_fee, shipping_zone, coupon_code, discount_amount, total, currency, payment_method,
        group_order_id
      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-     RETURNING id`,
+     RETURNING id, order_number AS "orderNumber"`,
     [
       userId, data.customerName, data.deliveryAddress.fullName,
       data.deliveryAddress.phoneNumber, data.deliveryAddress.email, data.deliveryAddress.country, data.deliveryAddress.cityTown,
@@ -457,6 +458,21 @@ export async function insertOrder(
     ]
   );
   const orderId = orderResult.rows[0].id;
+
+  // Wallet payment is settled synchronously, right here, rather than through the async
+  // request/poll flow MoMo/Paypack use - the balance is already known server-side, so there's
+  // nothing to wait on approval for. Still inside the same transaction as the stock deduction
+  // above: insufficient balance throws (via adjustBalance), rolling that stock decrement back too,
+  // so a declined wallet payment never leaves stock locked for an order that didn't actually pay.
+  if (data.paymentMethod && isWalletMethodName(data.paymentMethod)) {
+    if (!userId) throw new HttpError(401, 'Sign in to pay with your wallet.');
+    await adjustBalance(client, userId, -total, {
+      type: 'purchase',
+      reference: orderId,
+      description: `Order #KS-${orderResult.rows[0].orderNumber}`,
+    });
+    await client.query(`UPDATE orders SET payment_status = 'paid', payment_method = 'Wallet' WHERE id = $1`, [orderId]);
+  }
 
   for (const item of resolvedItems) {
     await client.query(
@@ -544,6 +560,9 @@ router.patch('/:id', authenticate, requireAdmin, async (req, res, next) => {
         (parsed.data.status === 'Returned' && before.rows[0].status !== 'Returned')
       ) {
         await restoreOrderStock(client, req.params.id);
+        // No-ops for every payment method except Wallet, and only once per order - see
+        // refundWalletIfNeeded's own guard (wallet_refunded_at).
+        await refundWalletIfNeeded(client, req.params.id);
       }
 
       // A delivery verification code is generated the moment an order goes out for delivery - the
