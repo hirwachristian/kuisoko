@@ -171,8 +171,13 @@ const ProductDetail: React.FC = () => {
   const effectivePrices = product.variants && product.variants.length > 0
     ? product.variants.map(v => (v.price > 0 ? v.price : product.price))
     : [product.price];
-  const minPrice = Math.min(...effectivePrices);
-  const maxPrice = Math.max(...effectivePrices);
+  // Matches ProductCard.tsx's own discount math - the card already discounts whatever price it
+  // shows, so opening the product from that card must land on the same discounted number, not the
+  // full price the discount badge just promised was reduced.
+  const hasDiscount = !!product.discount && product.discount > 0;
+  const discounted = (price: number) => (hasDiscount ? price * (1 - product.discount! / 100) : price);
+  const minPrice = discounted(Math.min(...effectivePrices));
+  const maxPrice = discounted(Math.max(...effectivePrices));
 
   // Once a specific variant - or, for a per-image-stock product, whichever photo is on screen - is
   // picked, show exactly what it costs - its own price if the admin set one, otherwise the common
@@ -182,16 +187,21 @@ const ProductDetail: React.FC = () => {
   // that system at all, this always resolves to a specific price - including for a photo the admin
   // never gave its own row (imageStockVariant undefined), which just means "use the base price",
   // not "show the range".
-  const selectedEffectivePrice = selectedVariant
+  const selectedOriginalPrice = selectedVariant
     ? (selectedVariant.price > 0 ? selectedVariant.price : product.price)
     : hasImageStockVariants
     ? (imageStockVariant && imageStockVariant.price > 0 ? imageStockVariant.price : product.price)
     : null;
-  const displayPrice = selectedEffectivePrice !== null
-    ? getFormattedPrice(selectedEffectivePrice)
+  const displayPrice = selectedOriginalPrice !== null
+    ? getFormattedPrice(discounted(selectedOriginalPrice))
     : minPrice !== maxPrice
     ? `${getFormattedPrice(minPrice)} - ${getFormattedPrice(maxPrice)}`
     : getFormattedPrice(minPrice);
+  // Only shown once a specific price (not a range) is on screen - a struck-through range reads as
+  // cluttered, and the range above is already the discounted one.
+  const originalDisplayPrice = hasDiscount && selectedOriginalPrice !== null
+    ? getFormattedPrice(selectedOriginalPrice)
+    : null;
 
   // Selecting a color jumps the gallery straight to its photo (if the admin assigned one) - the
   // moment a size is also picked and add-to-cart/buy-now fires, this same photo (not necessarily
@@ -404,6 +414,11 @@ const ProductDetail: React.FC = () => {
                 className="w-full h-full object-contain p-4 sm:p-8 animate-fade-in"
               />
             )}
+            {hasDiscount && activeVideoIndex === null && (
+              <span className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-rose-500 text-white text-[9px] sm:text-[11px] font-black px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full uppercase tracking-[0.1em] sm:tracking-[0.15em] shadow-lg z-10">
+                -{product.discount}%
+              </span>
+            )}
             {mediaCount > 1 && (
               <>
                 <button
@@ -464,6 +479,11 @@ const ProductDetail: React.FC = () => {
             <p className="text-lg sm:text-3xl font-bold text-slate-900 dark:text-white">
               {displayPrice}
             </p>
+            {originalDisplayPrice && (
+              <p className="text-sm sm:text-lg font-bold text-slate-400 dark:text-slate-500 line-through">
+                {originalDisplayPrice}
+              </p>
+            )}
             {isOutOfStock ? (
               <span className="text-xs sm:text-sm font-bold text-rose-600">{t('product_out_of_stock')}</span>
             ) : stockLevel === 'low' ? (
