@@ -177,11 +177,15 @@ const ProductDetail: React.FC = () => {
   // Once a specific variant - or, for a per-image-stock product, whichever photo is on screen - is
   // picked, show exactly what it costs - its own price if the admin set one, otherwise the common
   // price it falls back to - rather than continuing to show the whole range once the customer has
-  // actually narrowed down to one option.
+  // actually narrowed down to one option. A per-image-stock product has no "nothing selected yet"
+  // state the way color/size does (some photo is always on screen), so as long as the product uses
+  // that system at all, this always resolves to a specific price - including for a photo the admin
+  // never gave its own row (imageStockVariant undefined), which just means "use the base price",
+  // not "show the range".
   const selectedEffectivePrice = selectedVariant
     ? (selectedVariant.price > 0 ? selectedVariant.price : product.price)
-    : imageStockVariant
-    ? (imageStockVariant.price > 0 ? imageStockVariant.price : product.price)
+    : hasImageStockVariants
+    ? (imageStockVariant && imageStockVariant.price > 0 ? imageStockVariant.price : product.price)
     : null;
   const displayPrice = selectedEffectivePrice !== null
     ? getFormattedPrice(selectedEffectivePrice)
