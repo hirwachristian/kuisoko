@@ -213,11 +213,16 @@ router.post('/:id/notify-restock', restockNotifyLimiter, async (req, res, next) 
 
 const variantSchema = z.object({
   sku: z.string().trim().optional(),
-  color: z.string().trim().optional(),
-  size: z.string().trim().optional(),
+  // .nullable() alongside .optional() on color/size/imageUrl: a variant fetched back from GET
+  // /products/:id (e.g. into an admin edit form, then resubmitted unchanged) carries these as
+  // `null` for whichever ones don't apply to that row - a per-image-stock row's color/size, or a
+  // color/size row's imageUrl - straight from the DB's NULL columns, never `undefined`. Without
+  // .nullable() here, Zod's .optional() only accepts undefined and rejects that null outright.
+  color: z.string().trim().nullable().optional(),
+  size: z.string().trim().nullable().optional(),
   // Set instead of color/size for a per-image-stock row - one of this product's own `images`,
   // giving that specific photo its own stock rather than varying by color or size.
-  imageUrl: z.string().optional(),
+  imageUrl: z.string().nullable().optional(),
   price: z.number().nonnegative(),
   stock: z.number().int().nonnegative().default(0),
 });
