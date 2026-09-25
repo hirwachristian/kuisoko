@@ -34,6 +34,16 @@ const AdminImageStockManager: React.FC<AdminImageStockManagerProps> = ({ images,
     onChange([...otherVariants, ...updatedImageVariants]);
   };
 
+  // A photo left at price 0 means "no override - use the product's own price", same convention as
+  // AdminVariantManager's color/size price - not that the photo is free.
+  const setImagePrice = (url: string, price: number) => {
+    const existing = variantForImage(url);
+    const updatedImageVariants = existing
+      ? imageVariants.map((v) => (v.id === existing.id ? { ...v, price } : v))
+      : [...imageVariants, { id: newId(), sku: '', color: '', size: '', imageUrl: url, price, stock: 0 }];
+    onChange([...otherVariants, ...updatedImageVariants]);
+  };
+
   const totalImageStock = imageVariants.reduce((sum, v) => sum + (v.stock || 0), 0);
   const overAllocated = imageVariants.length > 0 && totalImageStock > productStock;
 
@@ -41,9 +51,9 @@ const AdminImageStockManager: React.FC<AdminImageStockManagerProps> = ({ images,
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h4 className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Per-image stock (optional)</h4>
+          <h4 className="text-sm font-semibold text-slate-700 dark:text-emerald-300">Per-image stock &amp; price (optional)</h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Use this instead of colors/sizes above if this product isn't meant to vary by either, but each photo should still have its own stock. Leave at 0 to skip a photo.
+            Use this instead of colors/sizes above if this product isn't meant to vary by either, but each photo should still have its own stock and, if you want, its own price. Leave stock at 0 to skip a photo; leave price at 0 to use the product's own price for that photo.
           </p>
         </div>
         {imageVariants.length > 0 && (
@@ -62,19 +72,34 @@ const AdminImageStockManager: React.FC<AdminImageStockManagerProps> = ({ images,
         {images.map((url) => {
           const variant = variantForImage(url);
           const stock = variant?.stock ?? 0;
+          const price = variant?.price ?? 0;
           return (
             <div key={url} className="border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex gap-3 items-center">
               <img src={url} alt="" className="w-14 h-14 rounded-lg object-contain bg-white border border-slate-100 dark:border-slate-800 shrink-0" />
-              <div className="flex-1 min-w-0 space-y-1.5">
-                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block">Stock for this photo</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={isNaN(stock) ? '' : stock}
-                  onChange={(e) => setImageStock(url, e.target.value === '' ? 0 : parseInt(e.target.value))}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"
-                />
-                {stock > 0 && <span className="text-[10px] font-bold text-emerald-600">{stock} in stock</span>}
+              <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block">Stock for this photo</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={isNaN(stock) ? '' : stock}
+                    onChange={(e) => setImageStock(url, e.target.value === '' ? 0 : parseInt(e.target.value))}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"
+                  />
+                  {stock > 0 && <span className="text-[10px] font-bold text-emerald-600">{stock} in stock</span>}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block">Price for this photo</label>
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Same as product"
+                    value={isNaN(price) ? '' : price}
+                    onChange={(e) => setImagePrice(url, e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"
+                  />
+                  {price > 0 && <span className="text-[10px] font-bold text-emerald-600">overrides base price</span>}
+                </div>
               </div>
             </div>
           );

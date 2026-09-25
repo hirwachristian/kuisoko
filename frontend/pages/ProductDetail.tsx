@@ -144,20 +144,45 @@ const ProductDetail: React.FC = () => {
     );
   }
 
-  // A variant left at price 0 means "no override - use the common/base price", not "free", so
-  // every variant's *effective* price folds that in before computing anything - otherwise a
-  // product where only one color has its own price (everything else shares the common one) would
-  // show a range/price built only from that one outlier, ignoring the common price entirely.
+  // Whichever photo is on screen right now - reflects a color-variant jump (handleColorChange
+  // moves activeImgIndex to match) AND a product with no variants at all where the shopper just
+  // clicked a different thumbnail (e.g. picking "the second cap" among several plain photos with
+  // nothing else to hang that choice on), so it covers both cases with one read.
+  const currentImage = product.images[activeImgIndex] ?? product.images[0];
+
+  // An alternative to color/size variants for a product that isn't meant to vary by either, but
+  // still has per-photo stock (AdminImageStockManager) - the gallery itself is the picker, so
+  // whichever photo is currently on screen (`currentImage`) IS the selection.
+  const hasColorSizeVariants = (product.variants || []).some((v) => !v.imageUrl);
+  // Per-image stock is "instead of" color/size (AdminImageStockManager's own framing) - a product
+  // is meant to use exactly one of the two systems. If real color/size variants exist, any
+  // stray/leftover image-stock rows (e.g. an admin who touched both sections) must never affect
+  // display or purchase, so this only ever turns on when there are none.
+  const hasImageStockVariants = !hasColorSizeVariants && (product.variants || []).some((v) => v.imageUrl);
+  const imageStockVariant = hasImageStockVariants
+    ? (product.variants || []).find((v) => v.imageUrl === currentImage)
+    : undefined;
+
+  // A variant (color/size OR per-image) left at price 0 means "no override - use the common/base
+  // price", not "free", so every variant's *effective* price folds that in before computing
+  // anything - otherwise a product where only one variant has its own price (everything else
+  // shares the common one) would show a range/price built only from that one outlier, ignoring
+  // the common price entirely.
   const effectivePrices = product.variants && product.variants.length > 0
     ? product.variants.map(v => (v.price > 0 ? v.price : product.price))
     : [product.price];
   const minPrice = Math.min(...effectivePrices);
   const maxPrice = Math.max(...effectivePrices);
 
-  // Once a specific variant is picked, show exactly what it costs - its own price if the admin
-  // set one, otherwise the common price it falls back to - rather than continuing to show the
-  // whole range once the customer has actually narrowed down to one option.
-  const selectedEffectivePrice = selectedVariant ? (selectedVariant.price > 0 ? selectedVariant.price : product.price) : null;
+  // Once a specific variant - or, for a per-image-stock product, whichever photo is on screen - is
+  // picked, show exactly what it costs - its own price if the admin set one, otherwise the common
+  // price it falls back to - rather than continuing to show the whole range once the customer has
+  // actually narrowed down to one option.
+  const selectedEffectivePrice = selectedVariant
+    ? (selectedVariant.price > 0 ? selectedVariant.price : product.price)
+    : imageStockVariant
+    ? (imageStockVariant.price > 0 ? imageStockVariant.price : product.price)
+    : null;
   const displayPrice = selectedEffectivePrice !== null
     ? getFormattedPrice(selectedEffectivePrice)
     : minPrice !== maxPrice
@@ -184,25 +209,6 @@ const ProductDetail: React.FC = () => {
     setActiveImgIndex(index);
     setActiveVideoIndex(null);
   };
-
-  // Whichever photo is on screen right now - reflects a color-variant jump (handleColorChange
-  // moves activeImgIndex to match) AND a product with no variants at all where the shopper just
-  // clicked a different thumbnail (e.g. picking "the second cap" among several plain photos with
-  // nothing else to hang that choice on), so it covers both cases with one read.
-  const currentImage = product.images[activeImgIndex] ?? product.images[0];
-
-  // An alternative to color/size variants for a product that isn't meant to vary by either, but
-  // still has per-photo stock (AdminImageStockManager) - the gallery itself is the picker, so
-  // whichever photo is currently on screen (`currentImage`) IS the selection.
-  const hasColorSizeVariants = (product.variants || []).some((v) => !v.imageUrl);
-  // Per-image stock is "instead of" color/size (AdminImageStockManager's own framing) - a product
-  // is meant to use exactly one of the two systems. If real color/size variants exist, any
-  // stray/leftover image-stock rows (e.g. an admin who touched both sections) must never affect
-  // display or purchase, so this only ever turns on when there are none.
-  const hasImageStockVariants = !hasColorSizeVariants && (product.variants || []).some((v) => v.imageUrl);
-  const imageStockVariant = hasImageStockVariants
-    ? (product.variants || []).find((v) => v.imageUrl === currentImage)
-    : undefined;
 
   const handleBuyNow = () => {
     if (hasColorSizeVariants && !selectedVariant) {
