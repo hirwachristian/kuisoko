@@ -233,6 +233,10 @@ const ProductDetail: React.FC = () => {
       alert(t('detail_photo_out_of_stock'));
       return;
     }
+    // A plain product (neither color/size nor per-image-stock) uses its photos purely as a
+    // gallery of the one item's angles/features - browsing to photo 3 to see the sole of a shoe
+    // is not "selecting" anything to buy, so the cart/order always attaches the first/main image
+    // regardless of whichever photo happened to be on screen when Buy Now was clicked.
     const itemToBuy = selectedVariant ? {
       ...product,
       images: imagesForColor(selectedVariant.color),
@@ -244,7 +248,7 @@ const ProductDetail: React.FC = () => {
       ...product,
       price: imageStockVariant.price || product.price,
       selectedImage: currentImage,
-    } : { ...product, selectedImage: currentImage };
+    } : { ...product, selectedImage: product.images[0] };
     navigate('/cart?step=2', { state: { directBuyProduct: itemToBuy, quantity: qty } });
   };
 
@@ -278,6 +282,8 @@ const ProductDetail: React.FC = () => {
       alert(t('detail_photo_out_of_stock'));
       return;
     }
+    // Same reasoning as handleBuyNow: a plain product's photos are just angles/features of one
+    // item, not a selection, so Add to Cart always uses the first/main image.
     const itemToAdd = selectedVariant ? {
       ...product,
       images: imagesForColor(selectedVariant.color),
@@ -289,7 +295,7 @@ const ProductDetail: React.FC = () => {
       ...product,
       price: imageStockVariant.price || product.price,
       selectedImage: currentImage,
-    } : { ...product, selectedImage: currentImage };
+    } : { ...product, selectedImage: product.images[0] };
     flyToCart(itemToAdd.images[0], e.currentTarget);
     addToCart(itemToAdd, qty);
   };
